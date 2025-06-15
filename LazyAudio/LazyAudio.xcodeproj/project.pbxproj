@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5A673BEC2DF43125008D7937 /* (null) in Resources */ = {isa = PBXBuildFile; };
+		5A673BED2DF4312B008D7937 /* (null) in Resources */ = {isa = PBXBuildFile; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		5A673BD72DF41B18008D7937 /* LazyAudio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LazyAudio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -86,11 +91,11 @@
 				};
 			};
 			buildConfigurationList = 5A673BD22DF41B18008D7937 /* Build configuration list for PBXProject "LazyAudio" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				Base,
+				"zh-Hans",
 			);
 			mainGroup = 5A673BCE2DF41B18008D7937;
 			minimizedProjectReferenceProxies = 1;
@@ -109,6 +114,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5A673BEC2DF43125008D7937 /* (null) in Resources */,
+				5A673BED2DF4312B008D7937 /* (null) in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

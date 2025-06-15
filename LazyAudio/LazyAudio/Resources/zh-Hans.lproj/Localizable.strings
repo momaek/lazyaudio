@@ -1,0 +1,149 @@
+// 通用
+"app.name" = "LazyAud.io";
+"button.cancel" = "取消";
+"button.confirm" = "确认";
+"button.save" = "保存";
+"button.delete" = "删除";
+"button.edit" = "编辑";
+"button.export" = "导出";
+"button.import" = "导入";
+"button.start" = "开始";
+"button.stop" = "停止";
+"button.pause" = "暂停";
+"button.resume" = "继续";
+
+// 页面标题
+"page.landing.title" = "🎧 LazyAud.io";
+"page.landing.subtitle" = "实时音频转录助手";
+"page.record.title" = "🎙️ 新建录制";
+"page.history.title" = "📚 录制历史";
+"page.transcribe.title" = "🎯 转录设置";
+"page.settings.title" = "⚙️ 设置";
+
+// 登录页面
+"page.landing.start" = "开始录制";
+"page.landing.settings" = "设置";
+"page.landing.continue" = "继续";
+
+// 权限相关
+"permission.microphone.title" = "麦克风访问";
+"permission.microphone.description" = "用于录制您的语音和对话";
+"permission.system_audio.title" = "系统音频录制";
+"permission.system_audio.description" = "用于录制系统播放的音频内容";
+"permission.status.authorized" = "已授权";
+"permission.status.denied" = "未授权";
+"permission.status.notDetermined" = "未设置";
+
+// 录制页面
+"record.status.ready" = "准备就绪";
+"record.status.recording" = "正在录制";
+"record.status.paused" = "已暂停";
+"record.audio_source.label" = "音频源：";
+"record.audio_source.system" = "系统音频";
+"record.audio_source.application" = "应用音频";
+"record.audio_source.include_microphone" = "同时录制麦克风";
+"record.application.label" = "应用：";
+"record.application.picker" = "选择应用";
+"record.title.label" = "录制标题：";
+"record.title.placeholder" = "会议记录 - 2024.01.15";
+"record.save_location.label" = "保存位置：";
+"record.save_location.button" = "选择文件夹...";
+"record.start.button" = "开始录制";
+"record.waveform.system" = "系统音频：";
+"record.waveform.microphone" = "麦克风：";
+"record.transcribe.realtime" = "实时转录";
+"record.transcribe.status" = "状态: 🟢 转录中 | 模型: whisper-base";
+"record.transcribe.summary" = "摘要";
+"record.transcribe.task" = "任务";
+"record.transcribe.translate" = "翻译";
+"record.transcribe.question" = "提问";
+
+// 历史页面
+"history.search.placeholder" = "搜索录制内容...";
+"history.filter" = "筛选";
+"history.filter.all" = "全部";
+"history.filter.transcribed" = "已转录";
+"history.filter.not_transcribed" = "未转录";
+"history.filter.processed" = "已处理";
+"history.filter.not_processed" = "未处理";
+"history.sort" = "排序";
+"history.sort.date_desc" = "最新创建";
+"history.sort.date_asc" = "最早创建";
+"history.sort.duration_desc" = "最长时长";
+"history.sort.duration_asc" = "最短时长";
+"history.sort.size_desc" = "最大文件";
+"history.sort.size_asc" = "最小文件";
+"history.selected.count" = "已选择 %d 个项目";
+"history.batch.export" = "批量导出";
+"history.batch.delete" = "批量删除";
+"history.batch.process" = "批量处理";
+"history.status.transcription" = "转录: %@";
+"history.status.ai" = "AI: %@";
+
+// 转录页面
+"transcribe.language.title" = "语言选择";
+"transcribe.language.auto" = "自动检测";
+"transcribe.language.zh" = "中文";
+"transcribe.language.en" = "英语";
+"transcribe.language.ja" = "日语";
+"transcribe.language.ko" = "韩语";
+"transcribe.model.title" = "模型选择";
+"transcribe.model.standard" = "标准模型";
+"transcribe.model.enhanced" = "增强模型";
+"transcribe.model.professional" = "专业模型";
+
+// 设置页面
+"settings.general.title" = "通用设置";
+"settings.general.auto_start" = "启动时自动开始录制";
+"settings.general.auto_transcribe" = "录制完成后自动转录";
+"settings.general.auto_process" = "转录完成后自动处理";
+"settings.general.minimize" = "最小化到菜单栏";
+"settings.general.save_location" = "默认保存位置";
+"settings.storage.title" = "存储设置";
+"settings.storage.auto_cleanup" = "自动清理";
+"settings.storage.cleanup_time" = "清理时间";
+"settings.storage.retention_time" = "保留时间";
+"settings.storage.location" = "存储位置";
+"settings.storage.usage" = "存储使用情况";
+"settings.storage.used" = "已用：%@";
+"settings.storage.total" = "总计：%@";
+"settings.advanced.title" = "高级设置";
+"settings.advanced.audio_quality" = "音频质量";
+"settings.advanced.sample_rate" = "采样率";
+"settings.advanced.channels" = "声道";
+"settings.advanced.quality" = "音频质量";
+"settings.about.title" = "关于";
+"settings.about.version" = "版本";
+"settings.about.check_update" = "检查更新";
+"settings.about.privacy" = "隐私政策";
+"settings.about.agreement" = "用户协议";
+
+// 清理时间选项
+"cleanup.daily" = "每天";
+"cleanup.weekly" = "每周";
+"cleanup.monthly" = "每月";
+
+// 保留时间选项
+"retention.7days" = "7天";
+"retention.30days" = "30天";
+"retention.90days" = "90天";
+"retention.forever" = "永久";
+
+// 音频质量选项
+"quality.low" = "低质量";
+"quality.medium" = "中等质量";
+"quality.high" = "高质量";
+
+// 采样率选项
+"sample_rate.44.1" = "44.1kHz";
+"sample_rate.48" = "48kHz";
+"sample_rate.96" = "96kHz";
+
+// 声道选项
+"channels.mono" = "单声道";
+"channels.stereo" = "立体声";
+
+// 语言设置
+"settings.language.title" = "语言设置";
+"settings.language.zh-Hans" = "简体中文";
+"settings.language.en" = "English"; 

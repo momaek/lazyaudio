@@ -1,0 +1,39 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+// MARK: - 分层架构规范
+- 所有视图组件必须放在 View 层：
+  • 文件命名：<模块名>View.swift
+  • 职责范围：UI 布局、交互事件传递、数据展示
+  • 禁止包含：业务逻辑、数据转换、网络请求
+  - 所有 View 的修改涉及到界面的时候，需要走 i18n 的格式去修改
+
+// MARK: - Service 层规范
+- 业务逻辑必须放在 Service 层：
+  • 文件命名：<模块名>Service.swift
+  • 职责范围：网络请求、本地存储、数据处理、业务规则
+  • 必须实现：Protocol 定义接口，ViewModel 通过协议调用
+
+// MARK: - 通信机制
+- View 与 Service 交互规则：
+  1. View 只能通过 ViewModel 访问 Service
+  2. Service 返回数据必须通过 Combine 或 async/await 传递
+  3. 禁止直接引用 Service 实例
+
+// MARK: - 技术栈约束
+- 必须使用：SwiftUI + Combine
+- 禁止使用：UIKit、Storyboard、xib
+- 依赖管理：仅允许通过 Swift Package Manager
+- 代码静态检查规则：
+  1. View 层文件不得包含 URLSession、CoreData 等关键字
+  2. Service 层文件不得包含 SwiftUI 视图组件
+  3. ViewModel 必须实现 ObservableObject 协议
+
+- 所有 SwiftUI 视图必须用 struct 定义，禁止使用 class。
+- 视图中不允许有网络请求或复杂业务逻辑，所有业务逻辑应放在 ViewModel。
+- 状态管理必须使用 @State、@Binding 或 @ObservedObject，禁止使用全局变量。
+- 避免强制解包 Optional，必须使用安全解包方式。
+- 视图应拆分为小组件，避免单个视图过大。
+- 使用 LazyVStack 或 LazyHStack 优化长列表性能。

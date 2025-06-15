@@ -1,0 +1,156 @@
+// General
+"app.name" = "LazyAud.io";
+"app.version" = "Version";
+
+// Buttons
+"button.cancel" = "Cancel";
+"button.confirm" = "Confirm";
+"button.save" = "Save";
+"button.delete" = "Delete";
+"button.edit" = "Edit";
+"button.export" = "Export";
+"button.import" = "Import";
+"button.start" = "Start";
+"button.stop" = "Stop";
+"button.pause" = "Pause";
+"button.resume" = "Resume";
+"button.check_update" = "Check for Updates";
+"button.privacy_policy" = "Privacy Policy";
+"button.user_agreement" = "User Agreement";
+
+// Page Titles
+"page.landing.title" = "🎧 LazyAud.io";
+"page.landing.subtitle" = "Real-time Audio Transcription Assistant";
+"page.record.title" = "🎙️ New Recording";
+"page.history.title" = "📚 Recording History";
+"page.transcribe.title" = "🎯 Transcription Settings";
+"page.settings.title" = "⚙️ Settings";
+
+// Landing Page
+"page.landing.start" = "Start Recording";
+"page.landing.settings" = "Settings";
+"page.landing.continue" = "Continue";
+
+// Permissions
+"permission.microphone.title" = "Microphone Access";
+"permission.microphone.description" = "For recording your voice and conversations";
+"permission.system_audio.title" = "System Audio Recording";
+"permission.system_audio.description" = "For recording system audio playback";
+"permission.status.authorized" = "Authorized";
+"permission.status.denied" = "Denied";
+"permission.status.notDetermined" = "Not Set";
+
+// Recording Page
+"record.status.ready" = "Ready";
+"record.status.recording" = "Recording...";
+"record.status.paused" = "Paused";
+"record.audio_source.label" = "Audio Source:";
+"record.audio_source.system" = "System Audio";
+"record.audio_source.application" = "Application Audio";
+"record.audio_source.include_microphone" = "Include Microphone";
+"record.application.label" = "Application:";
+"record.application.picker" = "Select Application";
+"record.title.label" = "Recording Title:";
+"record.title.placeholder" = "Meeting Record - 2024.01.15";
+"record.save_location.label" = "Save Location:";
+"record.save_location.button" = "Choose Folder...";
+"record.start.button" = "Start Recording";
+"record.waveform.system" = "System Audio:";
+"record.waveform.microphone" = "Microphone:";
+"record.transcribe.realtime" = "Realtime Transcription";
+"record.transcribe.status" = "Status: 🟢 Transcribing | Model: whisper-base";
+"record.transcribe.summary" = "Summary";
+"record.transcribe.task" = "Task";
+"record.transcribe.translate" = "Translate";
+"record.transcribe.question" = "Question";
+
+// History Page
+"history.search.placeholder" = "Search recordings...";
+"history.filter" = "Filter";
+"history.filter.all" = "All";
+"history.filter.transcribed" = "Transcribed";
+"history.filter.not_transcribed" = "Not Transcribed";
+"history.filter.processed" = "Processed";
+"history.filter.not_processed" = "Not Processed";
+"history.sort" = "Sort";
+"history.sort.date_desc" = "Newest First";
+"history.sort.date_asc" = "Oldest First";
+"history.sort.duration_desc" = "Longest Duration";
+"history.sort.duration_asc" = "Shortest Duration";
+"history.sort.size_desc" = "Largest File";
+"history.sort.size_asc" = "Smallest File";
+"history.selected.count" = "%d items selected";
+"history.batch.export" = "Export Selected";
+"history.batch.delete" = "Delete Selected";
+"history.batch.process" = "Process Selected";
+"history.status.transcription" = "Transcription: %@";
+"history.status.ai" = "AI: %@";
+
+// Transcription Page
+"transcribe.language.title" = "Language Selection";
+"transcribe.language.auto" = "Auto Detect";
+"transcribe.language.zh" = "Chinese";
+"transcribe.language.en" = "English";
+"transcribe.language.ja" = "Japanese";
+"transcribe.language.ko" = "Korean";
+"transcribe.model.title" = "Model Selection";
+"transcribe.model.standard" = "Standard Model";
+"transcribe.model.enhanced" = "Enhanced Model";
+"transcribe.model.professional" = "Professional Model";
+
+// Settings Page
+"settings.general.title" = "General Settings";
+"settings.general.auto_start" = "Auto-start Recording on Launch";
+"settings.general.auto_transcribe" = "Auto-transcribe After Recording";
+"settings.general.auto_process" = "Auto-process After Transcription";
+"settings.general.minimize" = "Minimize to Menu Bar";
+"settings.general.save_location" = "Default Save Location";
+"settings.storage.title" = "Storage Settings";
+"settings.storage.auto_cleanup" = "Auto Cleanup";
+"settings.storage.cleanup_time" = "Cleanup Time";
+"settings.storage.retention_time" = "Retention Time";
+"settings.storage.location" = "Storage Location";
+"settings.storage.usage" = "Storage Usage";
+"settings.storage.used" = "Used: %@";
+"settings.storage.total" = "Total: %@";
+"settings.advanced.title" = "Advanced Settings";
+"settings.advanced.audio_quality" = "Audio Quality";
+"settings.advanced.sample_rate" = "Sample Rate";
+"settings.advanced.channels" = "Channels";
+"settings.advanced.quality" = "Audio Quality";
+"settings.about.title" = "About";
+"settings.about.version" = "Version";
+"settings.about.check_update" = "Check for Updates";
+"settings.about.privacy" = "Privacy Policy";
+"settings.about.agreement" = "User Agreement";
+
+// Cleanup Time Options
+"cleanup.daily" = "Daily";
+"cleanup.weekly" = "Weekly";
+"cleanup.monthly" = "Monthly";
+
+// Retention Time Options
+"retention.7days" = "7 Days";
+"retention.30days" = "30 Days";
+"retention.90days" = "90 Days";
+"retention.forever" = "Forever";
+
+// Audio Quality Options
+"quality.low" = "Low Quality";
+"quality.medium" = "Medium Quality";
+"quality.high" = "High Quality";
+"quality.lossless" = "Lossless";
+
+// Sample Rate Options
+"sample_rate.44.1" = "44.1kHz";
+"sample_rate.48" = "48kHz";
+"sample_rate.96" = "96kHz";
+
+// Channel Options
+"channels.mono" = "Mono";
+"channels.stereo" = "Stereo";
+
+// Language Settings
+"settings.language.title" = "Language";
+"settings.language.zh-Hans" = "简体中文";
+"settings.language.en" = "English";
