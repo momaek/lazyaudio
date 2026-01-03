@@ -1,0 +1,357 @@
+# LazyAudio 项目规则
+
+> 本文件定义了 LazyAudio 项目的开发规范和上下文信息，帮助 AI 编码助手更好地理解和协助开发。
+
+## 项目概述
+
+LazyAudio 是一款桌面实时音频转录应用，核心特点：
+- **本地 AI 模型**：使用 sherpa-onnx 进行实时语音识别，保护隐私
+- **多场景支持**：会议模式、输入法模式、面试官模式、面试者模式
+- **AI 增强**：集成 LLM（OpenAI/Claude/Ollama）提供摘要、问答等功能
+- **跨平台**：支持 macOS 14.4+ 和 Windows 10+
+
+## 技术栈
+
+### 框架
+- **Tauri 2.0**：桌面应用框架
+- **Vue 3**：前端框架（Composition API）
+- **TypeScript**：前端类型系统
+- **Rust**：后端核心逻辑
+
+### 关键依赖
+- **sherpa-onnx**：流式语音识别引擎
+- **SQLite + rusqlite**：本地数据存储
+- **Pinia**：Vue 状态管理
+- **shadcn-vue**：UI 组件库
+- **Tailwind CSS**：样式框架
+- **Specta**：Rust 到 TypeScript 类型生成
+
+### 平台特定
+- **macOS**：AudioCapCLI（系统音频采集）、cpal（麦克风）
+- **Windows**：WASAPI Loopback（系统音频）、cpal（麦克风）
+
+## 项目结构
+
+```
+lazyaudio/
+├── src/                      # Vue 前端源码
+│   ├── components/           # 通用组件
+│   ├── composables/          # Vue Composables (useXxx)
+│   ├── stores/               # Pinia Stores
+│   ├── views/                # 页面视图
+│   │   ├── meeting/          # 会议模式页面
+│   │   ├── interview/        # 面试模式页面
+│   │   ├── settings/         # 设置页面
+│   │   ├── history/          # 历史记录页面
+│   │   └── onboarding/       # 首次启动引导
+│   ├── types/                # TypeScript 类型定义
+│   └── i18n/                 # 国际化资源
+├── src-tauri/                # Rust 后端源码
+│   └── src/
+│       ├── audio/            # 音频采集和处理
+│       │   ├── capture.rs    # AudioCapture trait
+│       │   ├── pipeline.rs   # 音频处理管道
+│       │   ├── macos.rs      # macOS 平台实现
+│       │   └── windows.rs    # Windows 平台实现
+│       ├── asr/              # 语音识别引擎
+│       │   ├── engine.rs     # AsrEngine
+│       │   └── recognizer.rs # StreamingRecognizer
+│       ├── ai/               # AI/LLM 集成
+│       │   ├── engine.rs     # AiEngine
+│       │   ├── providers/    # LLM Provider 实现
+│       │   └── task_queue.rs # 异步任务队列
+│       ├── session/          # Session 管理
+│       │   ├── manager.rs    # SessionManager
+│       │   └── state.rs      # Session 状态机
+│       ├── mode/             # 模式系统
+│       │   ├── manager.rs    # ModeManager
+│       │   ├── meeting.rs    # 会议模式
+│       │   ├── input_method.rs # 输入法模式
+│       │   └── interview/    # 面试模式
+│       ├── storage/          # 存储引擎
+│       │   ├── engine.rs     # StorageEngine
+│       │   ├── config.rs     # 配置管理
+│       │   └── session.rs    # Session 数据存储
+│       ├── permission/       # 权限管理
+│       ├── event/            # 事件总线
+│       ├── commands/         # Tauri Commands
+│       └── state.rs          # 应用状态 AppState
+└── docs/                     # 项目文档
+    └── sprints/              # Sprint 开发计划
+```
+
+## 数据存储
+
+数据目录：`~/.lazyaudio/`
+
+```
+~/.lazyaudio/
+├── config.json               # 全局配置
+├── db/
+│   └── app.db                # SQLite 数据库
+├── models/                   # ASR 模型文件
+├── modes/
+│   ├── {modeId}/storage.json # 模式私有数据
+│   └── external/             # 外部导入模式
+├── sessions/
+│   └── {timestamp}_{sessionId}/
+│       ├── meta.json         # Session 元数据
+│       ├── audio.wav         # 录音文件
+│       ├── transcript.jsonl  # 转录文本（每行一个 JSON）
+│       └── ai/               # AI 生成内容
+│           ├── summary.md
+│           └── tasks.jsonl
+└── logs/                     # 应用日志
+```
+
+## 核心架构
+
+### 分层架构
+1. **Core Layer（核心层）**：音频采集、音频管道、ASR、存储、AI 引擎
+2. **Mode Layer（模式层）**：会议、输入法、面试官、面试者模式
+3. **Application Layer（应用层）**：UI、设置、国际化
+
+### 模式系统
+- **Primary Mode（主模式）**：互斥，同时只能激活一个（会议、面试官、面试者）
+- **Overlay Mode（叠加模式）**：可并行，独立开关（输入法模式）
+
+### Session 状态机
+```
+Created → Recording ⇄ Paused → Completed
+                   ↘ Error
+```
+
+### 麦克风管理
+- 基于优先级的抢占机制
+- 输入法模式优先级最高（100），可抢占其他模式
+- 被抢占的 Session 自动暂停麦克风使用
+
+## 编码规范
+
+### Rust 后端
+
+1. **命名规范**
+   - 使用 snake_case 命名变量和函数
+   - 使用 PascalCase 命名类型和 trait
+   - 模块名使用 snake_case
+
+2. **错误处理**
+   - 使用 `Result<T, E>` 返回可能失败的操作
+   - 使用 `thiserror` 定义错误类型
+   - 在 Tauri Command 中将错误转换为 `String`
+
+3. **类型导出**
+   - 使用 `#[derive(Serialize, Deserialize, Type)]` 标记需要导出到前端的类型
+   - 使用 Specta 自动生成 TypeScript 类型
+
+4. **线程安全**
+   - 共享状态使用 `Arc<RwLock<T>>` 或 `Arc<Mutex<T>>`
+   - 优先使用 `RwLock` 处理读多写少的场景
+   - Tauri State 使用 `State<'_, AppState>`
+
+5. **代码格式**
+   - 使用 `rustfmt` 格式化代码
+   - 使用 `clippy` 进行静态分析
+   - 运行 `cargo clippy --all-targets` 检查
+
+### Vue 前端
+
+1. **组件规范**
+   - 使用 `<script setup lang="ts">` 语法
+   - 组件文件使用 PascalCase 命名
+   - Props 使用 TypeScript 接口定义
+
+2. **Composables**
+   - 以 `use` 前缀命名（如 `useSession`、`useAudio`）
+   - 放置在 `src/composables/` 目录
+   - 返回响应式状态和方法
+
+3. **Store**
+   - 使用 Pinia 管理全局状态
+   - 使用 Composition API 风格定义 Store
+   - 放置在 `src/stores/` 目录
+
+4. **Tauri 交互**
+   - 使用 `invoke` 调用后端 Commands
+   - 使用 `listen` 监听后端事件
+   - 类型从 `src/types/bindings.ts` 导入（Specta 生成）
+
+5. **代码格式**
+   - 使用 ESLint + Prettier 格式化
+   - 缩进使用 2 空格
+   - 使用单引号
+
+### 通用规范
+
+1. **注释**
+   - 公开 API 必须有文档注释
+   - 复杂逻辑添加行内注释
+   - 使用中文注释
+
+2. **Git 提交**
+   - 使用语义化提交信息
+   - 格式：`<type>(<scope>): <description>`
+   - 类型：feat, fix, docs, style, refactor, test, chore
+
+## Tauri Commands 规范
+
+### 命名规范
+- 使用 snake_case 命名
+- 按功能分组前缀：`session_*`, `audio_*`, `ai_*`, `mode_*`, `config_*`
+
+### 返回格式
+```rust
+#[tauri::command]
+pub async fn xxx(
+    state: State<'_, AppState>,
+    param: ParamType
+) -> Result<ReturnType, String>
+```
+
+### 核心 Commands 列表
+- Session: `create_session`, `start_session`, `pause_session`, `resume_session`, `stop_session`, `list_active_sessions`, `list_history`, `delete_session`
+- Audio: `list_audio_sources`, `list_microphones`
+- Config: `get_config`, `set_config`
+- Permission: `check_permission`, `request_permission`, `open_permission_settings`
+- Mode: `list_modes`, `activate_mode`, `enable_overlay`, `disable_overlay`
+- AI: `ai_submit_task`, `ai_cancel_task`, `ai_get_task_status`
+
+## 事件总线
+
+### 后端 → 前端事件
+- `session:created`, `session:started`, `session:paused`, `session:stopped`
+- `audio:level` - 音频电平更新
+- `transcript:partial` - 实时识别（临时结果）
+- `transcript:final` - 最终识别结果
+- `asr:error` - ASR 错误
+- `microphone:acquired`, `microphone:released`, `microphone:preempted`
+- `ai:task:progress`, `ai:task:completed`, `ai:task:failed`
+
+### 事件 Payload 格式
+```typescript
+interface EventPayload<T> {
+  sessionId?: string;
+  timestamp: number;
+  data: T;
+}
+```
+
+## 音频处理管道
+
+```
+AudioCapture → RingBuffer → Tee ┬→ LevelMeter → Frontend
+                                ├→ Resampler → VAD → ASR
+                                └→ Recorder → WAV File
+```
+
+### 音频格式
+- 采集格式：48kHz, 2ch, f32
+- ASR 输入：16kHz, 1ch, f32
+
+## AI 集成
+
+### Provider 支持
+- OpenAI（GPT-4o-mini 等）
+- Claude（claude-3-haiku 等）
+- Ollama（本地模型）
+
+### 任务类型
+- Summary：摘要生成
+- QuestionAnswer：基于转录的问答
+- Translate：翻译
+- Polish：文本润色
+- ExtractKeywords：关键词提取
+- ExtractTodos：待办事项提取
+
+## 开发注意事项
+
+1. **跨平台兼容**
+   - 使用 `#[cfg(target_os = "...")]` 处理平台差异
+   - 文件路径使用 `std::path::PathBuf`
+   - 避免硬编码平台特定常量
+
+2. **性能考虑**
+   - ASR 延迟目标 < 500ms
+   - 内存占用 < 500MB
+   - CPU 使用率录制时 < 30%
+
+3. **错误恢复**
+   - Session 数据定期保存，防止崩溃丢失
+   - ASR 错误自动重试
+   - 网络错误使用指数退避
+
+4. **用户体验**
+   - 首次启动引导权限设置
+   - 操作反馈及时（Loading 状态）
+   - 支持深色/浅色主题
+
+## 开发流程
+
+项目采用 Sprint 迭代开发，共 16 个 Sprint，分 5 个阶段：
+1. **Phase 1 - 基础设施**：项目初始化、存储引擎、权限管理
+2. **Phase 2 - 音频核心**：音频采集、音频管道、VAD+ASR
+3. **Phase 3 - 运行时核心**：事件总线、Session 管理、Tauri Commands
+4. **Phase 4 - 模式系统**：模式框架、会议模式、输入法模式
+5. **Phase 5 - AI 与高级功能**：AI 引擎、会议 AI、面试模式、导出完善
+
+关键里程碑：
+- M1: 可存储配置
+- M2: 可采集音频
+- M3: 可识别语音
+- M4: 完整 Session 流程
+- M5: 会议模式可用
+- M6: 输入法模式可用
+- M7: AI 功能可用
+- M8: MVP 完成
+
+## 开发完成后的工作
+
+**重要**：每次完成一个功能或任务后，必须执行以下步骤：
+
+1. **更新 Sprint 进度文档**
+   - 打开对应的 Sprint 文档（`docs/sprints/sprint-XX-xxx.md`）
+   - 将已完成的任务状态从 `⬜` 更新为 `✅`
+   - 将进行中的任务状态标记为 `🔄`
+   - 更新「交付物验收」部分的验收状态
+   - 如果达成里程碑，勾选里程碑 checkbox
+
+2. **更新总体进度追踪**
+   - 打开 `docs/sprints/README.md`
+   - 更新对应 Sprint 的状态（🔴 未开始 → 🟡 进行中 → 🟢 已完成）
+   - 更新里程碑表格中的完成状态
+
+3. **状态标记说明**
+   - Sprint 状态：🔴 未开始 | 🟡 进行中 | 🟢 已完成 | ⏸️ 暂停 | ❌ 取消
+   - 任务状态：⬜ 未开始 | 🔄 进行中 | ✅ 已完成 | ⏭️ 跳过
+   - 验收状态：⬜ 未验收 | ✅ 已通过
+
+## 常用命令
+
+```bash
+# 开发模式启动
+pnpm tauri dev
+
+# 构建发布包
+pnpm tauri build
+
+# 前端类型检查
+pnpm typecheck
+
+# Rust 代码检查
+cargo clippy --all-targets
+
+# 运行测试
+cargo test
+pnpm test
+```
+
+## 参考文档
+
+- 项目 PRD：`docs/prd.md`
+- 功能定义：`docs/feature-define.md`
+- 架构路线图：`docs/architecture-roadmap.md`
+- Schema 定义：`docs/schema-define.md`
+- UI 设计：`docs/ui-design.md`
+- UI 线框图：`docs/ui-wireframes.md`
+- Sprint 计划：`docs/sprints/`
+
