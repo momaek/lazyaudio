@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    lazyaudio_core_lib::run()
+    lazyaudio_core_lib::run();
 }
