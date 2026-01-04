@@ -23,6 +23,72 @@ async getConfig() : Promise<Result<AppConfig, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * 保存应用配置
+ */
+async setConfig(config: AppConfig) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_config", { config }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 创建新的 Session
+ */
+async createSession(modeId: string, name: string | null, audioConfig: SessionAudioConfig | null) : Promise<Result<SessionMeta, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_session", { modeId, name, audioConfig }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 获取 Session 元数据
+ */
+async getSession(sessionId: string) : Promise<Result<SessionMeta, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_session", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 列出历史 Session
+ */
+async listSessions(limit: number | null, offset: number | null) : Promise<Result<SessionRecord[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_sessions", { limit, offset }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 删除 Session
+ */
+async deleteSession(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_session", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 获取 Session 转录内容
+ */
+async getTranscript(sessionId: string) : Promise<Result<TranscriptSegment[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_transcript", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -37,37 +103,489 @@ async getConfig() : Promise<Result<AppConfig, string>> {
 /** user-defined types **/
 
 /**
+ * AI 配置
+ */
+export type AiConfig = { 
+/**
+ * AI 提供商
+ */
+provider: AiProvider; 
+/**
+ * `OpenAI` 配置
+ */
+openai: OpenAiConfig | null; 
+/**
+ * Claude 配置
+ */
+claude: ClaudeConfig | null; 
+/**
+ * Ollama 配置
+ */
+ollama: OllamaConfig | null }
+/**
+ * AI 提供商
+ */
+export type AiProvider = "none" | "openai" | "claude" | "ollama"
+/**
  * 应用全局配置
  */
 export type AppConfig = { 
 /**
  * Schema 版本号
  */
-schema_version: number; 
+version: number; 
+/**
+ * 通用配置
+ */
+general: GeneralConfig; 
+/**
+ * 音频配置
+ */
+audio: AudioConfig; 
+/**
+ * ASR 配置
+ */
+asr: AsrConfig; 
+/**
+ * AI 配置
+ */
+ai: AiConfig; 
+/**
+ * 快捷键配置
+ */
+hotkeys: HotkeyConfig; 
+/**
+ * 存储配置
+ */
+storage: StorageConfig }
+/**
+ * ASR 配置
+ */
+export type AsrConfig = { 
+/**
+ * 模型 ID
+ */
+modelId?: string; 
+/**
+ * 识别语言
+ */
+language?: AsrLanguage; 
+/**
+ * 启用标点
+ */
+enablePunctuation?: boolean; 
+/**
+ * VAD 灵敏度
+ */
+vadSensitivity?: number }
+/**
+ * ASR 语言
+ */
+export type AsrLanguage = "auto" | "zh" | "en"
+/**
+ * 音频配置
+ */
+export type AudioConfig = { 
+/**
+ * 默认系统音频源 ID
+ */
+defaultSystemSource: string | null; 
+/**
+ * 默认麦克风 ID
+ */
+defaultMicrophone: string | null; 
+/**
+ * 采样率
+ */
+sampleRate?: number; 
+/**
+ * 声道数
+ */
+channels?: number; 
+/**
+ * 输入增益
+ */
+inputGain?: number }
+/**
+ * 音频源信息
+ */
+export type AudioSourceInfo = { 
+/**
+ * 设备 ID
+ */
+id: string; 
+/**
+ * 类型
+ */
+type: AudioSourceType; 
+/**
+ * 名称
+ */
+name: string; 
+/**
+ * 应用 Bundle ID
+ */
+bundleId?: string | null }
+/**
+ * 音频源类型
+ */
+export type AudioSourceType = 
+/**
+ * 系统音频
+ */
+"system" | 
+/**
+ * 应用音频
+ */
+"application" | 
+/**
+ * 麦克风
+ */
+"microphone"
+/**
+ * Claude 配置
+ */
+export type ClaudeConfig = { 
+/**
+ * API Key
+ */
+apiKey?: string; 
+/**
+ * API 基础 URL
+ */
+baseUrl?: string; 
+/**
+ * 模型名称
+ */
+model?: string; 
+/**
+ * 温度参数
+ */
+temperature?: number; 
+/**
+ * 最大 Token 数
+ */
+maxTokens?: number }
+/**
+ * 通用配置
+ */
+export type GeneralConfig = { 
 /**
  * 界面语言
  */
-language: string; 
+language: Language; 
 /**
  * 主题模式
  */
-theme: ThemeMode }
+theme: Theme; 
+/**
+ * 开机启动
+ */
+launchAtStartup?: boolean; 
+/**
+ * macOS 菜单栏图标
+ */
+showInMenubar?: boolean; 
+/**
+ * Windows 托盘图标
+ */
+showInTray?: boolean; 
+/**
+ * 最小化到托盘
+ */
+minimizeToTray?: boolean }
+/**
+ * 快捷键配置
+ */
+export type HotkeyConfig = { 
+/**
+ * 输入法模式切换
+ */
+inputMethodToggle?: string; 
+/**
+ * 开始/停止录制
+ */
+startStopRecording?: string; 
+/**
+ * 暂停/恢复
+ */
+pauseResume?: string }
+/**
+ * 界面语言
+ */
+export type Language = "zh-cn" | "en-us"
+/**
+ * Ollama 配置
+ */
+export type OllamaConfig = { 
+/**
+ * API 基础 URL
+ */
+baseUrl?: string; 
+/**
+ * 模型名称
+ */
+model?: string; 
+/**
+ * 温度参数
+ */
+temperature?: number }
+/**
+ * `OpenAI` 配置
+ */
+export type OpenAiConfig = { 
+/**
+ * API Key（加密存储）
+ */
+apiKey?: string; 
+/**
+ * API 基础 URL
+ */
+baseUrl?: string; 
+/**
+ * 模型名称
+ */
+model?: string; 
+/**
+ * 温度参数
+ */
+temperature?: number; 
+/**
+ * 最大 Token 数
+ */
+maxTokens?: number }
+/**
+ * Session 音频配置
+ */
+export type SessionAudioConfig = { 
+/**
+ * 音频源列表
+ */
+sources: AudioSourceInfo[]; 
+/**
+ * 采样率
+ */
+sampleRate: number; 
+/**
+ * 声道数
+ */
+channels: number; 
+/**
+ * 是否保存音频
+ */
+saveAudio: boolean }
+/**
+ * Session 元数据
+ */
+export type SessionMeta = { 
+/**
+ * Session ID
+ */
+id: string; 
+/**
+ * Schema 版本
+ */
+version: number; 
+/**
+ * 用户自定义名称
+ */
+name?: string | null; 
+/**
+ * 所属模式 ID
+ */
+modeId: string; 
+/**
+ * 创建时间（ISO 8601）
+ */
+createdAt: string; 
+/**
+ * 更新时间（ISO 8601）
+ */
+updatedAt: string; 
+/**
+ * 完成时间（ISO 8601）
+ */
+completedAt?: string | null; 
+/**
+ * 状态
+ */
+status: SessionStatus; 
+/**
+ * 错误信息
+ */
+error?: string | null; 
+/**
+ * 音频配置
+ */
+audioConfig: SessionAudioConfig; 
+/**
+ * 统计信息
+ */
+stats?: SessionStats; 
+/**
+ * 用户标签
+ */
+tags?: string[] }
+/**
+ * 数据库中的 Session 记录
+ */
+export type SessionRecord = { id: string; modeId: string; name: string | null; status: string; createdAt: string; updatedAt: string; completedAt: string | null; durationMs: number; wordCount: number; characterCount: number; directoryPath: string; tags: string | null }
+/**
+ * Session 统计信息
+ */
+export type SessionStats = { 
+/**
+ * 总时长（毫秒）
+ */
+durationMs?: number; 
+/**
+ * 音频时长（毫秒）
+ */
+audioDurationMs?: number; 
+/**
+ * 转录段落数
+ */
+segmentCount?: number; 
+/**
+ * 总字数
+ */
+wordCount?: number; 
+/**
+ * 总字符数
+ */
+characterCount?: number }
+/**
+ * Session 状态
+ */
+export type SessionStatus = 
+/**
+ * 已创建
+ */
+"created" | 
+/**
+ * 录制中
+ */
+"recording" | 
+/**
+ * 已暂停
+ */
+"paused" | 
+/**
+ * 已完成
+ */
+"completed" | 
+/**
+ * 错误
+ */
+"error"
+/**
+ * 存储配置
+ */
+export type StorageConfig = { 
+/**
+ * 自定义存储路径
+ */
+basePath: string | null; 
+/**
+ * 默认保存音频
+ */
+saveAudioByDefault?: boolean; 
+/**
+ * 启用自动清理
+ */
+autoCleanupEnabled?: boolean; 
+/**
+ * 清理天数
+ */
+cleanupAfterDays?: number; 
+/**
+ * 最大存储空间 (GB)
+ */
+maxStorageSizeGb?: number }
 /**
  * 主题模式
  */
-export type ThemeMode = 
+export type Theme = "light" | "dark" | "system"
 /**
- * 浅色模式
+ * 转录分段
  */
-"light" | 
+export type TranscriptSegment = { 
 /**
- * 深色模式
+ * 分段 ID
  */
-"dark" | 
+id: string; 
 /**
- * 跟随系统
+ * 开始时间（秒）
  */
-"system"
+startTime: number; 
+/**
+ * 结束时间（秒）
+ */
+endTime: number; 
+/**
+ * 转录文本
+ */
+text: string; 
+/**
+ * 是否为最终结果
+ */
+isFinal: boolean; 
+/**
+ * 置信度
+ */
+confidence?: number | null; 
+/**
+ * 音频来源
+ */
+source?: TranscriptSource | null; 
+/**
+ * 检测到的语言
+ */
+language?: string | null; 
+/**
+ * 词级时间戳
+ */
+words?: WordTimestamp[] | null; 
+/**
+ * 创建时间（ISO 8601）
+ */
+createdAt: string }
+/**
+ * 转录来源
+ */
+export type TranscriptSource = 
+/**
+ * 系统音频
+ */
+"system" | 
+/**
+ * 麦克风
+ */
+"microphone" | 
+/**
+ * 混合
+ */
+"mixed"
+/**
+ * 词级时间戳
+ */
+export type WordTimestamp = { 
+/**
+ * 词
+ */
+word: string; 
+/**
+ * 开始时间
+ */
+start: number; 
+/**
+ * 结束时间
+ */
+end: number; 
+/**
+ * 置信度
+ */
+confidence?: number | null }
 
 /** tauri-specta globals **/
 
