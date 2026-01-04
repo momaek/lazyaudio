@@ -69,26 +69,5 @@ pub enum ModeType {
     Interviewee,
 }
 
-/// 音频源类型
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum AudioSourceType {
-    /// 系统音频
-    System,
-    /// 麦克风
-    Microphone,
-}
-
-/// 音频设备信息
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct AudioDevice {
-    /// 设备 ID
-    pub id: String,
-    /// 设备名称
-    pub name: String,
-    /// 设备类型
-    pub source_type: AudioSourceType,
-    /// 是否为默认设备
-    pub is_default: bool,
-}
+// 音频相关类型已移至 audio::types 模块
 

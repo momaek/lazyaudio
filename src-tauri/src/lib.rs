@@ -23,6 +23,7 @@ pub mod state;
 pub mod storage;
 pub mod types;
 
+use audio::AudioSource;
 use permissions::{AllPermissionsStatus, PermissionManager, PermissionStatus, PermissionType};
 use state::AppState;
 use storage::{AppConfig, SessionAudioConfig, SessionMeta, SessionRecord, TranscriptSegment};
@@ -179,6 +180,43 @@ fn all_required_permissions_granted() -> bool {
 }
 
 // ============================================================================
+// 音频相关 Commands
+// ============================================================================
+
+/// 列出所有可用的音频源
+///
+/// 返回系统音频源和麦克风设备列表
+#[tauri::command]
+#[specta::specta]
+fn list_audio_sources() -> Result<Vec<AudioSource>, String> {
+    audio::list_all_sources().map_err(|e| e.to_string())
+}
+
+/// 列出可用的麦克风设备
+#[tauri::command]
+#[specta::specta]
+fn list_microphones() -> Result<Vec<AudioSource>, String> {
+    audio::list_microphones().map_err(|e| e.to_string())
+}
+
+/// 列出可用的系统音频源（macOS）
+///
+/// 包括系统音频和正在播放音频的应用
+#[cfg(target_os = "macos")]
+#[tauri::command]
+#[specta::specta]
+fn list_system_audio_sources(app: tauri::AppHandle) -> Result<Vec<AudioSource>, String> {
+    audio::macos::list_system_sources(Some(&app)).map_err(|e| e.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+#[specta::specta]
+fn list_system_audio_sources() -> Result<Vec<AudioSource>, String> {
+    Ok(vec![])
+}
+
+// ============================================================================
 // Specta Builder
 // ============================================================================
 
@@ -199,6 +237,10 @@ fn build_specta_builder() -> Builder {
         open_permission_settings,
         check_all_permissions,
         all_required_permissions_granted,
+        // 音频相关
+        list_audio_sources,
+        list_microphones,
+        list_system_audio_sources,
     ])
 }
 
@@ -247,6 +289,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(AppState::new())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
