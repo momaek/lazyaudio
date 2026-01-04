@@ -2,22 +2,71 @@
 import { ref, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useAppStore } from '@/stores/app'
+import { commands } from '@/types'
+import PermissionGuide from '@/views/onboarding/PermissionGuide.vue'
 
 const appStore = useAppStore()
 const greetMsg = ref('')
 const name = ref('')
 
+// 应用状态
+const appState = ref<'loading' | 'permission_check' | 'ready'>('loading')
+
 async function greet() {
   greetMsg.value = await invoke('greet', { name: name.value })
 }
 
+// 检查权限并决定显示哪个界面
+async function initializeApp() {
+  try {
+    // 加载配置
+    await appStore.loadConfig()
+    
+    // 检查权限
+    const allGranted = await commands.allRequiredPermissionsGranted()
+    
+    if (allGranted) {
+      appState.value = 'ready'
+    } else {
+      appState.value = 'permission_check'
+    }
+  } catch (error) {
+    console.error('初始化失败:', error)
+    // 出错时也显示权限检查页面
+    appState.value = 'permission_check'
+  }
+}
+
+// 权限检查完成后的回调
+function onPermissionComplete() {
+  appState.value = 'ready'
+}
+
 onMounted(() => {
   appStore.initTheme()
+  initializeApp()
 })
 </script>
 
 <template>
-  <main class="min-h-screen bg-background text-foreground">
+  <!-- 加载状态 -->
+  <div v-if="appState === 'loading'" class="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div class="text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 mb-4 animate-pulse">
+        <span class="text-3xl">🎙️</span>
+      </div>
+      <p class="text-slate-400">正在加载...</p>
+    </div>
+  </div>
+
+  <!-- 权限检查页面 -->
+  <PermissionGuide
+    v-else-if="appState === 'permission_check'"
+    :on-complete="onPermissionComplete"
+  />
+
+  <!-- 主应用界面 -->
+  <main v-else class="min-h-screen bg-background text-foreground">
     <div class="container mx-auto px-4 py-16">
       <div class="flex flex-col items-center justify-center space-y-8">
         <!-- Logo 区域 -->

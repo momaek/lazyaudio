@@ -23,6 +23,7 @@ pub mod state;
 pub mod storage;
 pub mod types;
 
+use permissions::{AllPermissionsStatus, PermissionManager, PermissionStatus, PermissionType};
 use state::AppState;
 use storage::{AppConfig, SessionAudioConfig, SessionMeta, SessionRecord, TranscriptSegment};
 use tauri_specta::{collect_commands, Builder};
@@ -130,6 +131,54 @@ fn get_transcript(
 }
 
 // ============================================================================
+// 权限相关 Commands
+// ============================================================================
+
+/// 检查指定权限状态
+#[tauri::command]
+#[specta::specta]
+fn check_permission(permission: PermissionType) -> PermissionStatus {
+    let manager = PermissionManager::new();
+    manager.check(permission)
+}
+
+/// 请求指定权限
+///
+/// 注意：并非所有权限都可以程序化请求
+/// - macOS 屏幕录制和辅助功能需要在系统设置中手动授权
+/// - 麦克风权限可以通过弹窗请求
+#[tauri::command]
+#[specta::specta]
+fn request_permission(permission: PermissionType) -> PermissionStatus {
+    let manager = PermissionManager::new();
+    manager.request(permission)
+}
+
+/// 打开系统权限设置页面
+#[tauri::command]
+#[specta::specta]
+fn open_permission_settings(permission: PermissionType) -> Result<(), String> {
+    let manager = PermissionManager::new();
+    manager.open_settings(permission)
+}
+
+/// 检查所有权限状态
+#[tauri::command]
+#[specta::specta]
+fn check_all_permissions() -> AllPermissionsStatus {
+    let manager = PermissionManager::new();
+    manager.check_all()
+}
+
+/// 检查所有必需权限是否已授权
+#[tauri::command]
+#[specta::specta]
+fn all_required_permissions_granted() -> bool {
+    let manager = PermissionManager::new();
+    manager.all_required_granted()
+}
+
+// ============================================================================
 // Specta Builder
 // ============================================================================
 
@@ -144,6 +193,12 @@ fn build_specta_builder() -> Builder {
         list_sessions,
         delete_session,
         get_transcript,
+        // 权限相关
+        check_permission,
+        request_permission,
+        open_permission_settings,
+        check_all_permissions,
+        all_required_permissions_granted,
     ])
 }
 

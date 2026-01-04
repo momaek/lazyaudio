@@ -89,6 +89,45 @@ async getTranscript(sessionId: string) : Promise<Result<TranscriptSegment[], str
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * 检查指定权限状态
+ */
+async checkPermission(permission: PermissionType) : Promise<PermissionStatus> {
+    return await TAURI_INVOKE("check_permission", { permission });
+},
+/**
+ * 请求指定权限
+ * 
+ * 注意：并非所有权限都可以程序化请求
+ * - macOS 屏幕录制和辅助功能需要在系统设置中手动授权
+ * - 麦克风权限可以通过弹窗请求
+ */
+async requestPermission(permission: PermissionType) : Promise<PermissionStatus> {
+    return await TAURI_INVOKE("request_permission", { permission });
+},
+/**
+ * 打开系统权限设置页面
+ */
+async openPermissionSettings(permission: PermissionType) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_permission_settings", { permission }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 检查所有权限状态
+ */
+async checkAllPermissions() : Promise<AllPermissionsStatus> {
+    return await TAURI_INVOKE("check_all_permissions");
+},
+/**
+ * 检查所有必需权限是否已授权
+ */
+async allRequiredPermissionsGranted() : Promise<boolean> {
+    return await TAURI_INVOKE("all_required_permissions_granted");
 }
 }
 
@@ -126,6 +165,26 @@ ollama: OllamaConfig | null }
  * AI 提供商
  */
 export type AiProvider = "none" | "openai" | "claude" | "ollama"
+/**
+ * 所有权限的状态汇总
+ */
+export type AllPermissionsStatus = { 
+/**
+ * 系统音频录制权限状态
+ */
+systemAudioRecording: PermissionStatus; 
+/**
+ * 麦克风权限状态
+ */
+microphone: PermissionStatus; 
+/**
+ * 辅助功能权限状态
+ */
+accessibility: PermissionStatus; 
+/**
+ * 是否所有必需权限都已授权
+ */
+allRequiredGranted: boolean }
 /**
  * 应用全局配置
  */
@@ -354,6 +413,55 @@ temperature?: number;
  * 最大 Token 数
  */
 maxTokens?: number }
+/**
+ * 权限状态枚举
+ */
+export type PermissionStatus = 
+/**
+ * 已授权
+ */
+"granted" | 
+/**
+ * 已拒绝
+ */
+"denied" | 
+/**
+ * 未决定（首次请求前）
+ */
+"notDetermined" | 
+/**
+ * 受限（如家长控制）
+ */
+"restricted" | 
+/**
+ * 不适用（如 Windows 不需要屏幕录制权限）
+ */
+"notApplicable"
+/**
+ * 权限类型枚举
+ * 
+ * 定义应用所需的各种系统权限
+ */
+export type PermissionType = 
+/**
+ * 系统音频录制权限（macOS 14.4+ 支持仅音频录制）
+ * - macOS: 需要在系统设置 > 隐私与安全性 > 录屏与系统录音 中授权
+ * 用户可选择"仅录音"而不需要屏幕录制权限
+ * - Windows: 不需要（NotApplicable）
+ */
+"systemAudioRecording" | 
+/**
+ * 麦克风权限
+ * - macOS: 可通过弹窗请求
+ * - Windows: 可通过弹窗请求
+ */
+"microphone" | 
+/**
+ * 辅助功能权限（用于全局快捷键和输入法模式）
+ * - macOS: 需要在系统偏好设置中授权
+ * - Windows: 不需要（NotApplicable）
+ */
+"accessibility"
 /**
  * Session 音频配置
  */
