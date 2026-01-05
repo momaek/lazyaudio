@@ -47,6 +47,9 @@ tracing-subscriber = "0.3.22"
 cpal = "0.15"
 rubato = "1.0.0"
 
+# ASR 语音识别 (sherpa-onnx)
+sherpa-rs = { version = "0.6", features = ["download-binaries"] }
+
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }

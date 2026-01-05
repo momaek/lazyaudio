@@ -45,8 +45,10 @@ mod pipeline;
 mod recorder;
 mod resampler;
 mod ring_buffer;
+pub mod speech_segment;
 mod tee;
 mod types;
+pub mod vad;
 
 // macOS 平台特定模块
 #[cfg(target_os = "macos")]
