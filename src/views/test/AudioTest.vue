@@ -247,7 +247,7 @@ function formatDuration(ms: number): string {
               <SelectTrigger class="bg-slate-800 border-slate-700 text-white">
                 <SelectValue placeholder="选择麦克风..." />
               </SelectTrigger>
-              <SelectContent class="bg-slate-800 border-slate-700">
+              <SelectContent class="bg-slate-800 border-slate-700 max-h-[300px] overflow-y-auto">
                 <SelectItem 
                   v-for="mic in microphones" 
                   :key="mic.id" 
@@ -271,7 +271,7 @@ function formatDuration(ms: number): string {
               <SelectTrigger class="bg-slate-800 border-slate-700 text-white">
                 <SelectValue placeholder="选择系统音频源..." />
               </SelectTrigger>
-              <SelectContent class="bg-slate-800 border-slate-700">
+              <SelectContent class="bg-slate-800 border-slate-700 max-h-[400px]" position="popper" side="bottom" align="start">
                 <SelectItem value="__none__" class="text-slate-400 hover:bg-slate-700">
                   不采集系统音频
                 </SelectItem>

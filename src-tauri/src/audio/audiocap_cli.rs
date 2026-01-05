@@ -8,7 +8,7 @@
 
 use super::format::bytes_to_f32_le;
 use super::types::{AudioChunk, AudioError, AudioResult, AudioSource, AudioStreamSender};
-use std::io::{BufReader, Read};
+use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -271,6 +271,24 @@ impl AudioCapProcess {
         })
     }
 
+    /// 解析格式头
+    /// 格式: ACAP,<version>,<sampleRate>,<channels>,<format>\n
+    fn parse_format_header(header: &str) -> Option<(u32, u16)> {
+        let parts: Vec<&str> = header.trim().split(',').collect();
+        if parts.len() >= 5 && parts[0] == "ACAP" {
+            let sample_rate = parts[2].parse::<u32>().ok()?;
+            let channels = parts[3].parse::<u16>().ok()?;
+            tracing::info!(
+                "AudioCapCLI 格式头: version={}, sample_rate={}, channels={}, format={}",
+                parts[1], sample_rate, channels, parts[4]
+            );
+            Some((sample_rate, channels))
+        } else {
+            tracing::warn!("无法解析格式头: {}", header);
+            None
+        }
+    }
+
     /// 音频数据读取循环
     fn read_audio_loop(
         stdout: std::process::ChildStdout,
@@ -279,7 +297,31 @@ impl AudioCapProcess {
         start_time: Instant,
     ) {
         let mut reader = BufReader::with_capacity(READ_BUFFER_SIZE, stdout);
-        let mut buffer = vec![0u8; READ_BUFFER_SIZE];
+        
+        // 首先读取格式头
+        let mut header_line = String::new();
+        let (sample_rate, channels) = match reader.read_line(&mut header_line) {
+            Ok(n) if n > 0 => {
+                Self::parse_format_header(&header_line)
+                    .unwrap_or_else(|| {
+                        tracing::warn!("使用默认格式: {}Hz, {}ch", DEFAULT_SAMPLE_RATE, DEFAULT_CHANNELS);
+                        (DEFAULT_SAMPLE_RATE, DEFAULT_CHANNELS)
+                    })
+            }
+            Ok(_) => {
+                tracing::warn!("格式头为空，使用默认格式");
+                (DEFAULT_SAMPLE_RATE, DEFAULT_CHANNELS)
+            }
+            Err(e) => {
+                tracing::error!("读取格式头失败: {}", e);
+                (DEFAULT_SAMPLE_RATE, DEFAULT_CHANNELS)
+            }
+        };
+        
+        // 根据实际格式计算缓冲区大小
+        let bytes_per_frame = 4 * channels as usize; // f32 * channels
+        let buffer_size = sample_rate as usize * bytes_per_frame / 10; // 约 100ms
+        let mut buffer = vec![0u8; buffer_size];
 
         while running.load(Ordering::Relaxed) {
             match reader.read(&mut buffer) {
@@ -301,8 +343,8 @@ impl AudioCapProcess {
                     let chunk = AudioChunk::new(
                         samples,
                         timestamp_ms,
-                        DEFAULT_SAMPLE_RATE,
-                        DEFAULT_CHANNELS,
+                        sample_rate,
+                        channels,
                     );
 
                     // 发送到通道

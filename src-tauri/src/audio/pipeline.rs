@@ -5,8 +5,9 @@
 use super::capture::AudioCapture;
 use super::consumer::AudioConsumer;
 use super::level_meter::{LevelMeter, SharedLevel};
+use super::limiter::{LimiterConfig, SoftLimiter};
 use super::tee::AudioTee;
-use super::types::{AudioCaptureConfig, AudioError, AudioResult, AudioSource, AudioStream, CaptureState};
+use super::types::{AudioCaptureConfig, AudioError, AudioResult, AudioSource, AudioSourceType, AudioStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -44,6 +45,10 @@ pub struct AudioPipeline {
     running: Arc<AtomicBool>,
     /// 采集配置
     config: AudioCaptureConfig,
+    /// 限幅器配置
+    limiter_config: LimiterConfig,
+    /// 当前音频源类型（用于判断是否需要限幅）
+    current_source_type: Arc<RwLock<Option<AudioSourceType>>>,
 }
 
 impl AudioPipeline {
@@ -60,6 +65,8 @@ impl AudioPipeline {
             state: Arc::new(RwLock::new(PipelineState::Idle)),
             running: Arc::new(AtomicBool::new(false)),
             config: AudioCaptureConfig::default(),
+            limiter_config: LimiterConfig::default(),
+            current_source_type: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -67,6 +74,17 @@ impl AudioPipeline {
     pub fn with_config(mut self, config: AudioCaptureConfig) -> Self {
         self.config = config;
         self
+    }
+
+    /// 设置限幅器配置
+    pub fn with_limiter_config(mut self, config: LimiterConfig) -> Self {
+        self.limiter_config = config;
+        self
+    }
+
+    /// 启用或禁用限幅器
+    pub fn set_limiter_enabled(&mut self, enabled: bool) {
+        self.limiter_config.enabled = enabled;
     }
 
     /// 添加消费者
@@ -113,12 +131,29 @@ impl AudioPipeline {
 
         tracing::info!("启动音频管道: {}", audio_source.name);
 
+        // 保存当前音频源类型
+        *self.current_source_type.write().await = Some(audio_source.source_type.clone());
+
         // 启动音频采集
         let audio_stream = self.source.start(audio_source, &self.config)?;
 
         // 更新状态
         *self.state.write().await = PipelineState::Running;
         self.running.store(true, Ordering::SeqCst);
+
+        // 判断是否需要限幅（系统音频和应用音频需要，麦克风不需要）
+        let needs_limiter = matches!(
+            audio_source.source_type,
+            AudioSourceType::SystemAudio | AudioSourceType::Application { .. }
+        );
+        let limiter_config = if needs_limiter {
+            self.limiter_config.clone()
+        } else {
+            LimiterConfig {
+                enabled: false,
+                ..self.limiter_config.clone()
+            }
+        };
 
         // 启动处理循环
         let tee = self.tee.clone();
@@ -128,7 +163,7 @@ impl AudioPipeline {
         let state = self.state.clone();
 
         tokio::spawn(async move {
-            Self::process_loop(audio_stream, tee, consumers, level, running, state).await;
+            Self::process_loop(audio_stream, tee, consumers, level, running, state, limiter_config).await;
         });
 
         Ok(())
@@ -142,25 +177,53 @@ impl AudioPipeline {
         level: SharedLevel,
         running: Arc<AtomicBool>,
         state: Arc<RwLock<PipelineState>>,
+        limiter_config: LimiterConfig,
     ) {
         let mut level_meter = LevelMeter::new(4096);
+        let mut limiter = SoftLimiter::new(limiter_config.clone());
+        let mut log_counter: u64 = 0;
+
+        if limiter_config.enabled {
+            tracing::info!("音频管道启用软限幅器: threshold={}, ceiling={}", 
+                limiter_config.threshold, limiter_config.ceiling);
+        }
 
         while running.load(Ordering::SeqCst) {
             match input.recv().await {
                 Some(chunk) => {
+                    // 应用软限幅器（防止系统音频削波）
+                    let processed_chunk = if limiter_config.enabled {
+                        limiter.process(&chunk)
+                    } else {
+                        chunk
+                    };
+
                     // 更新音量电平
-                    level_meter.push_samples(&chunk.samples);
+                    level_meter.push_samples(&processed_chunk.samples);
                     level.set_level(level_meter.get_smoothed_level());
                     level.set_peak(level_meter.get_peak());
 
                     // 分发给 Tee 消费者
-                    let _ = tee.distribute(chunk.clone()).await;
+                    let _ = tee.distribute(processed_chunk.clone()).await;
 
                     // 处理同步消费者
                     let mut consumers_guard = consumers.write().await;
                     for consumer in consumers_guard.iter_mut() {
-                        if let Err(e) = consumer.consume(&chunk) {
+                        if let Err(e) = consumer.consume(&processed_chunk) {
                             tracing::warn!("消费者 {} 处理失败: {}", consumer.name(), e);
+                        }
+                    }
+
+                    // 定期输出限幅器统计（每 10 秒）
+                    log_counter += 1;
+                    if limiter_config.enabled && log_counter % 500 == 0 {
+                        let stats = limiter.stats();
+                        if stats.limiting_ratio > 0.0 {
+                            tracing::debug!(
+                                "限幅器统计: 限幅比例={:.2}%, 最大输入值={:.3}",
+                                stats.limiting_ratio * 100.0,
+                                stats.max_input_value
+                            );
                         }
                     }
                 }
@@ -169,6 +232,17 @@ impl AudioPipeline {
                     break;
                 }
             }
+        }
+
+        // 输出最终限幅器统计
+        if limiter_config.enabled {
+            let stats = limiter.stats();
+            tracing::info!(
+                "音频管道停止 - 限幅器统计: 处理采样数={}, 限幅比例={:.2}%, 最大输入值={:.3}",
+                stats.samples_processed,
+                stats.limiting_ratio * 100.0,
+                stats.max_input_value
+            );
         }
 
         // 刷新所有消费者
@@ -255,6 +329,7 @@ impl AudioPipeline {
 pub struct AudioPipelineBuilder {
     source: Option<Box<dyn AudioCapture + Send>>,
     config: AudioCaptureConfig,
+    limiter_config: LimiterConfig,
 }
 
 impl AudioPipelineBuilder {
@@ -263,6 +338,7 @@ impl AudioPipelineBuilder {
         Self {
             source: None,
             config: AudioCaptureConfig::default(),
+            limiter_config: LimiterConfig::default(),
         }
     }
 
@@ -278,13 +354,21 @@ impl AudioPipelineBuilder {
         self
     }
 
+    /// 设置限幅器配置
+    pub fn limiter_config(mut self, config: LimiterConfig) -> Self {
+        self.limiter_config = config;
+        self
+    }
+
     /// 构建管道
     pub fn build(self) -> AudioResult<AudioPipeline> {
         let source = self
             .source
             .ok_or_else(|| AudioError::ConfigError("未设置音频源".to_string()))?;
 
-        Ok(AudioPipeline::new(source).with_config(self.config))
+        Ok(AudioPipeline::new(source)
+            .with_config(self.config)
+            .with_limiter_config(self.limiter_config))
     }
 }
 

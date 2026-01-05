@@ -263,7 +263,7 @@ fn start_audio_test(
     system_source_id: Option<String>,
     enable_recording: bool,
 ) -> Result<AudioTestStartResult, String> {
-    use audio::{AudioCapture, AudioCaptureConfig, LevelMeter, MicrophoneCapture, WavRecorder};
+    use audio::{AudioCapture, AudioCaptureConfig, LevelMeter, MicrophoneCapture, WavRecorder, SoftLimiter, LimiterConfig};
     #[cfg(target_os = "macos")]
     use audio::MacOSSystemCapture;
     use std::sync::atomic::Ordering;
@@ -359,10 +359,11 @@ fn start_audio_test(
         });
         
         // ========== 系统音频采集（仅 macOS）==========
+        // 注意：系统音频的 WavRecorder 延迟创建，等收到第一个 AudioChunk 后根据其实际格式创建
         #[cfg(target_os = "macos")]
-        let (mut system_capture, system_stream, mut system_recorder): (Option<MacOSSystemCapture>, Option<audio::AudioStream>, Option<WavRecorder>) = 'system_init: {
+        let (mut system_capture, system_stream): (Option<MacOSSystemCapture>, Option<audio::AudioStream>) = 'system_init: {
             let Some(ref source_id) = system_source_id else {
-                break 'system_init (None, None, None);
+                break 'system_init (None, None);
             };
             
             let mut capture = MacOSSystemCapture::new(Some(app_handle_for_system));
@@ -372,7 +373,7 @@ fn start_audio_test(
                 Ok(s) => s,
                 Err(e) => {
                     tracing::error!("获取系统音频源失败: {}", e);
-                    break 'system_init (None, None, None);
+                    break 'system_init (None, None);
                 }
             };
             
@@ -380,35 +381,38 @@ fn start_audio_test(
             
             let Some(source) = system_source else {
                 tracing::warn!("未找到系统音频源: {}", source_id);
-                break 'system_init (None, None, None);
+                break 'system_init (None, None);
             };
             
             match capture.start(&source, &config) {
                 Ok(stream) => {
-                    // 创建系统音频录制器
-                    let recorder = system_recording_path.and_then(|path| {
-                        match WavRecorder::new(path.clone(), config.sample_rate, config.channels as u16) {
-                            Ok(r) => {
-                                tracing::info!("系统音频 WAV 录制器已创建: {:?}", path);
-                                Some(r)
-                            }
-                            Err(e) => {
-                                tracing::error!("创建系统音频 WAV 录制器失败: {}", e);
-                                None
-                            }
-                        }
-                    });
-                    (Some(capture), Some(stream), recorder)
+                    (Some(capture), Some(stream))
                 }
                 Err(e) => {
                     tracing::error!("启动系统音频采集失败: {}", e);
-                    (None, None, None)
+                    (None, None)
                 }
             }
         };
         
+        // 系统音频录制器 - 延迟创建
+        #[cfg(target_os = "macos")]
+        let mut system_recorder: Option<WavRecorder> = None;
+        
+        // 系统音频限幅器（防止 AudioCapCLI 输出的音频削波）
+        #[cfg(target_os = "macos")]
+        let mut system_limiter = SoftLimiter::new(LimiterConfig {
+            enabled: true,
+            threshold: 0.9,
+            ceiling: 0.99,
+            knee: 0.5,
+        });
+        tracing::info!("系统音频限幅器已启用: threshold=0.9, ceiling=0.99");
+        
         #[cfg(not(target_os = "macos"))]
-        let (mut system_capture, system_stream, mut system_recorder): (Option<()>, Option<audio::AudioStream>, Option<WavRecorder>) = (None, None, None);
+        let (mut system_capture, system_stream): (Option<()>, Option<audio::AudioStream>) = (None, None);
+        #[cfg(not(target_os = "macos"))]
+        let mut system_recorder: Option<WavRecorder> = None;
         let _ = &mut system_capture; // suppress unused warning on non-macos
         let _ = &mut system_recorder;
         
@@ -458,16 +462,41 @@ fn start_audio_test(
                 // 处理系统音频数据（如果有）
                 if let Some(ref mut sys_stream) = system_stream_opt {
                     if let Ok(chunk) = sys_stream.try_recv() {
-                        // 写入系统音频录制文件
+                        // 应用限幅器，防止削波
+                        #[cfg(target_os = "macos")]
+                        let limited_chunk = system_limiter.process(&chunk);
+                        #[cfg(not(target_os = "macos"))]
+                        let limited_chunk = chunk;
+                        
+                        // 延迟创建系统音频录制器（使用实际的采样率和声道数）
+                        #[cfg(target_os = "macos")]
+                        if system_recorder.is_none() && system_recording_path.is_some() {
+                            if let Some(ref path) = system_recording_path {
+                                match WavRecorder::new(path.clone(), limited_chunk.sample_rate, limited_chunk.channels) {
+                                    Ok(r) => {
+                                        tracing::info!(
+                                            "系统音频 WAV 录制器已创建: {:?} ({}Hz, {}ch)",
+                                            path, limited_chunk.sample_rate, limited_chunk.channels
+                                        );
+                                        system_recorder = Some(r);
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("创建系统音频 WAV 录制器失败: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 写入限幅后的系统音频数据
                         #[cfg(target_os = "macos")]
                         if let Some(ref mut rec) = system_recorder {
-                            if let Err(e) = rec.write_samples(&chunk.samples) {
+                            if let Err(e) = rec.write_samples(&limited_chunk.samples) {
                                 tracing::error!("写入系统音频 WAV 失败: {}", e);
                             }
                         }
                         
-                        // 更新系统音频电平
-                        system_level_meter.push_samples(&chunk.samples);
+                        // 更新系统音频电平（使用限幅后的数据）
+                        system_level_meter.push_samples(&limited_chunk.samples);
                     }
                 }
                 
@@ -499,6 +528,15 @@ fn start_audio_test(
                 if let Err(e) = rec.finalize() {
                     tracing::error!("完成系统音频 WAV 录制失败: {}", e);
                 }
+                
+                // 输出限幅器统计
+                let stats = system_limiter.stats();
+                tracing::info!(
+                    "系统音频限幅器统计: 处理采样数={}, 限幅比例={:.2}%, 最大输入值={:.4}",
+                    stats.samples_processed,
+                    stats.limiting_ratio * 100.0,
+                    stats.max_input_value
+                );
             }
             
             // 停止采集

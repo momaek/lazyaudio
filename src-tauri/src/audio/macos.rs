@@ -47,8 +47,14 @@ impl AudioCapture for MacOSSystemCapture {
         let mut sources = vec![AudioSource::system_audio()];
 
         // 获取应用音频源
-        if let Ok(app_sources) = AudioCapProcess::list_sources(self.app_handle.as_ref()) {
-            sources.extend(app_sources);
+        match AudioCapProcess::list_sources(self.app_handle.as_ref()) {
+            Ok(app_sources) => {
+                tracing::info!("获取到 {} 个应用音频源", app_sources.len());
+                sources.extend(app_sources);
+            }
+            Err(e) => {
+                tracing::warn!("获取应用音频源失败: {}", e);
+            }
         }
 
         Ok(sources)
