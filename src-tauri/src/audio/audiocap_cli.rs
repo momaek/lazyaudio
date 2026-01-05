@@ -8,7 +8,7 @@
 
 use super::format::bytes_to_f32_le;
 use super::types::{AudioChunk, AudioError, AudioResult, AudioSource, AudioStreamSender};
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -331,7 +331,7 @@ impl AudioCapProcess {
         self.running.store(false, Ordering::Relaxed);
 
         // 关闭 stdin（这会让 AudioCapCLI 退出）
-        if let Some(mut stdin) = self.child.stdin.take() {
+        if let Some(stdin) = self.child.stdin.take() {
             drop(stdin);
         }
 

@@ -24,7 +24,12 @@ use super::types::{
 ///
 /// capture.stop()?;
 /// ```
-pub trait AudioCapture: Send {
+///
+/// # 注意
+/// 
+/// 由于 cpal::Stream 不是 Send 的，MicrophoneCapture 不能跨线程使用。
+/// 如果需要在多线程环境中使用，请通过 AudioStream channel 传递数据。
+pub trait AudioCapture {
     /// 获取可用的音频源列表
     ///
     /// # Returns

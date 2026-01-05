@@ -128,6 +128,43 @@ async checkAllPermissions() : Promise<AllPermissionsStatus> {
  */
 async allRequiredPermissionsGranted() : Promise<boolean> {
     return await TAURI_INVOKE("all_required_permissions_granted");
+},
+/**
+ * 列出所有可用的音频源
+ * 
+ * 返回系统音频源和麦克风设备列表
+ */
+async listAudioSources() : Promise<Result<AudioSource[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_audio_sources") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 列出可用的麦克风设备
+ */
+async listMicrophones() : Promise<Result<AudioSource[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_microphones") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 列出可用的系统音频源（macOS）
+ * 
+ * 包括系统音频和正在播放音频的应用
+ */
+async listSystemAudioSources() : Promise<Result<AudioSource[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_system_audio_sources") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -268,6 +305,34 @@ inputGain?: number }
 /**
  * 音频源信息
  */
+export type AudioSource = { 
+/**
+ * 音频源唯一标识
+ */
+id: string; 
+/**
+ * 音频源名称（用于显示）
+ */
+name: string; 
+/**
+ * 音频源类型
+ */
+source_type: AudioSourceType; 
+/**
+ * 是否为默认设备
+ */
+is_default: boolean; 
+/**
+ * 采样率（Hz）
+ */
+sample_rate?: number | null; 
+/**
+ * 通道数
+ */
+channels?: number | null }
+/**
+ * 音频源信息
+ */
 export type AudioSourceInfo = { 
 /**
  * 设备 ID
@@ -285,6 +350,22 @@ name: string;
  * 应用 Bundle ID
  */
 bundleId?: string | null }
+/**
+ * 音频源类型
+ */
+export type AudioSourceType = 
+/**
+ * 系统音频（全局）
+ */
+{ type: "system_audio" } | 
+/**
+ * 指定应用的音频
+ */
+{ type: "application"; bundle_id: string; pid: number } | 
+/**
+ * 麦克风输入
+ */
+{ type: "microphone" }
 /**
  * 音频源类型
  */

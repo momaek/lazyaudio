@@ -33,7 +33,7 @@ mod types;
 #[cfg(target_os = "macos")]
 mod audiocap_cli;
 #[cfg(target_os = "macos")]
-mod macos;
+pub mod macos;
 
 // 麦克风采集（跨平台）
 mod microphone;

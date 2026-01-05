@@ -169,7 +169,7 @@ impl MicrophoneCapture {
         let src_channels = stream_config.channels;
         let src_sample_rate = stream_config.sample_rate.0;
         let dst_channels = config.channels;
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         // 用于追踪时间戳
         let sample_counter = Arc::new(AtomicU64::new(0));
