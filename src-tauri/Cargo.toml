@@ -23,7 +23,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # 异步运行时
-tokio = { version = "1", features = ["sync", "rt-multi-thread"] }
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time"] }
+
+# WAV 文件写入
+hound = "3.5"
 
 # 类型导出
 specta = { version = "2.0.0-rc.22", features = ["derive"] }
@@ -42,6 +45,7 @@ tracing-subscriber = "0.3.22"
 
 # 音频采集
 cpal = "0.15"
+rubato = "1.0.0"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
@@ -50,3 +54,4 @@ module_name_repetitions = "allow"
 
 [dev-dependencies]
 tempfile = "3.24.0"
+tokio = { version = "1", features = ["macros", "rt"] }

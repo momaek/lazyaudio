@@ -13,7 +13,6 @@ const props = defineProps<{
 
 // 权限状态
 const permissions = ref<AllPermissionsStatus | null>(null)
-const isLoading = ref(false)
 const isChecking = ref(false)
 
 // 权限配置
@@ -118,20 +117,6 @@ async function checkAllPermissions() {
     console.error('检查权限失败:', error)
   } finally {
     isChecking.value = false
-  }
-}
-
-// 请求权限
-async function requestPermission(type: PermissionType) {
-  isLoading.value = true
-  try {
-    await commands.requestPermission(type)
-    // 重新检查所有权限状态
-    await checkAllPermissions()
-  } catch (error) {
-    console.error('请求权限失败:', error)
-  } finally {
-    isLoading.value = false
   }
 }
 

@@ -165,12 +165,39 @@ async listSystemAudioSources() : Promise<Result<AudioSource[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * 开始音频测试采集
+ */
+async startAudioTest(micId: string, systemSourceId: string | null, enableRecording: boolean) : Promise<Result<AudioTestStartResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_audio_test", { micId, systemSourceId, enableRecording }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 停止音频测试采集
+ */
+async stopAudioTest() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_audio_test") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+audioLevelEvent: AudioLevelEvent
+}>({
+audioLevelEvent: "audio-level-event"
+})
 
 /** user-defined constants **/
 
@@ -303,6 +330,34 @@ channels?: number;
  */
 inputGain?: number }
 /**
+ * 音频电平事件数据
+ */
+export type AudioLevelEvent = { 
+/**
+ * 麦克风音量电平 (0.0 - 1.0)
+ */
+micLevel: number; 
+/**
+ * 麦克风峰值电平 (0.0 - 1.0)
+ */
+micPeak: number; 
+/**
+ * 系统音频音量电平 (0.0 - 1.0)
+ */
+systemLevel: number; 
+/**
+ * 系统音频峰值电平 (0.0 - 1.0)
+ */
+systemPeak: number; 
+/**
+ * 已处理采样数
+ */
+samples: number; 
+/**
+ * 采集时长（毫秒）
+ */
+durationMs: number }
+/**
  * 音频源信息
  */
 export type AudioSource = { 
@@ -382,6 +437,18 @@ export type AudioSourceType =
  * 麦克风
  */
 "microphone"
+/**
+ * 音频测试启动结果
+ */
+export type AudioTestStartResult = { 
+/**
+ * 麦克风录制文件路径
+ */
+micRecordingPath: string | null; 
+/**
+ * 系统音频录制文件路径
+ */
+systemRecordingPath: string | null }
 /**
  * Claude 配置
  */

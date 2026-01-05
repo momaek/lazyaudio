@@ -4,29 +4,47 @@
 //! - 系统音频采集（macOS: AudioCapCLI, Windows: WASAPI）
 //! - 麦克风采集（跨平台 cpal）
 //! - 音频格式转换
+//! - 音频管道（RingBuffer、Tee、重采样、电平检测）
 //!
 //! # 架构
 //!
 //! ```text
-//! ┌─────────────────────────────────────────────────────────────┐
-//! │                    AudioCapture trait                        │
-//! ├─────────────────────────────────────────────────────────────┤
-//! │                                                              │
-//! │  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-//! │  │ MacOSSystemCapture  │    │    MicrophoneCapture        │ │
-//! │  │  (AudioCapCLI)      │    │       (cpal)                │ │
-//! │  └─────────┬───────────┘    └─────────────┬───────────────┘ │
-//! │            │                              │                  │
-//! │            └──────────┬───────────────────┘                  │
-//! │                       ▼                                      │
-//! │              AudioStream (mpsc::Receiver<AudioChunk>)        │
-//! │                                                              │
-//! └─────────────────────────────────────────────────────────────┘
+//! 音频源 (48kHz/2ch)
+//!       │
+//!       ▼
+//! ┌─────────────┐
+//! │ Ring Buffer │
+//! └──────┬──────┘
+//!        │
+//!        ├─────────────────────┬────────────────────┐
+//!        │                     │                    │
+//!        ▼                     ▼                    ▼
+//! ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+//! │  Recorder   │      │  Resampler  │      │   Level     │
+//! │  (WAV 落盘)  │      │  (→16kHz)   │      │   Meter     │
+//! └─────────────┘      └──────┬──────┘      └─────────────┘
+//!                             │
+//!                             ▼
+//!                      ┌─────────────┐
+//!                      │     VAD     │
+//!                      └──────┬──────┘
+//!                             │
+//!                             ▼
+//!                      ┌─────────────┐
+//!                      │ Recognizer  │
+//!                      └─────────────┘
 //! ```
 
 // 子模块
 mod capture;
+mod consumer;
 mod format;
+mod level_meter;
+mod pipeline;
+mod recorder;
+mod resampler;
+mod ring_buffer;
+mod tee;
 mod types;
 
 // macOS 平台特定模块
@@ -40,7 +58,14 @@ mod microphone;
 
 // 导出类型
 pub use capture::{AsyncAudioCapture, AudioCapture};
+pub use consumer::{AsyncAudioConsumer, AudioConsumer, AudioConsumerFactory};
 pub use format::*;
+pub use level_meter::{LevelMeter, SharedLevel};
+pub use pipeline::{AudioPipeline, AudioPipelineBuilder, PipelineState};
+pub use recorder::WavRecorder;
+pub use resampler::{Resampler, ResamplerConsumer};
+pub use ring_buffer::{ring_buffer_pair, RingBuffer, RingBufferConsumer, RingBufferProducer};
+pub use tee::AudioTee;
 pub use types::*;
 
 // 导出平台特定实现

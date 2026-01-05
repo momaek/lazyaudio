@@ -4,13 +4,14 @@ import { invoke } from '@tauri-apps/api/core'
 import { useAppStore } from '@/stores/app'
 import { commands } from '@/types'
 import PermissionGuide from '@/views/onboarding/PermissionGuide.vue'
+import AudioTest from '@/views/test/AudioTest.vue'
 
 const appStore = useAppStore()
 const greetMsg = ref('')
 const name = ref('')
 
 // 应用状态
-const appState = ref<'loading' | 'permission_check' | 'ready'>('loading')
+const appState = ref<'loading' | 'permission_check' | 'ready' | 'audio_test'>('loading')
 
 async function greet() {
   greetMsg.value = await invoke('greet', { name: name.value })
@@ -65,6 +66,17 @@ onMounted(() => {
     :on-complete="onPermissionComplete"
   />
 
+  <!-- 音频测试页面 -->
+  <div v-else-if="appState === 'audio_test'" class="relative">
+    <button
+      class="absolute top-4 left-4 z-10 px-3 py-1.5 text-sm rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+      @click="appState = 'ready'"
+    >
+      ← 返回主页
+    </button>
+    <AudioTest />
+  </div>
+
   <!-- 主应用界面 -->
   <main v-else class="min-h-screen bg-background text-foreground">
     <div class="container mx-auto px-4 py-16">
@@ -118,6 +130,24 @@ onMounted(() => {
             @click="appStore.setTheme('system')"
           >
             跟随系统
+          </button>
+        </div>
+
+        <!-- 开发测试入口 -->
+        <div class="w-full max-w-md">
+          <button
+            class="w-full rounded-lg border-2 border-dashed border-cyan-500/30 bg-cyan-500/5 p-4 text-left transition-all hover:border-cyan-500/50 hover:bg-cyan-500/10"
+            @click="appState = 'audio_test'"
+          >
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/20">
+                <span class="text-xl">🔬</span>
+              </div>
+              <div>
+                <h3 class="font-medium text-cyan-400">音频采集测试</h3>
+                <p class="text-sm text-muted-foreground">测试麦克风和系统音频采集</p>
+              </div>
+            </div>
           </button>
         </div>
 

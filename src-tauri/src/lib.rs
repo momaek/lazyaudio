@@ -27,7 +27,7 @@ use audio::AudioSource;
 use permissions::{AllPermissionsStatus, PermissionManager, PermissionStatus, PermissionType};
 use state::AppState;
 use storage::{AppConfig, SessionAudioConfig, SessionMeta, SessionRecord, TranscriptSegment};
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::{collect_commands, Builder, Event};
 
 // ============================================================================
 // Tauri Commands
@@ -217,31 +217,351 @@ fn list_system_audio_sources() -> Result<Vec<AudioSource>, String> {
 }
 
 // ============================================================================
+// 音频测试 Commands
+// ============================================================================
+
+/// 音频电平事件数据
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, tauri_specta::Event)]
+pub struct AudioLevelEvent {
+    /// 麦克风音量电平 (0.0 - 1.0)
+    #[serde(rename = "micLevel")]
+    pub mic_level: f32,
+    /// 麦克风峰值电平 (0.0 - 1.0)
+    #[serde(rename = "micPeak")]
+    pub mic_peak: f32,
+    /// 系统音频音量电平 (0.0 - 1.0)
+    #[serde(rename = "systemLevel")]
+    pub system_level: f32,
+    /// 系统音频峰值电平 (0.0 - 1.0)
+    #[serde(rename = "systemPeak")]
+    pub system_peak: f32,
+    /// 已处理采样数
+    pub samples: u64,
+    /// 采集时长（毫秒）
+    #[serde(rename = "durationMs")]
+    pub duration_ms: u64,
+}
+
+/// 音频测试启动结果
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct AudioTestStartResult {
+    /// 麦克风录制文件路径
+    #[serde(rename = "micRecordingPath")]
+    pub mic_recording_path: Option<String>,
+    /// 系统音频录制文件路径
+    #[serde(rename = "systemRecordingPath")]
+    pub system_recording_path: Option<String>,
+}
+
+/// 开始音频测试采集
+#[tauri::command]
+#[specta::specta]
+fn start_audio_test(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    mic_id: String,
+    system_source_id: Option<String>,
+    enable_recording: bool,
+) -> Result<AudioTestStartResult, String> {
+    use audio::{AudioCapture, AudioCaptureConfig, LevelMeter, MicrophoneCapture, WavRecorder};
+    #[cfg(target_os = "macos")]
+    use audio::MacOSSystemCapture;
+    use std::sync::atomic::Ordering;
+    
+    if state.audio_test.running() {
+        return Err("音频测试已在运行中".to_string());
+    }
+    
+    // 判断是否需要采集系统音频
+    let capture_system = system_source_id.is_some();
+    
+    tracing::info!(
+        "开始音频测试: mic={}, system={:?}, recording={}",
+        mic_id, system_source_id, enable_recording
+    );
+    
+    // 生成录制文件路径
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+    let base_dir = dirs::audio_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("LazyAudio");
+    
+    let mic_recording_path = if enable_recording {
+        Some(base_dir.join(format!("mic_{}.wav", timestamp)))
+    } else {
+        None
+    };
+    
+    let system_recording_path = if enable_recording && capture_system {
+        Some(base_dir.join(format!("system_{}.wav", timestamp)))
+    } else {
+        None
+    };
+    
+    let result = AudioTestStartResult {
+        mic_recording_path: mic_recording_path.clone().map(|p| p.to_string_lossy().to_string()),
+        system_recording_path: system_recording_path.clone().map(|p| p.to_string_lossy().to_string()),
+    };
+    
+    // 标记为运行中
+    state.audio_test.set_running(true);
+    let is_running = state.audio_test.is_running.clone();
+    let app_handle = app.clone();
+    let app_handle_for_system = app.clone();
+    
+    // 在独立线程中创建和运行音频采集（cpal Stream 不是 Send）
+    std::thread::spawn(move || {
+        // ========== 麦克风采集 ==========
+        let mut mic_capture = MicrophoneCapture::new();
+        
+        // 获取麦克风源
+        let sources = match mic_capture.list_sources() {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("获取麦克风列表失败: {}", e);
+                is_running.store(false, Ordering::SeqCst);
+                return;
+            }
+        };
+        
+        let mic_source = match sources.into_iter().find(|s| s.id == mic_id) {
+            Some(s) => s,
+            None => {
+                tracing::error!("未找到麦克风: {}", mic_id);
+                is_running.store(false, Ordering::SeqCst);
+                return;
+            }
+        };
+        
+        // 启动麦克风采集
+        let config = AudioCaptureConfig::default();
+        let mic_stream = match mic_capture.start(&mic_source, &config) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("启动麦克风采集失败: {}", e);
+                is_running.store(false, Ordering::SeqCst);
+                return;
+            }
+        };
+        
+        // 创建麦克风录制器
+        let mut mic_recorder = mic_recording_path.and_then(|path| {
+            match WavRecorder::new(path.clone(), config.sample_rate, config.channels as u16) {
+                Ok(r) => {
+                    tracing::info!("麦克风 WAV 录制器已创建: {:?}", path);
+                    Some(r)
+                }
+                Err(e) => {
+                    tracing::error!("创建麦克风 WAV 录制器失败: {}", e);
+                    None
+                }
+            }
+        });
+        
+        // ========== 系统音频采集（仅 macOS）==========
+        #[cfg(target_os = "macos")]
+        let (mut system_capture, system_stream, mut system_recorder): (Option<MacOSSystemCapture>, Option<audio::AudioStream>, Option<WavRecorder>) = 'system_init: {
+            let Some(ref source_id) = system_source_id else {
+                break 'system_init (None, None, None);
+            };
+            
+            let mut capture = MacOSSystemCapture::new(Some(app_handle_for_system));
+            
+            // 获取系统音频源
+            let sources = match capture.list_sources() {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("获取系统音频源失败: {}", e);
+                    break 'system_init (None, None, None);
+                }
+            };
+            
+            let system_source = sources.into_iter().find(|s| s.id == *source_id);
+            
+            let Some(source) = system_source else {
+                tracing::warn!("未找到系统音频源: {}", source_id);
+                break 'system_init (None, None, None);
+            };
+            
+            match capture.start(&source, &config) {
+                Ok(stream) => {
+                    // 创建系统音频录制器
+                    let recorder = system_recording_path.and_then(|path| {
+                        match WavRecorder::new(path.clone(), config.sample_rate, config.channels as u16) {
+                            Ok(r) => {
+                                tracing::info!("系统音频 WAV 录制器已创建: {:?}", path);
+                                Some(r)
+                            }
+                            Err(e) => {
+                                tracing::error!("创建系统音频 WAV 录制器失败: {}", e);
+                                None
+                            }
+                        }
+                    });
+                    (Some(capture), Some(stream), recorder)
+                }
+                Err(e) => {
+                    tracing::error!("启动系统音频采集失败: {}", e);
+                    (None, None, None)
+                }
+            }
+        };
+        
+        #[cfg(not(target_os = "macos"))]
+        let (mut system_capture, system_stream, mut system_recorder): (Option<()>, Option<audio::AudioStream>, Option<WavRecorder>) = (None, None, None);
+        let _ = &mut system_capture; // suppress unused warning on non-macos
+        let _ = &mut system_recorder;
+        
+        // 使用 tokio runtime 来处理异步接收
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to create tokio runtime");
+        
+        rt.block_on(async {
+            let mut mic_stream = mic_stream;
+            let mut mic_level_meter = LevelMeter::new(4096);
+            let mut system_level_meter = LevelMeter::new(4096);
+            let mut total_samples: u64 = 0;
+            let start_time = std::time::Instant::now();
+            let mut last_emit = std::time::Instant::now();
+            
+            // 系统音频流（如果有）
+            #[cfg(target_os = "macos")]
+            let mut system_stream_opt = system_stream;
+            #[cfg(not(target_os = "macos"))]
+            let system_stream_opt: Option<audio::AudioStream> = system_stream;
+            
+            while is_running.load(Ordering::SeqCst) {
+                // 处理麦克风数据
+                tokio::select! {
+                    biased;
+                    
+                    chunk = mic_stream.recv() => {
+                        if let Some(audio_chunk) = chunk {
+                            // 写入麦克风录制文件
+                            if let Some(ref mut rec) = mic_recorder {
+                                if let Err(e) = rec.write_samples(&audio_chunk.samples) {
+                                    tracing::error!("写入麦克风 WAV 失败: {}", e);
+                                }
+                            }
+                            
+                            // 更新麦克风音量电平
+                            mic_level_meter.push_samples(&audio_chunk.samples);
+                            total_samples += audio_chunk.samples.len() as u64;
+                        }
+                    }
+                    
+                    _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {}
+                }
+                
+                // 处理系统音频数据（如果有）
+                if let Some(ref mut sys_stream) = system_stream_opt {
+                    if let Ok(chunk) = sys_stream.try_recv() {
+                        // 写入系统音频录制文件
+                        #[cfg(target_os = "macos")]
+                        if let Some(ref mut rec) = system_recorder {
+                            if let Err(e) = rec.write_samples(&chunk.samples) {
+                                tracing::error!("写入系统音频 WAV 失败: {}", e);
+                            }
+                        }
+                        
+                        // 更新系统音频电平
+                        system_level_meter.push_samples(&chunk.samples);
+                    }
+                }
+                
+                // 每 50ms 发送一次事件
+                if last_emit.elapsed().as_millis() >= 50 {
+                    let event = AudioLevelEvent {
+                        mic_level: mic_level_meter.get_smoothed_level(),
+                        mic_peak: mic_level_meter.get_peak(),
+                        system_level: system_level_meter.get_smoothed_level(),
+                        system_peak: system_level_meter.get_peak(),
+                        samples: total_samples,
+                        duration_ms: start_time.elapsed().as_millis() as u64,
+                    };
+                    let _ = event.emit(&app_handle);
+                    last_emit = std::time::Instant::now();
+                }
+            }
+            
+            // 完成麦克风录制
+            if let Some(mut rec) = mic_recorder {
+                if let Err(e) = rec.finalize() {
+                    tracing::error!("完成麦克风 WAV 录制失败: {}", e);
+                }
+            }
+            
+            // 完成系统音频录制
+            #[cfg(target_os = "macos")]
+            if let Some(mut rec) = system_recorder {
+                if let Err(e) = rec.finalize() {
+                    tracing::error!("完成系统音频 WAV 录制失败: {}", e);
+                }
+            }
+            
+            // 停止采集
+            let _ = mic_capture.stop();
+            #[cfg(target_os = "macos")]
+            if let Some(mut cap) = system_capture {
+                let _ = cap.stop();
+            }
+            
+            is_running.store(false, Ordering::SeqCst);
+            
+            tracing::info!("音频测试任务结束，共处理 {} 采样", total_samples);
+        });
+    });
+    
+    Ok(result)
+}
+
+/// 停止音频测试采集
+#[tauri::command]
+#[specta::specta]
+fn stop_audio_test(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    if !state.audio_test.running() {
+        return Ok(());
+    }
+    
+    tracing::info!("停止音频测试");
+    state.audio_test.set_running(false);
+    
+    Ok(())
+}
+
+// ============================================================================
 // Specta Builder
 // ============================================================================
 
 /// 构建 Tauri specta 类型导出器
 fn build_specta_builder() -> Builder {
-    Builder::<tauri::Wry>::new().commands(collect_commands![
-        greet,
-        get_config,
-        set_config,
-        create_session,
-        get_session,
-        list_sessions,
-        delete_session,
-        get_transcript,
-        // 权限相关
-        check_permission,
-        request_permission,
-        open_permission_settings,
-        check_all_permissions,
-        all_required_permissions_granted,
-        // 音频相关
-        list_audio_sources,
-        list_microphones,
-        list_system_audio_sources,
-    ])
+    Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            greet,
+            get_config,
+            set_config,
+            create_session,
+            get_session,
+            list_sessions,
+            delete_session,
+            get_transcript,
+            // 权限相关
+            check_permission,
+            request_permission,
+            open_permission_settings,
+            check_all_permissions,
+            all_required_permissions_granted,
+            // 音频相关
+            list_audio_sources,
+            list_microphones,
+            list_system_audio_sources,
+            // 音频测试
+            start_audio_test,
+            stop_audio_test,
+        ])
+        .events(tauri_specta::collect_events![AudioLevelEvent])
 }
 
 /// 导出 TypeScript 类型定义到前端
