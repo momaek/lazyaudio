@@ -29,18 +29,25 @@
 //! let result = recognizer.get_result();
 //! ```
 
+mod downloader;
 mod engine;
 mod model;
+mod multi_pass;
 mod pipeline;
 mod recognizer;
 mod types;
 
 // 导出类型
+pub use downloader::ModelDownloader;
 pub use engine::{create_shared_engine, AsrEngine, SharedAsrEngine};
 pub use model::{LoadedModel, ModelFiles, ModelManager};
+pub use multi_pass::{
+    BufferedSegment, MultiPassScheduler, ResultMerger, SchedulerConfig, SegmentBuffer,
+    SegmentBufferConfig, Tier2Recognizer,
+};
 pub use pipeline::{AsrPipeline, AsrPipelineConfig, SyncAsrPipeline};
 pub use recognizer::{BatchRecognizer, StreamingRecognizer};
 pub use types::{
-    AsrConfig, AsrError, AsrResult, DecodingMethod, ModelInfo, ModelType, RecognitionResult,
-    WordTimestamp,
+    AsrConfig, AsrError, AsrResult, DecodingMethod, ModelInfo, ModelType, MultiPassResult,
+    RecognitionResult, RecognitionTier, TierVersion, WordTimestamp,
 };

@@ -187,6 +187,63 @@ async stopAudioTest() : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * 列出所有可用的 ASR 模型
+ */
+async listAsrModels() : Promise<Result<ModelInfo[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_asr_models") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 检查模型是否已下载
+ */
+async isModelDownloaded(modelId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_model_downloaded", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 获取模型信息
+ */
+async getModelInfo(modelId: string) : Promise<Result<ModelInfo | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_model_info", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 检查是否至少有一个模型已下载
+ */
+async hasAnyModelDownloaded() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("has_any_model_downloaded") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 下载并安装模型
+ * 
+ * 从网络下载真实的模型文件并解压安装
+ */
+async downloadModel(modelId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_model", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -194,9 +251,13 @@ async stopAudioTest() : Promise<Result<null, string>> {
 
 
 export const events = __makeEvents__<{
-audioLevelEvent: AudioLevelEvent
+audioLevelEvent: AudioLevelEvent,
+modelDownloadComplete: ModelDownloadComplete,
+modelDownloadProgress: ModelDownloadProgress
 }>({
-audioLevelEvent: "audio-level-event"
+audioLevelEvent: "audio-level-event",
+modelDownloadComplete: "model-download-complete",
+modelDownloadProgress: "model-download-progress"
 })
 
 /** user-defined constants **/
@@ -521,6 +582,86 @@ pauseResume?: string }
  * 界面语言
  */
 export type Language = "zh-cn" | "en-us"
+/**
+ * 模型下载完成事件
+ */
+export type ModelDownloadComplete = { 
+/**
+ * 模型 ID
+ */
+modelId: string; 
+/**
+ * 是否成功
+ */
+success: boolean; 
+/**
+ * 错误信息（如果失败）
+ */
+error: string | null }
+/**
+ * 模型下载进度事件
+ */
+export type ModelDownloadProgress = { 
+/**
+ * 模型 ID
+ */
+modelId: string; 
+/**
+ * 已下载字节数
+ */
+downloaded: number; 
+/**
+ * 总字节数
+ */
+total: number; 
+/**
+ * 下载进度（0-100）
+ */
+progress: number }
+/**
+ * 模型信息
+ */
+export type ModelInfo = { 
+/**
+ * 模型唯一 ID
+ */
+id: string; 
+/**
+ * 模型名称（显示用）
+ */
+name: string; 
+/**
+ * 支持的语言
+ */
+language: string; 
+/**
+ * 模型大小（MB）
+ */
+size_mb: number; 
+/**
+ * 是否已下载
+ */
+is_downloaded: boolean; 
+/**
+ * 模型类型
+ */
+model_type: ModelType; 
+/**
+ * 模型描述
+ */
+description?: string | null }
+/**
+ * 模型类型
+ */
+export type ModelType = 
+/**
+ * 流式模型（实时转录）
+ */
+"streaming" | 
+/**
+ * 非流式模型（离线转录）
+ */
+"non_streaming"
 /**
  * Ollama 配置
  */

@@ -24,6 +24,7 @@ pub mod storage;
 pub mod types;
 
 use audio::AudioSource;
+use commands::{ModelDownloadComplete, ModelDownloadProgress};
 use permissions::{AllPermissionsStatus, PermissionManager, PermissionStatus, PermissionType};
 use state::AppState;
 use storage::{AppConfig, SessionAudioConfig, SessionMeta, SessionRecord, TranscriptSegment};
@@ -598,8 +599,18 @@ fn build_specta_builder() -> Builder {
             // 音频测试
             start_audio_test,
             stop_audio_test,
+            // ASR 模型相关
+            commands::asr::list_asr_models,
+            commands::asr::is_model_downloaded,
+            commands::asr::get_model_info,
+            commands::asr::has_any_model_downloaded,
+            commands::asr::download_model,
         ])
-        .events(tauri_specta::collect_events![AudioLevelEvent])
+        .events(tauri_specta::collect_events![
+            AudioLevelEvent,
+            ModelDownloadProgress,
+            ModelDownloadComplete,
+        ])
 }
 
 /// 导出 TypeScript 类型定义到前端

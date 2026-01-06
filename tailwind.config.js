@@ -48,6 +48,17 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // LazyAudio 品牌色
+        la: {
+          indigo: '#6366f1',
+          violet: '#8b5cf6',
+          purple: '#a78bfa',
+          success: '#10b981',
+          warning: '#f59e0b',
+          info: '#3b82f6',
+          recording: '#ef4444',
+          cyan: '#06b6d4',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -71,15 +82,19 @@ export default {
           from: { transform: 'translateY(10px)', opacity: 0 },
           to: { transform: 'translateY(0)', opacity: 1 },
         },
+        'pulse-recording': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.5 },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.3s ease-out',
         'slide-in': 'slide-in-from-bottom 0.3s ease-out',
+        'pulse-recording': 'pulse-recording 1.5s ease-in-out infinite',
       },
     },
   },
   plugins: [require('tailwindcss-animate')],
 }
-

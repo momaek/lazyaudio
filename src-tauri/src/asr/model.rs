@@ -8,32 +8,46 @@ use std::path::{Path, PathBuf};
 use super::types::{AsrError, AsrResult, ModelInfo, ModelType};
 
 /// 预定义的模型列表
-const BUILTIN_MODELS: &[(&str, &str, &str, u64, ModelType)] = &[
-    // (id, name, language, size_mb, type)
+/// 格式：(id, name, language, size_mb, type, download_url)
+const BUILTIN_MODELS: &[(&str, &str, &str, u64, ModelType, &str)] = &[
+    // Zipformer 流式模型
     (
         "sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23",
-        "中文流式模型 (14MB)",
+        "Zipformer 中文流式 (14MB)",
         "zh",
         14,
         ModelType::Streaming,
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23.tar.bz2",
     ),
     (
         "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17",
-        "英文流式模型 (20MB)",
+        "Zipformer 英文流式 (20MB)",
         "en",
         20,
         ModelType::Streaming,
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2",
     ),
     (
         "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20",
-        "中英双语流式模型",
+        "Zipformer 中英双语 (50MB)",
         "zh-en",
         50,
         ModelType::Streaming,
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2",
+    ),
+    // SenseVoice 模型
+    (
+        "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
+        "SenseVoice 多语言 (50MB)",
+        "zh-en-ja-ko-yue",
+        50,
+        ModelType::NonStreaming,
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2",
     ),
 ];
 
 /// 模型管理器
+#[derive(Debug)]
 pub struct ModelManager {
     /// 模型存储目录
     models_dir: PathBuf,
@@ -42,6 +56,7 @@ pub struct ModelManager {
 }
 
 /// 已加载的模型
+#[derive(Debug)]
 pub struct LoadedModel {
     /// 模型信息
     pub info: ModelInfo,
@@ -72,7 +87,7 @@ impl ModelManager {
     pub fn list_available(&self) -> Vec<ModelInfo> {
         BUILTIN_MODELS
             .iter()
-            .map(|(id, name, lang, size, model_type)| {
+            .map(|(id, name, lang, size, model_type, _url)| {
                 let model_path = self.models_dir.join(id);
                 let is_downloaded = self.check_model_files(&model_path);
 
@@ -87,6 +102,14 @@ impl ModelManager {
                 }
             })
             .collect()
+    }
+
+    /// 获取模型下载 URL
+    pub fn get_download_url(&self, model_id: &str) -> Option<String> {
+        BUILTIN_MODELS
+            .iter()
+            .find(|(id, _, _, _, _, _)| *id == model_id)
+            .map(|(_, _, _, _, _, url)| (*url).to_string())
     }
 
     /// 获取模型信息

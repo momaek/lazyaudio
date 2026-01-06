@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashMap;
 
 /// 识别结果
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -227,4 +228,132 @@ pub enum AsrError {
 
 /// ASR 结果类型
 pub type AsrResult<T> = Result<T, AsrError>;
+
+/// 识别层级枚举
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum RecognitionTier {
+    /// Tier 1: 实时流式识别
+    Tier1,
+    /// Tier 2: 精确离线识别
+    Tier2,
+    /// Tier 3: 超精确识别（可选）
+    Tier3,
+}
+
+impl RecognitionTier {
+    /// 获取层级名称
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Tier1 => "tier1",
+            Self::Tier2 => "tier2",
+            Self::Tier3 => "tier3",
+        }
+    }
+
+    /// 获取层级优先级（数字越大优先级越高）
+    pub fn priority(&self) -> u8 {
+        match self {
+            Self::Tier1 => 1,
+            Self::Tier2 => 2,
+            Self::Tier3 => 3,
+        }
+    }
+}
+
+/// 层级版本信息
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct TierVersion {
+    /// 识别文本
+    pub text: String,
+    /// 置信度
+    pub confidence: f32,
+    /// 时间戳（毫秒）
+    pub timestamp_ms: u64,
+}
+
+/// 多级识别结果
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct MultiPassResult {
+    /// 段落 ID
+    pub segment_id: u64,
+    
+    /// 各层级的识别结果
+    pub tier_results: HashMap<String, TierVersion>,
+    
+    /// 当前最佳结果（自动选择最高层级）
+    pub best_result: RecognitionResult,
+    
+    /// 当前使用的层级
+    pub current_tier: RecognitionTier,
+    
+    /// 是否所有启用的层级已完成
+    pub is_fully_processed: bool,
+    
+    /// 创建时间（毫秒）
+    pub created_at: u64,
+    
+    /// 最后更新时间（毫秒）
+    pub updated_at: u64,
+}
+
+impl MultiPassResult {
+    /// 创建新的多级识别结果
+    pub fn new(segment_id: u64, tier1_result: RecognitionResult) -> Self {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        let mut tier_results = HashMap::new();
+        tier_results.insert(
+            "tier1".to_string(),
+            TierVersion {
+                text: tier1_result.text.clone(),
+                confidence: tier1_result.confidence,
+                timestamp_ms: now,
+            },
+        );
+
+        Self {
+            segment_id,
+            tier_results,
+            best_result: tier1_result,
+            current_tier: RecognitionTier::Tier1,
+            is_fully_processed: false,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    /// 更新指定层级的结果
+    pub fn update_tier(&mut self, tier: RecognitionTier, result: RecognitionResult) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        self.tier_results.insert(
+            tier.as_str().to_string(),
+            TierVersion {
+                text: result.text.clone(),
+                confidence: result.confidence,
+                timestamp_ms: now,
+            },
+        );
+
+        // 如果新层级优先级更高，更新最佳结果
+        if tier.priority() > self.current_tier.priority() {
+            self.best_result = result;
+            self.current_tier = tier;
+        }
+
+        self.updated_at = now;
+    }
+
+    /// 获取指定层级的结果
+    pub fn get_tier_result(&self, tier: RecognitionTier) -> Option<&TierVersion> {
+        self.tier_results.get(tier.as_str())
+    }
+}
 

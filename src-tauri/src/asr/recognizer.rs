@@ -1,14 +1,15 @@
 //! 语音识别器模块
 //!
-//! 封装 sherpa-rs 的识别功能
-//! 
-//! 注意：当前 sherpa-rs 版本只支持离线识别，
-//! 我们使用 VAD 分段 + 离线识别来实现近实时效果
+//! 封装 sherpa-rs 的流式识别功能
 
+use sherpa_rs::streaming::{
+    EndpointConfig, OnlineModelType, OnlineRecognizer, OnlineRecognizerConfig, OnlineStream,
+    OnlineTransducerModelConfig,
+};
 use sherpa_rs::zipformer::{ZipFormer, ZipFormerConfig};
 
 use super::model::ModelFiles;
-use super::types::{AsrConfig, AsrError, AsrResult, RecognitionResult};
+use super::types::{AsrConfig, AsrError, AsrResult, RecognitionResult, WordTimestamp};
 
 /// 离线语音识别器
 ///
@@ -86,33 +87,67 @@ impl OfflineRecognizer {
     }
 }
 
-/// 流式识别器（模拟）
+/// 流式识别器
 ///
-/// 使用缓冲区累积音频，定期进行识别以模拟流式效果
-/// 真正的流式识别需要 sherpa-onnx 的 OnlineRecognizer API
+/// 使用 sherpa-onnx OnlineRecognizer 进行真正的流式识别
 pub struct StreamingRecognizer {
-    /// 离线识别器
-    offline: OfflineRecognizer,
-    /// 音频缓冲区
-    buffer: Vec<f32>,
-    /// 缓冲区阈值（达到此采样数后进行识别）
-    buffer_threshold: usize,
-    /// 上次识别的文本
+    /// Online recognizer (must be kept alive for the stream)
+    #[allow(dead_code)]
+    recognizer: OnlineRecognizer,
+    /// Online stream
+    stream: OnlineStream,
+    /// 配置
+    config: AsrConfig,
+    /// 累计处理的采样数
+    total_samples: u64,
+    /// 上次识别的文本（用于检测变化）
     last_text: String,
 }
 
 impl StreamingRecognizer {
     /// 从模型文件创建流式识别器
     pub fn from_model_files(model_files: &ModelFiles, config: AsrConfig) -> AsrResult<Self> {
-        let offline = OfflineRecognizer::from_model_files(model_files, config.clone())?;
-        
-        // 默认每 2 秒进行一次识别
-        let buffer_threshold = config.sample_rate as usize * 2;
+        // 构建 OnlineRecognizer 配置
+        let recognizer_config = OnlineRecognizerConfig {
+            model: OnlineModelType::Transducer(OnlineTransducerModelConfig {
+                encoder: model_files.encoder.to_string_lossy().to_string(),
+                decoder: model_files.decoder.to_string_lossy().to_string(),
+                joiner: model_files.joiner.to_string_lossy().to_string(),
+            }),
+            tokens: model_files.tokens.to_string_lossy().to_string(),
+            sample_rate: config.sample_rate as i32,
+            feature_dim: 80,
+            decoding_method: config.decoding_method.as_str().to_string(),
+            max_active_paths: if config.decoding_method.as_str() == "modified_beam_search" {
+                4
+            } else {
+                1
+            },
+            endpoint: EndpointConfig {
+                enable: true,
+                rule1_min_trailing_silence: 2.4,
+                rule2_min_trailing_silence: 1.2,
+                rule3_min_utterance_length: 20.0,
+            },
+            num_threads: Some(config.num_threads as i32),
+            debug: false,
+            ..Default::default()
+        };
+
+        // 创建 recognizer
+        let recognizer = OnlineRecognizer::new(recognizer_config)
+            .map_err(|e| AsrError::ModelLoadError(format!("创建在线识别器失败: {}", e)))?;
+
+        // 创建 stream
+        let stream = recognizer
+            .create_stream()
+            .map_err(|e| AsrError::ModelLoadError(format!("创建识别流失败: {}", e)))?;
 
         Ok(Self {
-            offline,
-            buffer: Vec::new(),
-            buffer_threshold,
+            recognizer,
+            stream,
+            config,
+            total_samples: 0,
             last_text: String::new(),
         })
     }
@@ -122,25 +157,45 @@ impl StreamingRecognizer {
     /// # Arguments
     /// * `samples` - 16kHz 单声道 f32 音频采样
     pub fn accept_waveform(&mut self, samples: &[f32]) {
-        self.buffer.extend_from_slice(samples);
+        if samples.is_empty() {
+            return;
+        }
+
+        self.total_samples += samples.len() as u64;
+        self.stream
+            .accept_waveform(self.config.sample_rate as i32, samples);
+
+        // 如果准备好了就解码
+        while self.stream.is_ready() {
+            self.stream.decode();
+        }
     }
 
     /// 获取当前识别结果
     ///
-    /// 如果缓冲区足够大，会进行识别并返回结果
+    /// 返回当前的识别结果（partial result）
     pub fn get_result(&mut self) -> RecognitionResult {
-        if self.buffer.len() < self.buffer_threshold / 4 {
-            // 缓冲区太小，返回空结果
-            return RecognitionResult::empty();
-        }
-
-        // 进行识别
-        let result = self.offline.recognize(&self.buffer);
+        let result = self.stream.get_result();
 
         // 检查文本是否变化
         if result.text != self.last_text && !result.text.is_empty() {
             self.last_text = result.text.clone();
-            RecognitionResult::partial(result.text, result.timestamp_ms)
+
+            // 转换为我们的 RecognitionResult
+            let timestamp_ms =
+                (self.total_samples as f64 / self.config.sample_rate as f64 * 1000.0) as u64;
+
+            // 解析 timestamps
+            let word_timestamps = self.parse_timestamps(&result.tokens, &result.timestamps);
+
+            RecognitionResult {
+                text: result.text,
+                is_final: false,
+                confidence: 0.9, // Online 识别器没有提供置信度，使用默认值
+                timestamps: word_timestamps,
+                segment_id: None,
+                timestamp_ms,
+            }
         } else {
             RecognitionResult::empty()
         }
@@ -148,39 +203,87 @@ impl StreamingRecognizer {
 
     /// 强制获取最终结果
     ///
-    /// 识别所有缓冲的音频并返回最终结果
+    /// 标记输入结束并获取最终识别结果
     pub fn finalize(&mut self) -> RecognitionResult {
-        if self.buffer.is_empty() {
+        // 标记输入结束
+        self.stream.input_finished();
+
+        // 解码剩余的音频
+        while self.stream.is_ready() {
+            self.stream.decode();
+        }
+
+        let result = self.stream.get_result();
+
+        if result.text.is_empty() {
             return RecognitionResult::empty();
         }
 
-        let mut result = self.offline.recognize(&self.buffer);
-        result.is_final = true;
-        self.buffer.clear();
-        self.last_text.clear();
-        result
+        let timestamp_ms =
+            (self.total_samples as f64 / self.config.sample_rate as f64 * 1000.0) as u64;
+        let word_timestamps = self.parse_timestamps(&result.tokens, &result.timestamps);
+
+        RecognitionResult {
+            text: result.text,
+            is_final: true,
+            confidence: 0.9,
+            timestamps: word_timestamps,
+            segment_id: None,
+            timestamp_ms,
+        }
+    }
+
+    /// 检查是否检测到端点
+    pub fn is_endpoint(&self) -> bool {
+        self.stream.is_endpoint()
     }
 
     /// 重置识别器状态
     pub fn reset(&mut self) {
-        self.buffer.clear();
+        self.stream.reset();
         self.last_text.clear();
-        self.offline.reset();
     }
 
     /// 获取已处理的音频时长（秒）
     pub fn processed_duration_secs(&self) -> f64 {
-        self.offline.processed_duration_secs()
+        self.total_samples as f64 / self.config.sample_rate as f64
     }
 
     /// 获取配置
     pub fn config(&self) -> &AsrConfig {
-        self.offline.config()
+        &self.config
     }
 
     /// 完全重置
     pub fn full_reset(&mut self) {
         self.reset();
+        self.total_samples = 0;
+    }
+
+    /// 解析时间戳
+    fn parse_timestamps(&self, tokens: &[String], timestamps: &[f32]) -> Vec<WordTimestamp> {
+        if tokens.is_empty() || timestamps.is_empty() {
+            return Vec::new();
+        }
+
+        let mut result = Vec::new();
+
+        for (i, token) in tokens.iter().enumerate() {
+            if token.trim().is_empty() {
+                continue;
+            }
+
+            let start = if i > 0 {
+                timestamps[i - 1] as f64
+            } else {
+                0.0
+            };
+            let end = timestamps[i] as f64;
+
+            result.push(WordTimestamp::new(token.clone(), start, end));
+        }
+
+        result
     }
 }
 

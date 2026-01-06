@@ -11,57 +11,96 @@ export const useAppStore = defineStore('app', () => {
   const config = ref<AppConfig | null>(null)
   const isLoading = ref(false)
   const isInitialized = ref(false)
+  const onboardingCompleted = ref(false)
 
   // 计算属性
   const currentTheme = computed(() => config.value?.general.theme ?? 'system')
   const currentLanguage = computed(() => config.value?.general.language ?? 'zh-cn')
 
   // 方法
-  async function loadConfig() {
+  
+  /**
+   * 初始化应用
+   */
+  async function initialize(): Promise<void> {
+    if (isInitialized.value) return
+    
     isLoading.value = true
+    try {
+      // 加载配置
+      await loadConfig()
+      
+      // 初始化主题
+      initTheme()
+      
+      // 检查引导完成状态 (从本地存储)
+      const completed = localStorage.getItem('onboardingCompleted')
+      onboardingCompleted.value = completed === 'true'
+      
+      isInitialized.value = true
+    } catch (error) {
+      console.error('[AppStore] 初始化失败:', error)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * 加载配置
+   */
+  async function loadConfig(): Promise<void> {
     try {
       const result = await commands.getConfig()
       if (result.status === 'ok') {
         config.value = result.data
         applyTheme(config.value.general.theme)
       } else {
-        console.error('加载配置失败:', result.error)
+        console.error('[AppStore] 加载配置失败:', result.error)
       }
     } catch (error) {
-      console.error('加载配置异常:', error)
-    } finally {
-      isLoading.value = false
-      isInitialized.value = true
+      console.error('[AppStore] 加载配置异常:', error)
     }
   }
 
-  async function saveConfig() {
+  /**
+   * 保存配置
+   */
+  async function saveConfig(): Promise<void> {
     if (!config.value) return
 
     try {
       const result = await commands.setConfig(config.value)
       if (result.status === 'error') {
-        console.error('保存配置失败:', result.error)
+        console.error('[AppStore] 保存配置失败:', result.error)
       }
     } catch (error) {
-      console.error('保存配置异常:', error)
+      console.error('[AppStore] 保存配置异常:', error)
     }
   }
 
-  function setTheme(theme: Theme) {
+  /**
+   * 设置主题
+   */
+  function setTheme(theme: Theme): void {
     if (!config.value) return
     config.value.general.theme = theme
     applyTheme(theme)
     saveConfig()
   }
 
-  function setLanguage(language: 'zh-cn' | 'en-us') {
+  /**
+   * 设置语言
+   */
+  function setLanguage(language: 'zh-cn' | 'en-us'): void {
     if (!config.value) return
     config.value.general.language = language
     saveConfig()
   }
 
-  function applyTheme(theme: Theme) {
+  /**
+   * 应用主题
+   */
+  function applyTheme(theme: Theme): void {
     const root = document.documentElement
     if (theme === 'dark') {
       root.classList.add('dark')
@@ -78,8 +117,10 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  // 初始化时应用主题
-  function initTheme() {
+  /**
+   * 初始化主题
+   */
+  function initTheme(): void {
     applyTheme(currentTheme.value)
     // 监听系统主题变化
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
@@ -93,19 +134,46 @@ export const useAppStore = defineStore('app', () => {
     })
   }
 
+  /**
+   * 设置引导完成状态
+   */
+  function setOnboardingCompleted(completed: boolean): void {
+    onboardingCompleted.value = completed
+    localStorage.setItem('onboardingCompleted', completed.toString())
+  }
+
+  /**
+   * 获取上次使用的模式 (从本地存储)
+   */
+  function getLastMode(): string | null {
+    return localStorage.getItem('lastMode')
+  }
+
+  /**
+   * 保存上次使用的模式
+   */
+  function setLastMode(modeId: string): void {
+    localStorage.setItem('lastMode', modeId)
+  }
+
   return {
     // 状态
     config,
     isLoading,
     isInitialized,
+    onboardingCompleted,
     // 计算属性
     currentTheme,
     currentLanguage,
     // 方法
+    initialize,
     loadConfig,
     saveConfig,
     setTheme,
     setLanguage,
     initTheme,
+    setOnboardingCompleted,
+    getLastMode,
+    setLastMode,
   }
 })

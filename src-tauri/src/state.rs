@@ -3,8 +3,9 @@
 //! 定义 Tauri 应用的全局状态
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
+use crate::asr::AsrEngine;
 use crate::audio::SharedLevel;
 use crate::storage::StorageEngine;
 
@@ -50,6 +51,8 @@ pub struct AppState {
     pub storage: Arc<StorageEngine>,
     /// 音频测试状态
     pub audio_test: AudioTestState,
+    /// ASR 引擎
+    pub asr_engine: Arc<RwLock<AsrEngine>>,
 }
 
 impl AppState {
@@ -60,9 +63,16 @@ impl AppState {
     #[must_use]
     pub fn new() -> Self {
         let storage = StorageEngine::new().expect("Failed to initialize storage engine");
+        
+        // 初始化 ASR 引擎
+        let models_dir = crate::storage::get_models_dir()
+            .expect("Failed to get models directory");
+        let asr_engine = AsrEngine::with_defaults(models_dir);
+        
         Self {
             storage: Arc::new(storage),
             audio_test: AudioTestState::new(),
+            asr_engine: Arc::new(RwLock::new(asr_engine)),
         }
     }
 }

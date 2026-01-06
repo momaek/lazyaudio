@@ -2,6 +2,12 @@
 //!
 //! 定义所有前端可调用的 Tauri 命令
 
+pub mod asr;
+pub mod model_events;
+
+// 重新导出事件类型
+pub use model_events::{ModelDownloadComplete, ModelDownloadProgress};
+
 // TODO: 在后续 Sprint 中实现
 // - session.rs: Session 相关命令
 // - audio.rs: 音频相关命令

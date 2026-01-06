@@ -12,6 +12,7 @@ use super::types::{AsrConfig, AsrError, AsrResult, ModelInfo};
 /// ASR 引擎
 ///
 /// 管理 ASR 模型和识别器的创建
+#[derive(Debug)]
 pub struct AsrEngine {
     /// 模型管理器
     model_manager: ModelManager,
@@ -44,6 +45,11 @@ impl AsrEngine {
     /// 获取模型信息
     pub fn get_model_info(&self, model_id: &str) -> Option<ModelInfo> {
         self.model_manager.get_model_info(model_id)
+    }
+
+    /// 获取模型管理器引用
+    pub fn model_manager(&self) -> &ModelManager {
+        &self.model_manager
     }
 
     /// 检查模型是否可用（已下载）
