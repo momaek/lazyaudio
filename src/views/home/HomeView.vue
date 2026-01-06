@@ -2,7 +2,7 @@
 import { useRouter } from 'vue-router'
 import { useModeStore } from '@/stores/mode'
 import { useAppStore } from '@/stores/app'
-import { Mic, UserSearch, User, ArrowRight, Wrench } from 'lucide-vue-next'
+import { Mic, UserSearch, User, ArrowRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 
@@ -52,11 +52,6 @@ async function selectMode(modeId: string) {
     router.push(`/mode/${modeId}`)
   }
 }
-
-// 进入开发测试
-function goToAudioTest() {
-  router.push('/dev/audio-test')
-}
 </script>
 
 <template>
@@ -105,7 +100,7 @@ function goToAudioTest() {
     </div>
 
     <!-- 快速开始 -->
-    <div class="text-center mb-8">
+    <div class="text-center">
       <Button
         v-if="modeStore.currentPrimaryModeId"
         size="lg"
@@ -115,17 +110,6 @@ function goToAudioTest() {
         继续上次的模式
         <ArrowRight class="w-4 h-4" />
       </Button>
-    </div>
-
-    <!-- 开发测试入口 -->
-    <div class="border-t border-border/50 pt-8">
-      <p class="text-sm text-muted-foreground text-center mb-4">开发者工具</p>
-      <div class="flex justify-center">
-        <Button variant="outline" class="gap-2 text-muted-foreground" @click="goToAudioTest">
-          <Wrench class="w-4 h-4" />
-          音频采集测试
-        </Button>
-      </div>
     </div>
   </div>
 </template>

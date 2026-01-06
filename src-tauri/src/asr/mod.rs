@@ -38,7 +38,7 @@ mod recognizer;
 mod types;
 
 // 导出类型
-pub use downloader::ModelDownloader;
+pub use downloader::{ModelDownloader, ProgressCallback};
 pub use engine::{create_shared_engine, AsrEngine, SharedAsrEngine};
 pub use model::{LoadedModel, ModelFiles, ModelManager};
 pub use multi_pass::{

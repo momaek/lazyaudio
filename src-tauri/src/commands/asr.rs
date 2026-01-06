@@ -1,7 +1,7 @@
 //! ASR 相关命令
 
 use crate::asr::{ModelDownloader, ModelInfo};
-use crate::commands::model_events::ModelDownloadComplete;
+use crate::commands::model_events::{ModelDownloadComplete, ModelDownloadProgress};
 use crate::state::AppState;
 use tauri::{AppHandle, Emitter, State};
 
@@ -98,20 +98,80 @@ pub async fn download_model(
     // 创建下载器
     let downloader = ModelDownloader::new();
 
-    // 下载并安装（暂不使用进度回调，简化实现）
-    downloader
-        .download_and_install(&url, &models_dir, None)
-        .await
-        .map_err(|e| format!("下载模型失败: {}", e))?;
+    // 创建进度回调，发送进度事件到前端
+    let app_clone = app.clone();
+    let model_id_clone = model_id.clone();
+    let last_progress = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let last_progress_clone = last_progress.clone();
+    let progress_callback: crate::asr::ProgressCallback =
+        Box::new(move |downloaded: u64, total: Option<u64>| {
+            let total_bytes = total.unwrap_or(0);
+            let progress = if total_bytes > 0 {
+                (downloaded as f64 / total_bytes as f64) * 100.0
+            } else {
+                0.0
+            };
 
-    // 发送完成事件
-    let _ = app.emit("model_download_complete", ModelDownloadComplete {
-        model_id: model_id.clone(),
-        success: true,
-        error: None,
-    });
+            // 每增加 1% 才发送一次事件，避免过于频繁
+            let progress_int = progress as u64;
+            let last = last_progress_clone.load(std::sync::atomic::Ordering::Relaxed);
+            if progress_int > last || downloaded == total_bytes {
+                last_progress_clone.store(progress_int, std::sync::atomic::Ordering::Relaxed);
+                
+                tracing::debug!(
+                    "下载进度: {} - {}/{} bytes ({:.1}%)",
+                    model_id_clone,
+                    downloaded,
+                    total_bytes,
+                    progress
+                );
 
-    tracing::info!("模型下载完成: {}", model_id);
-    Ok(())
+                if let Err(e) = app_clone.emit(
+                    "model-download-progress",
+                    ModelDownloadProgress {
+                        model_id: model_id_clone.clone(),
+                        downloaded,
+                        total: total_bytes,
+                        progress,
+                    },
+                ) {
+                    tracing::error!("发送下载进度事件失败: {}", e);
+                }
+            }
+        });
+
+    // 下载并安装
+    let result = downloader
+        .download_and_install(&url, &models_dir, Some(progress_callback))
+        .await;
+
+    match result {
+        Ok(_) => {
+            // 发送完成事件
+            let _ = app.emit(
+                "model-download-complete",
+                ModelDownloadComplete {
+                    model_id: model_id.clone(),
+                    success: true,
+                    error: None,
+                },
+            );
+            tracing::info!("模型下载完成: {}", model_id);
+            Ok(())
+        }
+        Err(e) => {
+            // 发送失败事件
+            let error_msg = format!("下载模型失败: {}", e);
+            let _ = app.emit(
+                "model-download-complete",
+                ModelDownloadComplete {
+                    model_id: model_id.clone(),
+                    success: false,
+                    error: Some(error_msg.clone()),
+                },
+            );
+            Err(error_msg)
+        }
+    }
 }
 
