@@ -8,41 +8,38 @@ use std::path::{Path, PathBuf};
 use super::types::{AsrError, AsrResult, ModelInfo, ModelType};
 
 /// 预定义的模型列表
-/// 格式：(id, name, language, size_mb, type, download_url)
-const BUILTIN_MODELS: &[(&str, &str, &str, u64, ModelType, &str)] = &[
-    // Zipformer 流式模型
-    (
-        "sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23",
-        "Zipformer 中文流式 (14MB)",
-        "zh",
-        14,
-        ModelType::Streaming,
-        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23.tar.bz2",
-    ),
-    (
-        "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17",
-        "Zipformer 英文流式 (20MB)",
-        "en",
-        20,
-        ModelType::Streaming,
-        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2",
-    ),
+/// 格式：(id, name, description, language, size_mb, type, download_url)
+/// 注意：size_mb 设为 0 表示大小由下载器动态获取
+const BUILTIN_MODELS: &[(&str, &str, &str, &str, u64, ModelType, &str)] = &[
+    // Zipformer 中英双语流式模型（用于实时转录）
     (
         "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20",
-        "Zipformer 中英双语 (50MB)",
+        "Zipformer 中英双语",
+        "实时流式识别，低延迟，适合会议和日常使用",
         "zh-en",
-        50,
+        0, // 大小由下载器获取
         ModelType::Streaming,
         "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2",
     ),
-    // SenseVoice 模型
+    // SenseVoice 多语言模型（用于 Two Pass 精确识别）
     (
         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
-        "SenseVoice 多语言 (50MB)",
+        "SenseVoice 多语言",
+        "离线精确识别，准确率高，用于二次校正",
         "zh-en-ja-ko-yue",
-        50,
+        0, // 大小由下载器获取
         ModelType::NonStreaming,
         "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2",
+    ),
+    // Silero VAD 模型（语音活动检测，用于精确切分语音段落）
+    (
+        "silero-vad",
+        "Silero VAD",
+        "神经网络语音活动检测，精确切分语音段落，避免句子中间被切断",
+        "universal",
+        0, // 大小由下载器获取
+        ModelType::Vad,
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
     ),
 ];
 
@@ -87,9 +84,9 @@ impl ModelManager {
     pub fn list_available(&self) -> Vec<ModelInfo> {
         BUILTIN_MODELS
             .iter()
-            .map(|(id, name, lang, size, model_type, _url)| {
+            .map(|(id, name, desc, lang, size, model_type, _url)| {
                 let model_path = self.models_dir.join(id);
-                let is_downloaded = self.check_model_files(&model_path);
+                let is_downloaded = self.check_model_files(&model_path, *model_type);
 
                 ModelInfo {
                     id: (*id).to_string(),
@@ -98,7 +95,7 @@ impl ModelManager {
                     size_mb: *size,
                     is_downloaded,
                     model_type: *model_type,
-                    description: None,
+                    description: Some((*desc).to_string()),
                 }
             })
             .collect()
@@ -108,8 +105,8 @@ impl ModelManager {
     pub fn get_download_url(&self, model_id: &str) -> Option<String> {
         BUILTIN_MODELS
             .iter()
-            .find(|(id, _, _, _, _, _)| *id == model_id)
-            .map(|(_, _, _, _, _, url)| (*url).to_string())
+            .find(|(id, _, _, _, _, _, _)| *id == model_id)
+            .map(|(_, _, _, _, _, _, url)| (*url).to_string())
     }
 
     /// 获取模型信息
@@ -122,14 +119,27 @@ impl ModelManager {
     /// 检查模型是否已下载
     pub fn is_model_downloaded(&self, model_id: &str) -> bool {
         let model_path = self.models_dir.join(model_id);
-        self.check_model_files(&model_path)
+        // 获取模型类型
+        let model_type = BUILTIN_MODELS
+            .iter()
+            .find(|(id, _, _, _, _, _, _)| *id == model_id)
+            .map(|(_, _, _, _, _, model_type, _)| *model_type)
+            .unwrap_or(ModelType::Streaming);
+        self.check_model_files(&model_path, model_type)
     }
 
     /// 获取模型路径
     pub fn get_model_path(&self, model_id: &str) -> AsrResult<PathBuf> {
         let model_path = self.models_dir.join(model_id);
+        
+        // 获取模型类型
+        let model_type = BUILTIN_MODELS
+            .iter()
+            .find(|(id, _, _, _, _, _, _)| *id == model_id)
+            .map(|(_, _, _, _, _, model_type, _)| *model_type)
+            .unwrap_or(ModelType::Streaming);
 
-        if !self.check_model_files(&model_path) {
+        if !self.check_model_files(&model_path, model_type) {
             return Err(AsrError::ModelNotFound(format!(
                 "模型 {} 未下载或文件不完整",
                 model_id
@@ -169,14 +179,20 @@ impl ModelManager {
     }
 
     /// 检查模型文件是否完整
-    fn check_model_files(&self, model_path: &Path) -> bool {
+    fn check_model_files(&self, model_path: &Path, model_type: ModelType) -> bool {
         if !model_path.exists() {
             return false;
         }
 
-        // 检查必要的模型文件
-        // 流式模型通常包含: encoder, decoder, joiner, tokens
-        let required_patterns = ["encoder", "decoder", "joiner", "tokens"];
+        // 根据模型类型检查必要的文件
+        let required_patterns: &[&str] = match model_type {
+            // 流式模型通常包含: encoder, decoder, joiner, tokens
+            ModelType::Streaming => &["encoder", "decoder", "joiner", "tokens"],
+            // 非流式模型（如 SenseVoice）通常包含: model.onnx, tokens
+            ModelType::NonStreaming => &["model", "tokens"],
+            // VAD 模型只需要 silero_vad.onnx
+            ModelType::Vad => &["silero_vad.onnx"],
+        };
 
         for pattern in required_patterns {
             let has_file = std::fs::read_dir(model_path)
@@ -274,8 +290,13 @@ mod tests {
         let models = manager.list_available();
 
         assert!(!models.is_empty());
-        assert!(models.iter().any(|m| m.language == "zh"));
-        assert!(models.iter().any(|m| m.language == "en"));
+        // 检查双语模型
+        assert!(models.iter().any(|m| m.language == "zh-en"));
+        // 检查 SenseVoice 多语言模型
+        assert!(models.iter().any(|m| m.language == "zh-en-ja-ko-yue"));
+        // 检查有流式和非流式模型
+        assert!(models.iter().any(|m| m.model_type == ModelType::Streaming));
+        assert!(models.iter().any(|m| m.model_type == ModelType::NonStreaming));
 
         // 清理
         std::fs::remove_dir_all(dir).ok();
@@ -287,7 +308,7 @@ mod tests {
         let manager = ModelManager::new(dir.clone());
 
         // 未下载的模型应该返回 false
-        assert!(!manager.is_model_downloaded("sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23"));
+        assert!(!manager.is_model_downloaded("sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"));
 
         // 清理
         std::fs::remove_dir_all(dir).ok();

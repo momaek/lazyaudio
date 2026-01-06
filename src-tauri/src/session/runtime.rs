@@ -11,8 +11,8 @@ use chrono::Utc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::asr::{AsrEngine, StreamingRecognizer};
-use crate::asr::multi_pass::SegmentBuffer;
+use crate::asr::{AsrEngine, StreamingRecognizer, SileroVadWrapper, VadConfig, VAD_MODEL_ID};
+use crate::asr::multi_pass::{DelayedRefineConfig, DelayedRefiner, RefineResult};
 use crate::audio::{
     AudioCapture, AudioCaptureConfig, AudioChunk, LevelMeter, MicrophoneCapture, Resampler,
     SoftLimiter, LimiterConfig,
@@ -126,29 +126,25 @@ impl SessionRuntimeManager {
         
         let session_id_clone = session_id.clone();
         let event_bus = self.event_bus.clone();
-        
-        // 尝试创建识别器（使用 catch_unwind 防止 C++ 异常导致崩溃）
         let asr_engine_clone = self.asr_engine.clone();
-        let recognizer = std::thread::spawn(move || {
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+
+        // 在独立线程中运行音频采集
+        // 注意：StreamingRecognizer 必须在同一线程中创建和使用（FFI 对象可能不支持跨线程移动）
+        let thread_handle = std::thread::spawn(move || {
+            // 在工作线程中创建识别器（避免跨线程移动 FFI 对象）
+            let recognizer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let engine = asr_engine_clone.read().expect("获取 ASR 锁失败");
                 engine.create_recognizer().ok()
             }))
             .ok()
-            .flatten()
-        })
-        .join()
-        .ok()
-        .flatten();
+            .flatten();
 
-        if recognizer.is_some() {
-            info!("ASR 识别器创建成功");
-        } else {
-            warn!("ASR 识别器创建失败，转录功能将不可用（可能需要重新下载模型）");
-        }
+            if recognizer.is_some() {
+                info!("ASR 识别器创建成功");
+            } else {
+                warn!("ASR 识别器创建失败，转录功能将不可用（可能需要重新下载模型）");
+            }
 
-        // 在独立线程中运行音频采集
-        let thread_handle = std::thread::spawn(move || {
             run_session_audio(
                 session_id_clone,
                 is_running_clone,
@@ -397,29 +393,141 @@ fn run_session_audio(
         // Recognizer（可能没有）
         let mut recognizer = recognizer;
 
-        // Multi-pass: 段落缓冲器（用于缓存音频供 Tier 2 识别）
-        let mut segment_buffer = SegmentBuffer::with_defaults();
+        // Multi-pass: segment_id 计数器
         let mut segment_id_counter: u64 = 0;
         
         // 临时音频缓冲区（用于收集一个语音段落的所有音频数据）
         let mut temp_audio_buffer: Vec<f32> = Vec::new();
         let mut temp_buffer_start_time: f64 = 0.0;
 
-        // Multi-pass: segment_id 到 buffer_id 的映射（用于 Tier 2 更新）
-        let mut segment_id_to_buffer_id: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
-        
-        // Tier 2 调度相关
-        let mut tier2_last_check = std::time::Instant::now();
-        let tier2_check_interval = std::time::Duration::from_secs(5); // 每 5 秒检查一次
-        
-        // Multi-pass: Tier 2 调度
-        // 注意：这里简化处理，Tier 2 暂时不使用单独的识别器
-        // 而是直接将 tier1 的结果标记为 tier2（模拟确认）
-        // TODO: 实际应该使用更大的离线模型来提高准确率
-        let tier2_enabled = recognizer.is_some();
-        if tier2_enabled {
-            info!("Multi-pass: Tier 2 已启用（5秒后自动确认）");
-        }
+        // ========== 延迟精修调度器（使用 SenseVoice 离线识别） ==========
+        // 每个 segment 完成后独立计时，延迟 N 秒后使用 SenseVoice 精修
+        let delayed_refiner: Option<Arc<DelayedRefiner>> = if recognizer.is_some() {
+            let config = DelayedRefineConfig {
+                enabled: true,
+                delay_ms: 3000,  // 3 秒后精修
+                max_concurrent: 5,
+                timeout_ms: 15000,  // SenseVoice 可能需要更长时间
+            };
+            
+            // 尝试加载 SenseVoice 模型
+            let sense_voice_model_id = "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17";
+            let app_support_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("LazyAudio")
+                .join("models")
+                .join(sense_voice_model_id);
+            
+            let refiner = if app_support_dir.exists() {
+                match DelayedRefiner::with_sense_voice(config.clone(), &app_support_dir, 2) {
+                    Ok(r) => {
+                        info!("Multi-pass: SenseVoice 精修器已加载，3秒后精修（带标点）");
+                        r
+                    }
+                    Err(e) => {
+                        warn!("加载 SenseVoice 失败: {}，使用无精修模式", e);
+                        DelayedRefiner::without_recognizer(config)
+                    }
+                }
+            } else {
+                warn!(
+                    "SenseVoice 模型未下载: {}，使用无精修模式",
+                    app_support_dir.display()
+                );
+                DelayedRefiner::without_recognizer(config)
+            };
+            
+            let refiner = Arc::new(refiner);
+            
+            // 设置精修结果回调（在主循环开始前同步设置）
+            let event_bus_for_refine = event_bus.clone();
+            let session_id_for_refine = session_id.clone();
+            let refiner_for_callback = refiner.clone();
+            
+            refiner_for_callback.set_callback(Arc::new(move |result: RefineResult| {
+                // 发送 TranscriptUpdated 事件
+                let segment = TranscriptSegment {
+                    id: result.segment_id.clone(),
+                    start_time: 0.0,  // 前端会忽略
+                    end_time: 0.0,    // 前端会忽略
+                    text: result.text.clone(),
+                    is_final: true,
+                    confidence: Some(result.confidence),
+                    source: Some(TranscriptSource::Mixed),
+                    language: None,
+                    words: None,
+                    created_at: Utc::now().to_rfc3339(),
+                    tier: Some("tier2".to_string()),
+                };
+                
+                event_bus_for_refine.publish(AppEvent::TranscriptUpdated(TranscriptUpdatedPayload {
+                    session_id: session_id_for_refine.clone(),
+                    segment_id: result.segment_id.clone(),
+                    tier: "tier2".to_string(),
+                    text: result.text,
+                    confidence: result.confidence,
+                    segment,
+                }));
+                
+                tracing::info!(
+                    "SenseVoice 精修完成: segment={}, changed={}",
+                    result.segment_id,
+                    result.has_changed
+                );
+            })).await;
+            
+            info!("SenseVoice 回调已设置完成");
+            Some(refiner)
+        } else {
+            None
+        };
+
+        // ========== Silero VAD 初始化（神经网络语音活动检测） ==========
+        // 用于精确切分语音段落，避免在句子中间被切断
+        let mut silero_vad: Option<SileroVadWrapper> = if recognizer.is_some() {
+            let vad_model_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("LazyAudio")
+                .join("models")
+                .join(VAD_MODEL_ID);
+
+            if vad_model_dir.exists() {
+                let vad_config = VadConfig {
+                    // 静音 1.0 秒后认为语音结束
+                    min_silence_duration: 1.0,
+                    // 最短语音 0.3 秒
+                    min_speech_duration: 0.3,
+                    // 最长语音 20 秒
+                    max_speech_duration: 20.0,
+                    // 检测阈值
+                    threshold: 0.5,
+                    ..Default::default()
+                };
+
+                match SileroVadWrapper::from_model_dir(&vad_model_dir, vad_config) {
+                    Ok(vad) => {
+                        info!("Silero VAD 已加载，用于精确语音切分");
+                        Some(vad)
+                    }
+                    Err(e) => {
+                        warn!("加载 Silero VAD 失败: {}，使用 endpoint 检测", e);
+                        None
+                    }
+                }
+            } else {
+                warn!(
+                    "Silero VAD 模型未下载: {}，使用 endpoint 检测",
+                    vad_model_dir.display()
+                );
+                None
+            }
+        } else {
+            None
+        };
+
+        // VAD 模式下的音频缓冲区
+        let mut vad_audio_buffer: Vec<f32> = Vec::new();
+        let mut vad_buffer_start_time: f64 = 0.0;
 
         while is_running.load(Ordering::SeqCst) {
             // 如果暂停，跳过处理
@@ -542,65 +650,28 @@ fn run_session_audio(
                         }
                     };
                     
-                    // 送入 ASR
-                    recognizer.accept_waveform(&samples_for_asr);
+                    // ========== VAD + ASR 处理 ==========
+                    // 如果有 VAD，用 VAD 来切分语音段落
+                    // 否则用 endpoint 检测
                     
-                    // Multi-pass: 缓存音频数据供 Tier 2/3 使用
-                    if temp_audio_buffer.is_empty() {
-                        temp_buffer_start_time = start_time.elapsed().as_secs_f64();
-                    }
-                    temp_audio_buffer.extend_from_slice(&samples_for_asr);
-                    
-                    // 获取结果
-                    let result = recognizer.get_result();
-                    
-                    // 调试：每秒输出一次 ASR 状态
-                    static mut LAST_DEBUG: Option<std::time::Instant> = None;
-                    unsafe {
-                        let should_debug = match LAST_DEBUG {
-                            Some(t) => t.elapsed() > std::time::Duration::from_secs(3),
-                            None => true,
-                        };
-                        if should_debug {
-                            LAST_DEBUG = Some(std::time::Instant::now());
-                            let processed = recognizer.processed_duration_secs();
-                            tracing::debug!(
-                                "ASR 状态: 已处理 {:.1}s, 当前结果: '{}'",
-                                processed,
-                                if result.text.is_empty() { "<空>" } else { &result.text }
-                            );
+                    if let Some(ref mut vad) = silero_vad {
+                        // VAD 模式：用 VAD 精确切分语音
+                        
+                        // 缓冲音频数据
+                        if vad_audio_buffer.is_empty() {
+                            vad_buffer_start_time = start_time.elapsed().as_secs_f64();
                         }
-                    }
-                    
-                    // 如果有文本且不是空的
-                    if !result.text.is_empty() {
-                        if result.is_final {
-                            // 最终结果（这个分支理论上不应该触发，因为 is_endpoint 会先处理）
-                            let elapsed = start_time.elapsed().as_secs_f64();
-                            let segment = TranscriptSegment {
-                                id: Uuid::new_v4().to_string(),
-                                start_time: elapsed - 2.0, // 估算
-                                end_time: elapsed,
-                                text: result.text.clone(),
-                                is_final: true,
-                                confidence: Some(result.confidence),
-                                source: Some(TranscriptSource::Mixed),
-                                language: None,
-                                words: None,
-                                created_at: Utc::now().to_rfc3339(),
-                                tier: Some("tier1".to_string()),
-                            };
-                            
-                            event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
-                                session_id: session_id.clone(),
-                                segment,
-                            }));
-                            
-                            last_partial_text.clear();
-                            recognizer.reset();
-                        } else if result.text != last_partial_text {
-                            // Partial 结果
-                            info!("发布转录事件: partial, text='{}'", result.text);
+                        vad_audio_buffer.extend_from_slice(&samples_for_asr);
+                        
+                        // 送入 VAD 检测
+                        let vad_segments = vad.process(&samples_for_asr);
+                        
+                        // 同时送入流式 ASR 获取实时结果
+                        recognizer.accept_waveform(&samples_for_asr);
+                        let result = recognizer.get_result();
+                        
+                        // 发送 partial 结果（实时显示）
+                        if !result.text.is_empty() && result.text != last_partial_text {
                             last_partial_text = result.text.clone();
                             event_bus.publish(AppEvent::TranscriptPartial(TranscriptPartialPayload {
                                 session_id: session_id.clone(),
@@ -608,10 +679,129 @@ fn run_session_audio(
                                 confidence: Some(result.confidence),
                             }));
                         }
+                        
+                        // 处理 VAD 检测到的完整语音段落
+                        for vad_segment in vad_segments {
+                            let elapsed = start_time.elapsed().as_secs_f64();
+                            
+                            // 用流式 ASR 的当前结果作为最终结果
+                            let final_result = recognizer.finalize();
+                            
+                            if !final_result.text.is_empty() {
+                                segment_id_counter += 1;
+                                let segment_id = format!("{}_{}", session_id, segment_id_counter);
+                                
+                                info!(
+                                    "VAD 切分语音段落: 时长 {:.1}s, 文本: '{}'",
+                                    vad_segment.duration_secs,
+                                    final_result.text
+                                );
+                                
+                                let segment = TranscriptSegment {
+                                    id: segment_id.clone(),
+                                    start_time: vad_buffer_start_time,
+                                    end_time: elapsed,
+                                    text: final_result.text.clone(),
+                                    is_final: true,
+                                    confidence: Some(final_result.confidence),
+                                    source: Some(TranscriptSource::Mixed),
+                                    language: None,
+                                    words: None,
+                                    created_at: Utc::now().to_rfc3339(),
+                                    tier: Some("tier1".to_string()),
+                                };
+                                
+                                event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
+                                    session_id: session_id.clone(),
+                                    segment,
+                                }));
+                                
+                                // 调度延迟精修
+                                if let Some(ref refiner) = delayed_refiner {
+                                    let refiner = refiner.clone();
+                                    let session_id_clone = session_id.clone();
+                                    let segment_id_clone = segment_id.clone();
+                                    let audio_samples = vad_segment.samples.clone();
+                                    let tier1_text = final_result.text.clone();
+                                    
+                                    tokio::spawn(async move {
+                                        refiner.schedule(
+                                            session_id_clone,
+                                            segment_id_clone,
+                                            audio_samples,
+                                            tier1_text,
+                                        ).await;
+                                    });
+                                }
+                            }
+                            
+                            // 清空缓冲区和重置 ASR
+                            vad_audio_buffer.clear();
+                            last_partial_text.clear();
+                            recognizer.reset();
+                        }
+                        
+                        // 也缓存到 temp_audio_buffer 供后续使用
+                        if temp_audio_buffer.is_empty() {
+                            temp_buffer_start_time = start_time.elapsed().as_secs_f64();
+                        }
+                        temp_audio_buffer.extend_from_slice(&samples_for_asr);
+                        
+                    } else {
+                        // 无 VAD 模式：使用原来的 endpoint 检测
+                        
+                        // 送入 ASR
+                        recognizer.accept_waveform(&samples_for_asr);
+                        
+                        // Multi-pass: 缓存音频数据供 Tier 2/3 使用
+                        if temp_audio_buffer.is_empty() {
+                            temp_buffer_start_time = start_time.elapsed().as_secs_f64();
+                        }
+                        temp_audio_buffer.extend_from_slice(&samples_for_asr);
+                        
+                        // 获取结果
+                        let result = recognizer.get_result();
+                        
+                        // 如果有文本且不是空的
+                        if !result.text.is_empty() {
+                            if result.is_final {
+                                // 最终结果
+                                let elapsed = start_time.elapsed().as_secs_f64();
+                                let segment = TranscriptSegment {
+                                    id: Uuid::new_v4().to_string(),
+                                    start_time: elapsed - 2.0,
+                                    end_time: elapsed,
+                                    text: result.text.clone(),
+                                    is_final: true,
+                                    confidence: Some(result.confidence),
+                                    source: Some(TranscriptSource::Mixed),
+                                    language: None,
+                                    words: None,
+                                    created_at: Utc::now().to_rfc3339(),
+                                    tier: Some("tier1".to_string()),
+                                };
+                                
+                                event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
+                                    session_id: session_id.clone(),
+                                    segment,
+                                }));
+                                
+                                last_partial_text.clear();
+                                recognizer.reset();
+                            } else if result.text != last_partial_text {
+                                // Partial 结果
+                                last_partial_text = result.text.clone();
+                                event_bus.publish(AppEvent::TranscriptPartial(TranscriptPartialPayload {
+                                    session_id: session_id.clone(),
+                                    text: result.text,
+                                    confidence: Some(result.confidence),
+                                }));
+                            }
+                        }
                     }
                     
-                    // 检查端点（说话结束）
-                    if recognizer.is_endpoint() {
+                    // 检查端点（说话结束）- 仅在无 VAD 模式下使用
+                    if silero_vad.is_none() && recognizer.is_endpoint() {
                         let final_result = recognizer.finalize();
                         if !final_result.text.is_empty() {
                             let elapsed = start_time.elapsed().as_secs_f64();
@@ -634,29 +824,44 @@ fn run_session_audio(
                                 tier: Some("tier1".to_string()),  // Multi-pass: Tier 1 实时识别
                             };
                             
-                            // Multi-pass: 缓存音频段落供 Tier 2 使用
-                            if !temp_audio_buffer.is_empty() {
-                                let buffer_id = segment_buffer.push(
-                                    temp_audio_buffer.clone(),
-                                    temp_buffer_start_time,
-                                    elapsed,
-                                );
-                                // 记录 segment_id 到 buffer_id 的映射
-                                segment_id_to_buffer_id.insert(segment_id.clone(), buffer_id);
-                                info!(
-                                    "Multi-pass: 缓存段落 #{} (buffer_id={}), 时长 {:.1}s, 样本数 {}",
-                                    segment_id_counter,
-                                    buffer_id,
-                                    elapsed - temp_buffer_start_time,
-                                    temp_audio_buffer.len()
-                                );
-                                temp_audio_buffer.clear();
-                            }
-                            
+                            // 发送 Tier1 最终结果
                             event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
                                 session_id: session_id.clone(),
                                 segment,
                             }));
+                            
+                            // Multi-pass: 调度延迟精修
+                            if let Some(ref refiner) = delayed_refiner {
+                                if !temp_audio_buffer.is_empty() {
+                                    let refiner = refiner.clone();
+                                    let session_id_clone = session_id.clone();
+                                    let segment_id_clone = segment_id.clone();
+                                    let audio_samples = temp_audio_buffer.clone();
+                                    let tier1_text = final_result.text.clone();
+                                    let duration = elapsed - temp_buffer_start_time;
+                                    let sample_count = temp_audio_buffer.len();
+                                    
+                                    // 调度延迟精修（在后台执行）
+                                    tokio::spawn(async move {
+                                        refiner.schedule(
+                                            session_id_clone,
+                                            segment_id_clone,
+                                            audio_samples,
+                                            tier1_text,
+                                        ).await;
+                                    });
+                                    
+                                    tracing::debug!(
+                                        "已调度延迟精修: segment={}, 时长 {:.1}s, 样本数 {}",
+                                        segment_id,
+                                        duration,
+                                        sample_count
+                                    );
+                                }
+                            }
+                            
+                            // 清空临时缓冲区
+                            temp_audio_buffer.clear();
                         } else {
                             // 没有识别到文本，清空临时缓冲区
                             temp_audio_buffer.clear();
@@ -670,69 +875,19 @@ fn run_session_audio(
                 tokio::time::sleep(tokio::time::Duration::from_millis(5)).await;
             }
 
-            // ========== Multi-pass: Tier 2 调度 ==========
-            // 定期检查是否有待处理的段落需要 Tier 2 识别
-            if tier2_last_check.elapsed() >= tier2_check_interval {
-                tier2_last_check = std::time::Instant::now();
-                
-                // 获取待处理的段落
-                let pending = segment_buffer.get_pending_tier2(5); // 每次最多处理 5 个
-                
-                if !pending.is_empty() {
-                    info!("Multi-pass Tier 2: 检查 {} 个待处理段落", pending.len());
-                    
-                    // 收集需要处理的段落信息
-                    let pending_info: Vec<(u64, Vec<f32>)> = pending
-                        .iter()
-                        .map(|seg| (seg.id, seg.samples.clone()))
-                        .collect();
-                    
-                    for (buffer_id, samples) in pending_info {
-                        // 查找对应的 segment_id
-                        let segment_id_opt = segment_id_to_buffer_id
-                            .iter()
-                            .find(|(_, &bid)| bid == buffer_id)
-                            .map(|(sid, _)| sid.clone());
-                        
-                        if let Some(seg_id) = segment_id_opt {
-                            // 执行 Tier 2 识别（这里简化为直接使用相同的识别结果）
-                            // 实际上应该使用离线模型重新识别
-                            // TODO: 集成真正的 Tier 2 离线识别器
-                            
-                            // 暂时模拟：将 tier 从 tier1 更新为 tier2
-                            let elapsed = start_time.elapsed().as_secs_f64();
-                            let segment = TranscriptSegment {
-                                id: seg_id.clone(),
-                                start_time: 0.0, // 会被前端忽略
-                                end_time: elapsed,
-                                text: "".to_string(), // 会被前端使用原有文本
-                                is_final: true,
-                                confidence: Some(0.95), // Tier 2 通常置信度更高
-                                source: Some(TranscriptSource::Mixed),
-                                language: None,
-                                words: None,
-                                created_at: Utc::now().to_rfc3339(),
-                                tier: Some("tier2".to_string()),
-                            };
-                            
-                            // 发送更新事件
-                            event_bus.publish(AppEvent::TranscriptUpdated(TranscriptUpdatedPayload {
-                                session_id: session_id.clone(),
-                                segment_id: seg_id.clone(),
-                                tier: "tier2".to_string(),
-                                text: "".to_string(), // 暂时为空，实际应该是 Tier 2 识别结果
-                                confidence: 0.95,
-                                segment,
-                            }));
-                            
-                            info!("Multi-pass Tier 2: 已更新段落 {}", seg_id);
-                            
-                            // 标记为已处理
-                            segment_buffer.mark_tier2_processed(buffer_id);
-                        }
-                    }
-                }
+            // 主动检查延迟精修任务是否到期
+            if let Some(ref refiner) = delayed_refiner {
+                refiner.poll_ready().await;
             }
+        }
+        
+        // Session 结束时：立即处理所有待精修的段落
+        if let Some(ref refiner) = delayed_refiner {
+            let session_id_clone = session_id.clone();
+            let refiner_clone = refiner.clone();
+            // 同步等待所有待精修任务完成
+            refiner_clone.flush_session(&session_id_clone).await;
+            tracing::info!("Session 结束，已处理所有待精修段落");
         }
 
         info!(session_id = %session_id, "Session 音频采集线程结束");

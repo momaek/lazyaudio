@@ -125,9 +125,12 @@ impl StreamingRecognizer {
             },
             endpoint: EndpointConfig {
                 enable: true,
-                rule1_min_trailing_silence: 2.4,
-                rule2_min_trailing_silence: 1.2,
-                rule3_min_utterance_length: 20.0,
+                // Rule 1: 有文本时，静音 1.8 秒后切断（避免句子中间停顿被切断）
+                rule1_min_trailing_silence: 1.8,
+                // Rule 2: 无文本时，静音 0.8 秒后切断
+                rule2_min_trailing_silence: 0.8,
+                // Rule 3: 最长 15 秒强制切断
+                rule3_min_utterance_length: 15.0,
             },
             num_threads: Some(config.num_threads as i32),
             debug: false,

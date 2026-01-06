@@ -52,6 +52,7 @@ const {
   segments,
   partialText,
   isProcessing,
+  recentlyRefinedIds,
   startListening: startTranscriptListening,
   reset: resetTranscript,
 } = useTranscript(sessionId)
@@ -538,7 +539,10 @@ onUnmounted(() => {
             v-for="segment in segments"
             :key="segment.id"
             class="flex gap-4 group"
-            :class="{ 'segment-updating': segment.tier === 'tier1' }"
+            :class="{ 
+              'segment-updating': segment.tier === 'tier1',
+              'segment-just-refined': recentlyRefinedIds.has(segment.id)
+            }"
           >
             <span class="text-xs tabular-nums shrink-0 pt-0.5 cursor-pointer hover:text-foreground transition-colors"
               :class="segment.tier === 'tier1' ? 'text-muted-foreground/50' : 'text-muted-foreground'"
@@ -553,7 +557,7 @@ onUnmounted(() => {
               <span 
                 v-if="segment.tier === 'tier1'" 
                 class="inline-block w-1 h-1 rounded-full bg-muted-foreground/50 ml-1 animate-pulse"
-                title="等待二阶段修正..."
+                title="等待精修（约3秒）..."
               />
             </p>
           </div>
@@ -628,22 +632,29 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* Tier 1 临时状态样式 */
+/* Tier 1 临时状态样式（等待精修） */
 .segment-updating {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-/* Tier 2 确认后的动画效果 */
-@keyframes confirm-flash {
+/* Tier 2 精修完成的闪烁动画效果 */
+@keyframes refine-flash {
   0% {
-    background-color: rgba(34, 197, 94, 0.1);
+    background-color: rgba(34, 197, 94, 0.15);
   }
   100% {
     background-color: transparent;
   }
 }
 
-.segment-confirmed {
-  animation: confirm-flash 0.5s ease-out;
+.segment-just-refined {
+  animation: refine-flash 0.5s ease-out;
+  border-radius: 4px;
+}
+
+/* 精修完成时文字颜色过渡 */
+.segment-just-refined p {
+  color: var(--foreground) !important;
+  font-style: normal !important;
 }
 </style>

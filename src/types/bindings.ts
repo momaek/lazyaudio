@@ -787,7 +787,11 @@ export type ModelType =
 /**
  * 非流式模型（离线转录）
  */
-"non_streaming"
+"non_streaming" | 
+/**
+ * VAD 模型（语音活动检测）
+ */
+"vad"
 /**
  * Ollama 配置
  */

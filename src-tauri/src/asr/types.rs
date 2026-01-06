@@ -196,6 +196,8 @@ pub enum ModelType {
     Streaming,
     /// 非流式模型（离线转录）
     NonStreaming,
+    /// VAD 模型（语音活动检测）
+    Vad,
 }
 
 /// ASR 错误类型

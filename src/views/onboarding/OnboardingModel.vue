@@ -8,13 +8,11 @@ import {
   Download,
   Check,
   Loader2,
-  HardDrive,
   Zap,
-  Scale,
   Target,
 } from 'lucide-vue-next'
+import type { ModelInfo } from '@/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 
@@ -59,29 +57,14 @@ function skipStep() {
 }
 
 // 获取模型特性标签
-function getModelBadges(model: any) {
+function getModelBadges(model: ModelInfo) {
   const badges = []
-  if (model.id.includes('small') || model.size < 20 * 1024 * 1024) {
-    badges.push({ label: '轻量', icon: Zap, color: 'bg-la-success/10 text-la-success border-la-success/20' })
-  }
-  if (model.id.includes('medium') || (model.size >= 20 * 1024 * 1024 && model.size < 100 * 1024 * 1024)) {
-    badges.push({ label: '平衡', icon: Scale, color: 'bg-la-info/10 text-la-info border-la-info/20' })
-  }
-  if (model.id.includes('large') || model.size >= 100 * 1024 * 1024) {
-    badges.push({ label: '精准', icon: Target, color: 'bg-la-violet/10 text-la-violet border-la-violet/20' })
+  if (model.modelType === 'streaming') {
+    badges.push({ label: '流式', icon: Zap, color: 'bg-la-success/10 text-la-success border-la-success/20' })
+  } else {
+    badges.push({ label: 'Two Pass', icon: Target, color: 'bg-la-violet/10 text-la-violet border-la-violet/20' })
   }
   return badges
-}
-
-// 格式化文件大小
-function formatSize(bytes: number): string {
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-  if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
 // 初始化
@@ -92,18 +75,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col items-center justify-center p-8">
-    <!-- 标题 -->
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl la-gradient mb-4 shadow-lg shadow-la-violet/20">
-        <Download class="w-8 h-8 text-white" />
-      </div>
-      <h1 class="text-2xl font-bold mb-2">下载语音模型</h1>
-      <p class="text-muted-foreground">
-        选择一个模型开始使用，推荐先下载小模型快速体验
-      </p>
-    </div>
-
+  <div class="relative min-h-screen flex flex-col items-center justify-center p-6">
     <!-- 返回按钮 -->
     <Button
       variant="ghost"
@@ -115,92 +87,96 @@ onMounted(async () => {
       返回
     </Button>
 
+    <!-- 标题 -->
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl la-gradient mb-3 shadow-lg shadow-la-violet/20">
+        <Download class="w-6 h-6 text-white" />
+      </div>
+      <h1 class="text-xl font-bold mb-1">下载语音模型</h1>
+      <p class="text-sm text-muted-foreground">
+        选择模型开始使用
+      </p>
+    </div>
+
     <!-- 模型列表 -->
-    <div class="w-full max-w-lg space-y-3 mb-8">
-      <div v-if="isLoading" class="text-center py-8">
-        <Loader2 class="w-8 h-8 animate-spin mx-auto mb-2 text-la-indigo" />
-        <p class="text-muted-foreground">加载模型列表...</p>
+    <div class="w-full max-w-md space-y-2 mb-6">
+      <div v-if="isLoading" class="text-center py-6">
+        <Loader2 class="w-6 h-6 animate-spin mx-auto mb-2 text-la-indigo" />
+        <p class="text-sm text-muted-foreground">加载模型列表...</p>
       </div>
 
-      <Card
+      <div
         v-for="model in models"
         :key="model.id"
-        class="bg-card/50 border-border/50 backdrop-blur-sm transition-all duration-200"
+        class="p-4 rounded-lg border bg-card/50 border-border/50 backdrop-blur-sm transition-all duration-200"
         :class="{ 
           'border-la-success/30 bg-la-success/5': model.downloaded,
-          'hover:border-border': !model.downloaded
+          'hover:border-border hover:bg-card/80': !model.downloaded
         }"
       >
-        <CardHeader class="pb-2">
-          <div class="flex items-start justify-between">
-            <div>
-              <CardTitle class="text-base flex items-center gap-2">
-                {{ model.name }}
-                <Check
-                  v-if="model.downloaded"
-                  class="w-4 h-4 text-la-success"
-                />
-              </CardTitle>
-              <CardDescription class="text-xs mt-1">
-                {{ model.description }}
-              </CardDescription>
-            </div>
-            <div class="flex items-center gap-1 text-xs text-muted-foreground">
-              <HardDrive class="w-3 h-3" />
-              {{ formatSize(model.size) }}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <!-- 特性标签 -->
-          <div v-if="getModelBadges(model).length > 0" class="flex gap-2 mb-3">
+        <!-- 标题行：名称 + Tag + 操作按钮 -->
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="font-medium truncate">{{ model.name }}</span>
             <Badge
               v-for="badge in getModelBadges(model)"
               :key="badge.label"
               variant="outline"
+              class="shrink-0 text-xs px-1.5 py-0"
               :class="badge.color"
             >
-              <component :is="badge.icon" class="w-3 h-3 mr-1" />
+              <component :is="badge.icon" class="w-3 h-3 mr-0.5" />
               {{ badge.label }}
             </Badge>
+            <Check
+              v-if="model.downloaded"
+              class="w-4 h-4 text-la-success shrink-0"
+            />
           </div>
-
-          <!-- 下载进度 -->
-          <div v-if="downloadingModelId === model.id" class="space-y-2">
-            <Progress :model-value="getProgress(model.id)?.overall_progress || 0" class="h-2" />
-            <p class="text-xs text-muted-foreground">
-              {{ getProgress(model.id)?.current_file || '准备下载...' }}
-              {{ Math.round(getProgress(model.id)?.overall_progress || 0) }}%
-            </p>
-          </div>
-
+          
           <!-- 操作按钮 -->
-          <div v-else class="flex gap-2">
+          <div class="shrink-0">
             <Button
-              v-if="!model.downloaded"
+              v-if="!model.downloaded && downloadingModelId !== model.id"
               size="sm"
               variant="secondary"
-              class="gap-2"
+              class="gap-1.5 h-7 text-xs"
               :disabled="isDownloading"
               @click="handleDownload(model.id)"
             >
-              <Download class="w-4 h-4" />
+              <Download class="w-3.5 h-3.5" />
               下载
             </Button>
-            <Badge v-else variant="outline" class="bg-la-success/10 text-la-success border-la-success/20">
-              <Check class="w-3 h-3 mr-1" />
+            <Badge 
+              v-else-if="model.downloaded" 
+              variant="outline" 
+              class="bg-la-success/10 text-la-success border-la-success/20 text-xs"
+            >
               已下载
             </Badge>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <!-- 描述 -->
+        <p class="text-xs text-muted-foreground mt-1.5">
+          {{ model.description }}
+        </p>
+
+        <!-- 下载进度 -->
+        <div v-if="downloadingModelId === model.id" class="mt-3 space-y-1.5">
+          <Progress :model-value="getProgress(model.id)?.overall_progress || 0" class="h-1.5" />
+          <p class="text-xs text-muted-foreground">
+            {{ getProgress(model.id)?.current_file || '准备下载...' }}
+            {{ Math.round(getProgress(model.id)?.overall_progress || 0) }}%
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- 操作按钮 -->
-    <div class="flex flex-col items-center gap-3">
+    <div class="flex flex-col items-center gap-2">
       <Button
-        size="lg"
-        class="px-8"
+        class="px-6"
         :disabled="!models.some(m => m.downloaded)"
         @click="continueNext"
       >
@@ -211,7 +187,7 @@ onMounted(async () => {
       <Button
         variant="ghost"
         size="sm"
-        class="text-muted-foreground hover:text-foreground"
+        class="text-xs text-muted-foreground hover:text-foreground"
         @click="skipStep"
       >
         跳过，稍后下载
@@ -219,8 +195,8 @@ onMounted(async () => {
     </div>
 
     <!-- 提示 -->
-    <p class="mt-4 text-xs text-muted-foreground text-center max-w-sm">
-      跳过后语音识别功能将无法使用，你可以稍后在设置中下载模型
+    <p class="mt-3 text-xs text-muted-foreground text-center max-w-xs">
+      跳过后语音识别功能将无法使用，可稍后在设置中下载
     </p>
   </div>
 </template>

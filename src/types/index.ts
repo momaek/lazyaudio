@@ -51,13 +51,17 @@ export interface PermissionInfo {
   description?: string
 }
 
+// 模型类型
+export type ModelType = 'streaming' | 'non_streaming'
+
 // 模型信息别名
 export interface ModelInfo {
   id: string
   name: string
   description: string
-  size: number
+  size: number // 字节，0 表示未知
   downloaded: boolean
+  modelType: ModelType
 }
 
 // 从 Rust 模型信息转换
@@ -68,6 +72,7 @@ export function fromRustModelInfo(model: RustModelInfo): ModelInfo {
     description: model.description ?? '',
     size: model.size_mb * 1024 * 1024, // 转换为字节
     downloaded: model.is_downloaded,
+    modelType: model.model_type,
   }
 }
 

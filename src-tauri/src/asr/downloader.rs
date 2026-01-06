@@ -147,6 +147,16 @@ impl ModelDownloader {
         models_dir: &Path,
         progress_callback: Option<ProgressCallback>,
     ) -> AsrResult<PathBuf> {
+        let filename = url
+            .rsplit('/')
+            .next()
+            .ok_or_else(|| AsrError::Other("Invalid URL".to_string()))?;
+
+        // 检查是否是单个 .onnx 文件（如 VAD 模型）
+        if filename.ends_with(".onnx") {
+            return self.download_single_file(url, models_dir, filename, progress_callback).await;
+        }
+
         // 下载到临时目录
         let temp_dir = models_dir.join(".downloading");
         tokio::fs::create_dir_all(&temp_dir)
@@ -165,15 +175,75 @@ impl ModelDownloader {
             .ok();
 
         // 从 URL 提取模型 ID（去掉 .tar.bz2 后缀）
-        let filename = url
-            .rsplit('/')
-            .next()
-            .ok_or_else(|| AsrError::Other("Invalid URL".to_string()))?;
         let model_id = filename.trim_end_matches(".tar.bz2");
         let model_path = models_dir.join(model_id);
 
         tracing::info!("模型安装完成: {:?}", model_path);
         Ok(model_path)
+    }
+
+    /// 下载单个文件（用于 VAD 等单文件模型）
+    async fn download_single_file(
+        &self,
+        url: &str,
+        models_dir: &Path,
+        filename: &str,
+        progress_callback: Option<ProgressCallback>,
+    ) -> AsrResult<PathBuf> {
+        // 创建模型目录（使用文件名去掉扩展名作为目录名）
+        let model_id = filename.trim_end_matches(".onnx");
+        let model_dir = models_dir.join(model_id);
+        tokio::fs::create_dir_all(&model_dir)
+            .await
+            .map_err(|e| AsrError::IoError(e))?;
+
+        // 直接下载到模型目录
+        let dest_file = model_dir.join(filename);
+
+        // 发起下载请求
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| AsrError::Other(format!("下载请求失败: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(AsrError::Other(format!(
+                "下载失败: HTTP {}",
+                response.status()
+            )));
+        }
+
+        let total_size = response.content_length();
+        tracing::info!("VAD 模型大小: {:?} bytes", total_size);
+
+        let mut file = tokio::fs::File::create(&dest_file)
+            .await
+            .map_err(|e| AsrError::IoError(e))?;
+
+        let mut downloaded = 0u64;
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result
+                .map_err(|e| AsrError::Other(format!("下载数据失败: {}", e)))?;
+
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| AsrError::IoError(e))?;
+
+            downloaded += chunk.len() as u64;
+
+            if let Some(ref callback) = progress_callback {
+                callback(downloaded, total_size);
+            }
+        }
+
+        file.flush().await.map_err(|e| AsrError::IoError(e))?;
+
+        tracing::info!("VAD 模型下载完成: {:?}", model_dir);
+        Ok(model_dir)
     }
 }
 

@@ -35,6 +35,7 @@ mod model;
 pub mod multi_pass;
 mod pipeline;
 mod recognizer;
+pub mod silero_vad;
 mod types;
 
 // 导出类型
@@ -47,6 +48,7 @@ pub use multi_pass::{
 };
 pub use pipeline::{AsrPipeline, AsrPipelineConfig, SyncAsrPipeline};
 pub use recognizer::{BatchRecognizer, StreamingRecognizer};
+pub use silero_vad::{SileroVadWrapper, VadConfig, VadSegment, VAD_MODEL_ID};
 pub use types::{
     AsrConfig, AsrError, AsrResult, DecodingMethod, ModelInfo, ModelType, MultiPassResult,
     RecognitionResult, RecognitionTier, TierVersion, WordTimestamp,

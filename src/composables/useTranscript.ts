@@ -28,6 +28,9 @@ export function useTranscript(sessionId: Ref<string | null>) {
   const isProcessing = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  
+  // 刚刚精修完成的段落 ID 集合（用于显示动画）
+  const recentlyRefinedIds = ref<Set<string>>(new Set())
 
   // 计算属性
   /** 总字数 */
@@ -105,7 +108,7 @@ export function useTranscript(sessionId: Ref<string | null>) {
       }
     })
 
-    // 监听转录更新（Tier 2 multi-pass）
+    // 监听转录更新（Tier 2 multi-pass 延迟精修）
     await on(EventNames.TRANSCRIPT_UPDATED, (payload) => {
       if (sessionId.value && payload.sessionId === sessionId.value) {
         // 根据 segmentId 找到对应段落并更新
@@ -119,9 +122,18 @@ export function useTranscript(sessionId: Ref<string | null>) {
             confidence: payload.confidence || existingSegment.confidence,
             tier: payload.tier as 'tier1' | 'tier2' | undefined,
           }
-          console.log(`✅ Multi-pass 更新 (${payload.tier}): ${payload.segmentId}`, segments.value[index].text)
+          
+          // 添加到"刚精修完成"集合，触发动画
+          recentlyRefinedIds.value.add(payload.segmentId)
+          
+          // 500ms 后移除，结束动画
+          setTimeout(() => {
+            recentlyRefinedIds.value.delete(payload.segmentId)
+          }, 500)
+          
+          console.log(`✅ 延迟精修完成 (${payload.tier}): ${payload.segmentId}`, segments.value[index].text)
         } else {
-          console.warn(`⚠️ Multi-pass 更新: 未找到段落 ${payload.segmentId}`)
+          console.warn(`⚠️ 延迟精修: 未找到段落 ${payload.segmentId}`)
         }
       }
     })
@@ -175,6 +187,7 @@ export function useTranscript(sessionId: Ref<string | null>) {
     isProcessing,
     isLoading,
     error,
+    recentlyRefinedIds,
     // 计算属性
     wordCount,
     characterCount,
