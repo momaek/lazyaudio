@@ -372,17 +372,12 @@ impl AudioCapProcess {
         // 设置停止标志
         self.running.store(false, Ordering::Relaxed);
 
-        // 关闭 stdin（这会让 AudioCapCLI 退出）
+        // 先关闭 stdin（这会让 AudioCapCLI 退出）
         if let Some(stdin) = self.child.stdin.take() {
             drop(stdin);
         }
 
-        // 等待读取线程结束
-        if let Some(thread) = self.read_thread.take() {
-            let _ = thread.join();
-        }
-
-        // 尝试优雅终止进程
+        // 尝试优雅终止进程（先终止进程，这样 read() 会返回 EOF/错误，读取线程才能退出）
         match self.child.try_wait() {
             Ok(Some(_)) => {
                 tracing::debug!("AudioCapCLI 已退出");
@@ -396,6 +391,26 @@ impl AudioCapProcess {
             Err(e) => {
                 tracing::warn!("检查进程状态失败: {}", e);
                 let _ = self.child.kill();
+            }
+        }
+
+        // 等待读取线程结束（进程已终止后，read() 会返回，线程会退出）
+        if let Some(thread) = self.read_thread.take() {
+            // 使用超时等待，防止线程无法退出
+            let timeout = std::time::Duration::from_secs(2);
+            let start = std::time::Instant::now();
+            
+            // 尝试 join，如果超时就放弃
+            loop {
+                if thread.is_finished() {
+                    let _ = thread.join();
+                    break;
+                }
+                if start.elapsed() > timeout {
+                    tracing::warn!("读取线程等待超时，强制放弃");
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
             }
         }
 

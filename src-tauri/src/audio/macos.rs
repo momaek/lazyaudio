@@ -160,7 +160,19 @@ impl Drop for MacOSSystemCapture {
 // ============================================================================
 
 /// 列出系统音频源
-pub fn list_system_sources(app_handle: Option<&tauri::AppHandle>) -> AudioResult<Vec<AudioSource>> {
+/// 
+/// 目前只返回"系统音频"选项，不列出具体应用
+/// 如果需要应用级音频源，可以启用 list_app_sources
+pub fn list_system_sources(_app_handle: Option<&tauri::AppHandle>) -> AudioResult<Vec<AudioSource>> {
+    // 只返回系统音频，避免调用 AudioCapCLI 导致的延迟
+    Ok(vec![AudioSource::system_audio()])
+}
+
+/// 列出应用音频源（包含系统音频和所有应用）
+/// 
+/// 注意：此函数会调用 AudioCapCLI，可能有延迟
+#[allow(dead_code)]
+pub fn list_app_sources(app_handle: Option<&tauri::AppHandle>) -> AudioResult<Vec<AudioSource>> {
     let mut sources = vec![AudioSource::system_audio()];
 
     if let Ok(app_sources) = AudioCapProcess::list_sources(app_handle) {

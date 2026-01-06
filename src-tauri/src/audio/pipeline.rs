@@ -385,6 +385,7 @@ impl Default for AudioPipelineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::CaptureState;
 
     // 模拟音频源用于测试
     struct MockAudioCapture {

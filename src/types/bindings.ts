@@ -38,16 +38,88 @@ async setConfig(config: AppConfig) : Promise<Result<null, string>> {
 /**
  * 创建新的 Session
  */
-async createSession(modeId: string, name: string | null, audioConfig: SessionAudioConfig | null) : Promise<Result<SessionMeta, string>> {
+async sessionCreate(config: SessionConfig) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("create_session", { modeId, name, audioConfig }) };
+    return { status: "ok", data: await TAURI_INVOKE("session_create", { config }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
 /**
- * 获取 Session 元数据
+ * 开始 Session 录制
+ */
+async sessionStart(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("session_start", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 暂停 Session 录制
+ */
+async sessionPause(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("session_pause", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 恢复 Session 录制
+ */
+async sessionResume(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("session_resume", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 停止 Session 录制
+ */
+async sessionStop(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("session_stop", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 获取活跃 Session 信息
+ */
+async sessionGetActive(sessionId: string) : Promise<Result<SessionInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("session_get_active", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 列出所有活跃 Session
+ */
+async sessionListActive() : Promise<SessionInfo[]> {
+    return await TAURI_INVOKE("session_list_active");
+},
+/**
+ * 从活跃列表移除已完成的 Session
+ */
+async sessionRemoveCompleted(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("session_remove_completed", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 获取 Session 元数据（从存储）
  */
 async getSession(sessionId: string) : Promise<Result<SessionMeta, string>> {
     try {
@@ -85,6 +157,32 @@ async deleteSession(sessionId: string) : Promise<Result<null, string>> {
 async getTranscript(sessionId: string) : Promise<Result<TranscriptSegment[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_transcript", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 获取模式私有数据
+ * 
+ * 返回 JSON 字符串格式的模式数据
+ */
+async getModeData(modeId: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_mode_data", { modeId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 保存模式私有数据
+ * 
+ * 接收 JSON 字符串格式的模式数据
+ */
+async setModeData(modeId: string, data: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_mode_data", { modeId, data }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -157,10 +255,22 @@ async listMicrophones() : Promise<Result<AudioSource[], string>> {
  * 列出可用的系统音频源（macOS）
  * 
  * 包括系统音频和正在播放音频的应用
+ * 列出系统音频源（带缓存）
  */
 async listSystemAudioSources() : Promise<Result<AudioSource[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_system_audio_sources") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 强制刷新系统音频源列表（忽略缓存）
+ */
+async refreshSystemAudioSources() : Promise<Result<AudioSource[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("refresh_system_audio_sources") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -446,6 +556,22 @@ sample_rate?: number | null;
  * 通道数
  */
 channels?: number | null }
+/**
+ * 音频源配置
+ */
+export type AudioSourceConfig = { 
+/**
+ * 源类型
+ */
+sourceType: AudioSourceType; 
+/**
+ * 源 ID（可选，为空时使用默认设备）
+ */
+sourceId?: string | null; 
+/**
+ * 源名称
+ */
+name?: string | null }
 /**
  * 音频源信息
  */
@@ -772,6 +898,90 @@ channels: number;
  */
 saveAudio: boolean }
 /**
+ * Session 配置
+ * 
+ * 用于创建新 Session 时指定配置
+ */
+export type SessionConfig = { 
+/**
+ * 模式 ID
+ */
+modeId: string; 
+/**
+ * Session 名称
+ */
+name?: string | null; 
+/**
+ * 音频源配置
+ */
+audioSources?: AudioSourceConfig[]; 
+/**
+ * 是否启用录制
+ */
+enableRecording?: boolean; 
+/**
+ * 是否使用麦克风
+ */
+useMicrophone?: boolean; 
+/**
+ * 是否使用系统音频
+ */
+useSystemAudio?: boolean; 
+/**
+ * 麦克风优先级
+ */
+microphonePriority?: number }
+/**
+ * Session 运行时信息
+ * 
+ * 包含 Session 的实时状态信息
+ */
+export type SessionInfo = { 
+/**
+ * Session ID
+ */
+id: string; 
+/**
+ * 模式 ID
+ */
+modeId: string; 
+/**
+ * 状态
+ */
+status: string; 
+/**
+ * 名称
+ */
+name?: string | null; 
+/**
+ * 创建时间
+ */
+createdAt: string; 
+/**
+ * 更新时间
+ */
+updatedAt: string; 
+/**
+ * 时长（毫秒）
+ */
+durationMs: number; 
+/**
+ * 字数
+ */
+wordCount: number; 
+/**
+ * 是否正在录制
+ */
+isRecording: boolean; 
+/**
+ * 是否已暂停
+ */
+isPaused: boolean; 
+/**
+ * 是否拥有麦克风
+ */
+hasMicrophone: boolean }
+/**
  * Session 元数据
  */
 export type SessionMeta = { 
@@ -946,7 +1156,11 @@ words?: WordTimestamp[] | null;
 /**
  * 创建时间（ISO 8601）
  */
-createdAt: string }
+createdAt: string; 
+/**
+ * 识别层级（Multi-pass: tier1=实时, tier2=修正, tier3=精修）
+ */
+tier?: string | null }
 /**
  * 转录来源
  */

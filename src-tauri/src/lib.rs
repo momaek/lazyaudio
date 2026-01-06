@@ -26,8 +26,9 @@ pub mod types;
 use audio::AudioSource;
 use commands::{ModelDownloadComplete, ModelDownloadProgress};
 use permissions::{AllPermissionsStatus, PermissionManager, PermissionStatus, PermissionType};
+use session::{SessionConfig, SessionInfo};
 use state::AppState;
-use storage::{AppConfig, SessionAudioConfig, SessionMeta, SessionRecord, TranscriptSegment};
+use storage::{AppConfig, SessionMeta, SessionRecord, TranscriptSegment};
 use tauri_specta::{collect_commands, Builder, Event};
 
 // ============================================================================
@@ -55,30 +56,154 @@ async fn set_config(state: tauri::State<'_, AppState>, config: AppConfig) -> Res
     state.storage.set_config(config).await.map_err(|e| e.to_string())
 }
 
+// ============================================================================
+// Session 管理 Commands
+// ============================================================================
+
 /// 创建新的 Session
 #[tauri::command]
 #[specta::specta]
-fn create_session(
+fn session_create(
     state: tauri::State<'_, AppState>,
-    mode_id: String,
-    name: Option<String>,
-    audio_config: Option<SessionAudioConfig>,
-) -> Result<SessionMeta, String> {
-    let audio_config = audio_config.unwrap_or_default();
-    let mut meta = SessionMeta::new(mode_id, audio_config);
-    if let Some(n) = name {
-        meta.name = Some(n);
-    }
-
+    config: SessionConfig,
+) -> Result<String, String> {
     state
-        .storage
-        .create_session(&meta)
-        .map_err(|e| e.to_string())?;
-
-    Ok(meta)
+        .session_manager
+        .create(config)
+        .map_err(|e| e.to_string())
 }
 
-/// 获取 Session 元数据
+/// 开始 Session 录制
+#[tauri::command]
+#[specta::specta]
+fn session_start(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    // 获取 Session 配置
+    let session_info = state
+        .session_manager
+        .get(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // 启动状态机
+    state
+        .session_manager
+        .start(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // 启动音频运行时
+    // 解析 session 配置来确定是否使用麦克风和系统音频
+    // 从 SessionInfo 我们知道 mode_id，但需要从活跃 session 获取配置
+    // 这里简化处理：默认都启用
+    state
+        .session_runtime
+        .start(
+            session_id,
+            true,  // use_microphone - 默认启用
+            true,  // use_system_audio - 默认启用
+            None,  // mic_id - 使用默认
+            None,  // system_source_id - 使用默认
+            Some(app),
+        )
+        .map_err(|e| e.to_string())
+}
+
+/// 暂停 Session 录制
+#[tauri::command]
+#[specta::specta]
+fn session_pause(state: tauri::State<'_, AppState>, session_id: String) -> Result<(), String> {
+    // 暂停状态机
+    state
+        .session_manager
+        .pause(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // 暂停音频运行时
+    state
+        .session_runtime
+        .pause(&session_id)
+        .map_err(|e| e.to_string())
+}
+
+/// 恢复 Session 录制
+#[tauri::command]
+#[specta::specta]
+fn session_resume(state: tauri::State<'_, AppState>, session_id: String) -> Result<(), String> {
+    // 恢复状态机
+    state
+        .session_manager
+        .resume(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // 恢复音频运行时
+    state
+        .session_runtime
+        .resume(&session_id)
+        .map_err(|e| e.to_string())
+}
+
+/// 停止 Session 录制
+#[tauri::command]
+#[specta::specta]
+async fn session_stop(state: tauri::State<'_, AppState>, session_id: String) -> Result<(), String> {
+    let session_runtime = state.session_runtime.clone();
+    let session_manager = state.session_manager.clone();
+    let session_id_clone = session_id.clone();
+
+    // 在阻塞线程中执行停止操作，避免阻塞主线程
+    tokio::task::spawn_blocking(move || {
+        // 先停止音频运行时
+        let _ = session_runtime.stop(&session_id_clone);
+    })
+    .await
+    .map_err(|e| format!("停止运行时失败: {}", e))?;
+
+    // 停止状态机
+    session_manager
+        .stop(&session_id)
+        .map_err(|e| e.to_string())
+}
+
+/// 获取活跃 Session 信息
+#[tauri::command]
+#[specta::specta]
+fn session_get_active(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<SessionInfo, String> {
+    state
+        .session_manager
+        .get(&session_id)
+        .map_err(|e| e.to_string())
+}
+
+/// 列出所有活跃 Session
+#[tauri::command]
+#[specta::specta]
+fn session_list_active(state: tauri::State<'_, AppState>) -> Vec<SessionInfo> {
+    state.session_manager.list_active()
+}
+
+/// 从活跃列表移除已完成的 Session
+#[tauri::command]
+#[specta::specta]
+fn session_remove_completed(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    state
+        .session_manager
+        .remove_completed(&session_id)
+        .map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Session 存储 Commands（历史记录）
+// ============================================================================
+
+/// 获取 Session 元数据（从存储）
 #[tauri::command]
 #[specta::specta]
 fn get_session(state: tauri::State<'_, AppState>, session_id: String) -> Result<SessionMeta, String> {
@@ -130,6 +255,37 @@ fn get_transcript(
         .storage
         .load_transcript(&storage)
         .map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// 模式数据 Commands
+// ============================================================================
+
+/// 获取模式私有数据
+/// 
+/// 返回 JSON 字符串格式的模式数据
+#[tauri::command]
+#[specta::specta]
+fn get_mode_data(
+    state: tauri::State<'_, AppState>,
+    mode_id: String,
+) -> Result<String, String> {
+    let data = state.storage.load_mode_data(&mode_id).map_err(|e| e.to_string())?;
+    serde_json::to_string(&data).map_err(|e| e.to_string())
+}
+
+/// 保存模式私有数据
+/// 
+/// 接收 JSON 字符串格式的模式数据
+#[tauri::command]
+#[specta::specta]
+fn set_mode_data(
+    state: tauri::State<'_, AppState>,
+    mode_id: String,
+    data: String,
+) -> Result<(), String> {
+    let parsed: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+    state.storage.save_mode_data(&mode_id, &parsed).map_err(|e| e.to_string())
 }
 
 // ============================================================================
@@ -203,17 +359,65 @@ fn list_microphones() -> Result<Vec<AudioSource>, String> {
 /// 列出可用的系统音频源（macOS）
 ///
 /// 包括系统音频和正在播放音频的应用
+/// 列出系统音频源（带缓存）
 #[cfg(target_os = "macos")]
 #[tauri::command]
 #[specta::specta]
-fn list_system_audio_sources(app: tauri::AppHandle) -> Result<Vec<AudioSource>, String> {
-    audio::macos::list_system_sources(Some(&app)).map_err(|e| e.to_string())
+fn list_system_audio_sources(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AudioSource>, String> {
+    // 先检查缓存
+    if let Some(cached) = state.audio_source_cache.get_system_sources() {
+        tracing::debug!("使用缓存的系统音频源列表");
+        return Ok(cached);
+    }
+
+    // 缓存无效，重新获取
+    tracing::info!("刷新系统音频源列表...");
+    let sources = audio::macos::list_system_sources(Some(&app)).map_err(|e| e.to_string())?;
+    
+    // 更新缓存
+    state.audio_source_cache.set_system_sources(sources.clone());
+    
+    Ok(sources)
 }
 
 #[cfg(not(target_os = "macos"))]
 #[tauri::command]
 #[specta::specta]
-fn list_system_audio_sources() -> Result<Vec<AudioSource>, String> {
+fn list_system_audio_sources(state: tauri::State<'_, AppState>) -> Result<Vec<AudioSource>, String> {
+    let _ = state; // 消除未使用警告
+    Ok(vec![])
+}
+
+/// 强制刷新系统音频源列表（忽略缓存）
+#[cfg(target_os = "macos")]
+#[tauri::command]
+#[specta::specta]
+fn refresh_system_audio_sources(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AudioSource>, String> {
+    tracing::info!("强制刷新系统音频源列表");
+    
+    // 清除缓存
+    state.audio_source_cache.clear();
+    
+    // 重新获取
+    let sources = audio::macos::list_system_sources(Some(&app)).map_err(|e| e.to_string())?;
+    
+    // 更新缓存
+    state.audio_source_cache.set_system_sources(sources.clone());
+    
+    Ok(sources)
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+#[specta::specta]
+fn refresh_system_audio_sources(state: tauri::State<'_, AppState>) -> Result<Vec<AudioSource>, String> {
+    let _ = state;
     Ok(vec![])
 }
 
@@ -581,11 +785,23 @@ fn build_specta_builder() -> Builder {
             greet,
             get_config,
             set_config,
-            create_session,
+            // Session 管理（活跃 Session）
+            session_create,
+            session_start,
+            session_pause,
+            session_resume,
+            session_stop,
+            session_get_active,
+            session_list_active,
+            session_remove_completed,
+            // Session 存储（历史记录）
             get_session,
             list_sessions,
             delete_session,
             get_transcript,
+            // 模式数据
+            get_mode_data,
+            set_mode_data,
             // 权限相关
             check_permission,
             request_permission,
@@ -596,6 +812,7 @@ fn build_specta_builder() -> Builder {
             list_audio_sources,
             list_microphones,
             list_system_audio_sources,
+            refresh_system_audio_sources,
             // 音频测试
             start_audio_test,
             stop_audio_test,
@@ -656,13 +873,23 @@ pub fn run() {
 
     let builder = build_specta_builder();
 
+    // 创建应用状态
+    let app_state = AppState::new();
+    let event_bus = app_state.event_bus.clone();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
-        .manage(AppState::new())
+        .manage(app_state)
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
+
+            // 初始化 TauriBridge 并启动事件转发
+            let bridge = event::TauriBridge::new(app.handle().clone(), event_bus);
+            bridge.start_forwarding();
+            tracing::info!("TauriBridge 事件转发已启动");
+
             Ok(())
         })
         .run(tauri::generate_context!())

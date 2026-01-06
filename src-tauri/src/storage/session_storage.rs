@@ -388,6 +388,9 @@ pub struct TranscriptSegment {
     pub words: Option<Vec<WordTimestamp>>,
     /// 创建时间（ISO 8601）
     pub created_at: DateTimeString,
+    /// 识别层级（Multi-pass: tier1=实时, tier2=修正, tier3=精修）
+    #[serde(default)]
+    pub tier: Option<String>,
 }
 
 impl TranscriptSegment {
@@ -405,6 +408,7 @@ impl TranscriptSegment {
             language: None,
             words: None,
             created_at: Utc::now().to_rfc3339(),
+            tier: None,
         }
     }
 

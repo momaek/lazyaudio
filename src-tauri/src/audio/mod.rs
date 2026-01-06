@@ -59,6 +59,9 @@ pub mod macos;
 // 麦克风采集（跨平台）
 mod microphone;
 
+// 麦克风资源管理
+mod microphone_manager;
+
 // 导出类型
 pub use capture::{AsyncAudioCapture, AudioCapture};
 pub use consumer::{AsyncAudioConsumer, AudioConsumer, AudioConsumerFactory};
@@ -79,6 +82,11 @@ pub use audiocap_cli::AudioCapProcess;
 pub use macos::MacOSSystemCapture;
 
 pub use microphone::MicrophoneCapture;
+pub use microphone_manager::{
+    create_shared_microphone_manager, create_shared_microphone_manager_with_bus,
+    AcquireResult, MicrophoneManager, SessionId, SharedMicrophoneManager,
+    PRIORITY_BACKGROUND, PRIORITY_INPUT_METHOD, PRIORITY_PRIMARY,
+};
 
 // ============================================================================
 // 便捷函数

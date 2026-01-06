@@ -8,8 +8,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use super::{
-    init_data_dirs, load_config, save_config, AppConfig, Database, SessionMeta, SessionRecord,
-    SessionStorage, TranscriptSegment,
+    get_modes_dir, init_data_dirs, load_config, save_config, AppConfig, Database, SessionMeta,
+    SessionRecord, SessionStorage, TranscriptSegment,
 };
 
 /// 存储引擎
@@ -207,6 +207,58 @@ impl StorageEngine {
     #[must_use]
     pub fn database(&self) -> &Database {
         &self.db
+    }
+
+    // ========================================================================
+    // 模式私有数据
+    // ========================================================================
+
+    /// 获取模式私有数据目录
+    fn get_mode_data_dir(&self, mode_id: &str) -> anyhow::Result<std::path::PathBuf> {
+        let modes_dir = get_modes_dir()?;
+        Ok(modes_dir.join(mode_id))
+    }
+
+    /// 获取模式私有数据文件路径
+    fn get_mode_data_path(&self, mode_id: &str) -> anyhow::Result<std::path::PathBuf> {
+        Ok(self.get_mode_data_dir(mode_id)?.join("data.json"))
+    }
+
+    /// 加载模式私有数据
+    pub fn load_mode_data(&self, mode_id: &str) -> anyhow::Result<serde_json::Value> {
+        let path = self.get_mode_data_path(mode_id)?;
+        if !path.exists() {
+            return Ok(serde_json::json!({}));
+        }
+
+        let content = std::fs::read_to_string(&path)?;
+        let data: serde_json::Value = serde_json::from_str(&content)?;
+        Ok(data)
+    }
+
+    /// 保存模式私有数据
+    pub fn save_mode_data(&self, mode_id: &str, data: &serde_json::Value) -> anyhow::Result<()> {
+        let dir = self.get_mode_data_dir(mode_id)?;
+        if !dir.exists() {
+            std::fs::create_dir_all(&dir)?;
+        }
+
+        let path = self.get_mode_data_path(mode_id)?;
+        let content = serde_json::to_string_pretty(data)?;
+        std::fs::write(&path, content)?;
+
+        tracing::debug!("保存模式数据: mode_id={}, path={}", mode_id, path.display());
+        Ok(())
+    }
+
+    /// 删除模式私有数据
+    pub fn delete_mode_data(&self, mode_id: &str) -> anyhow::Result<()> {
+        let dir = self.get_mode_data_dir(mode_id)?;
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir)?;
+            tracing::debug!("删除模式数据: mode_id={}", mode_id);
+        }
+        Ok(())
     }
 }
 

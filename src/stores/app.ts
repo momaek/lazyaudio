@@ -156,6 +156,45 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('lastMode', modeId)
   }
 
+  /**
+   * 更新配置（部分更新）
+   */
+  async function updateConfig(updates: Partial<AppConfig>): Promise<void> {
+    if (!config.value) return
+
+    // 深度合并配置
+    config.value = {
+      ...config.value,
+      ...updates,
+      general: {
+        ...config.value.general,
+        ...(updates.general ?? {}),
+      },
+      audio: {
+        ...config.value.audio,
+        ...(updates.audio ?? {}),
+      },
+      asr: {
+        ...config.value.asr,
+        ...(updates.asr ?? {}),
+      },
+      ai: {
+        ...config.value.ai,
+        ...(updates.ai ?? {}),
+      },
+      hotkeys: {
+        ...config.value.hotkeys,
+        ...(updates.hotkeys ?? {}),
+      },
+      storage: {
+        ...config.value.storage,
+        ...(updates.storage ?? {}),
+      },
+    }
+
+    await saveConfig()
+  }
+
   return {
     // 状态
     config,
@@ -175,5 +214,6 @@ export const useAppStore = defineStore('app', () => {
     setOnboardingCompleted,
     getLastMode,
     setLastMode,
+    updateConfig,
   }
 })

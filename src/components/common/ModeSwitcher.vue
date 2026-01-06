@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { useModeStore } from '@/stores/mode'
 import { useSessionStore } from '@/stores/session'
 import { useAppStore } from '@/stores/app'
-import { ChevronDown, Mic, UserSearch, User } from 'lucide-vue-next'
+import { commands } from '@/types/bindings'
+import { ChevronDown, Mic, UserSearch, User, Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ const appStore = useAppStore()
 // 确认对话框状态
 const showConfirmDialog = ref(false)
 const pendingModeId = ref<string | null>(null)
+const isSwitching = ref(false)
 
 // 获取模式图标组件
 function getModeIcon(modeId: string) {
@@ -100,9 +102,29 @@ async function switchToMode(modeId: string) {
 // 确认切换
 async function confirmSwitch() {
   if (!pendingModeId.value) return
-  await switchToMode(pendingModeId.value)
-  showConfirmDialog.value = false
-  pendingModeId.value = null
+
+  isSwitching.value = true
+  try {
+    // 1. 停止所有活跃的 Session
+    const activeSessions = sessionStore.activeSessions.filter(
+      (s) => s.state === 'recording' || s.state === 'paused'
+    )
+    for (const session of activeSessions) {
+      try {
+        await commands.sessionStop(session.id)
+        sessionStore.updateSessionState(session.id, 'completed')
+      } catch (e) {
+        console.error(`[ModeSwitcher] 停止 Session ${session.id} 失败:`, e)
+      }
+    }
+
+    // 2. 切换模式
+    await switchToMode(pendingModeId.value)
+  } finally {
+    isSwitching.value = false
+    showConfirmDialog.value = false
+    pendingModeId.value = null
+  }
 }
 
 // 取消切换
@@ -146,8 +168,11 @@ function cancelSwitch() {
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>
-        <Button variant="outline" @click="cancelSwitch">取消</Button>
-        <Button @click="confirmSwitch">确认切换</Button>
+        <Button variant="outline" :disabled="isSwitching" @click="cancelSwitch">取消</Button>
+        <Button :disabled="isSwitching" @click="confirmSwitch">
+          <Loader2 v-if="isSwitching" class="mr-2 h-4 w-4 animate-spin" />
+          {{ isSwitching ? '正在切换...' : '确认切换' }}
+        </Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

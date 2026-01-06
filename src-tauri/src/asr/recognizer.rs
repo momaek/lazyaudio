@@ -177,6 +177,11 @@ impl StreamingRecognizer {
     pub fn get_result(&mut self) -> RecognitionResult {
         let result = self.stream.get_result();
 
+        // 调试输出
+        if !result.text.is_empty() && result.text != self.last_text {
+            tracing::info!("ASR 新识别结果: '{}'", result.text);
+        }
+
         // 检查文本是否变化
         if result.text != self.last_text && !result.text.is_empty() {
             self.last_text = result.text.clone();

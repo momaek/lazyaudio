@@ -32,7 +32,7 @@
 mod downloader;
 mod engine;
 mod model;
-mod multi_pass;
+pub mod multi_pass;
 mod pipeline;
 mod recognizer;
 mod types;
