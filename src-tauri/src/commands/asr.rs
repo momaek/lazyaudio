@@ -142,7 +142,7 @@ pub async fn download_model(
 
     // 下载并安装
     let result = downloader
-        .download_and_install(&url, &models_dir, Some(progress_callback))
+        .download_and_install(&url, &models_dir, &model_id, Some(progress_callback))
         .await;
 
     match result {

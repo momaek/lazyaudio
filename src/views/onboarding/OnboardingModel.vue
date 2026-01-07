@@ -61,7 +61,9 @@ function getModelBadges(model: ModelInfo) {
   const badges = []
   if (model.modelType === 'streaming') {
     badges.push({ label: '流式', icon: Zap, color: 'bg-la-success/10 text-la-success border-la-success/20' })
-  } else {
+  } else if (model.modelType === 'non_streaming') {
+    badges.push({ label: 'Two Pass', icon: Target, color: 'bg-la-violet/10 text-la-violet border-la-violet/20' })
+  } else if (model.modelType === 'vad') {
     badges.push({ label: 'Two Pass', icon: Target, color: 'bg-la-violet/10 text-la-violet border-la-violet/20' })
   }
   return badges

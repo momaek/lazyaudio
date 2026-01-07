@@ -12,9 +12,16 @@
   "app": {
     "windows": [
       {
-        "title": "lazyaudio-core",
-        "width": 800,
-        "height": 600
+        "title": "LazyAudio",
+        "width": 1200,
+        "height": 800,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 14,
+          "y": 24
+        }
       }
     ],
     "security": {

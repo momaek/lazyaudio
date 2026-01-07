@@ -28,15 +28,30 @@ function openCommandPalette() {
 </script>
 
 <template>
-  <header class="h-14 border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50">
-    <div class="h-full px-4 flex items-center justify-between">
-      <!-- 左侧：模式切换器 -->
-      <div class="flex items-center gap-3">
+  <header 
+    class="h-12 border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-0 z-50"
+    data-tauri-drag-region
+  >
+    <div class="h-full flex items-center justify-between">
+      <!-- 左侧：Logo + 模式切换器 (带 macOS 红绿灯按钮留白 ~78px) -->
+      <div class="flex items-center gap-3 pl-[78px] pr-3">
+        <div class="h-4 w-px bg-border/50"></div>
+        <!-- Logo/品牌 -->
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
+            <span class="text-white text-xs font-bold">LA</span>
+          </div>
+          <span class="text-sm font-semibold text-foreground">LazyAudio</span>
+        </div>
+        
+        <div class="h-4 w-px bg-border/50"></div>
+        
+        <!-- 模式切换器 -->
         <ModeSwitcher />
       </div>
 
       <!-- 右侧：状态和操作 -->
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1 pr-3">
         <!-- 录制状态胶囊 -->
         <RecordingPill />
 
@@ -47,7 +62,7 @@ function openCommandPalette() {
               <Button
                 variant="ghost"
                 size="icon"
-                class="h-9 w-9 text-muted-foreground hover:text-foreground"
+                class="h-8 w-8 text-muted-foreground hover:text-foreground"
                 @click="openCommandPalette"
               >
                 <Search class="h-4 w-4" />
@@ -66,7 +81,7 @@ function openCommandPalette() {
               <Button
                 variant="ghost"
                 size="icon"
-                class="h-9 w-9 text-muted-foreground hover:text-foreground"
+                class="h-8 w-8 text-muted-foreground hover:text-foreground"
                 @click="goToHistory"
               >
                 <History class="h-4 w-4" />
@@ -85,7 +100,7 @@ function openCommandPalette() {
               <Button
                 variant="ghost"
                 size="icon"
-                class="h-9 w-9 text-muted-foreground hover:text-foreground"
+                class="h-8 w-8 text-muted-foreground hover:text-foreground"
                 @click="goToSettings"
               >
                 <Settings class="h-4 w-4" />

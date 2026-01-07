@@ -52,7 +52,7 @@ export interface PermissionInfo {
 }
 
 // 模型类型
-export type ModelType = 'streaming' | 'non_streaming'
+export type ModelType = 'streaming' | 'non_streaming' | 'vad'
 
 // 模型信息别名
 export interface ModelInfo {

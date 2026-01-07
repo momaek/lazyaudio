@@ -62,6 +62,20 @@ function getModeColor(modeId: string) {
   }
 }
 
+// 获取模式描述
+function getModeDescription(modeId: string) {
+  switch (modeId) {
+    case 'meeting':
+      return '会议录制、实时转录'
+    case 'interviewer':
+      return '面试官模式、AI 辅助'
+    case 'interviewee':
+      return '面试者模式、提词辅助'
+    default:
+      return ''
+  }
+}
+
 // 当前模式显示
 const currentModeDisplay = computed(() => {
   const mode = modeStore.currentPrimaryMode
@@ -137,23 +151,30 @@ function cancelSwitch() {
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <Button variant="ghost" class="h-9 px-3 gap-2">
-        <component :is="currentModeDisplay.icon" class="h-4 w-4" :class="currentModeDisplay.color" />
-        <span class="font-medium">{{ currentModeDisplay.name }}</span>
+      <Button 
+        variant="ghost" 
+        class="h-8 px-2.5 gap-1.5 text-sm font-medium hover:bg-accent/50 data-[state=open]:bg-accent/50"
+      >
+        <component :is="currentModeDisplay.icon" class="h-3.5 w-3.5" :class="currentModeDisplay.color" />
+        <span>{{ currentModeDisplay.name }}</span>
         <ChevronDown class="h-3 w-3 opacity-50" />
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" class="w-48">
-      <DropdownMenuLabel class="text-muted-foreground">切换模式</DropdownMenuLabel>
+    <DropdownMenuContent align="start" class="w-52">
+      <DropdownMenuLabel class="text-xs text-muted-foreground font-normal">工作模式</DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem
         v-for="mode in modeStore.availablePrimaryModes"
         :key="mode.id"
         :class="{ 'bg-accent': mode.id === modeStore.currentPrimaryModeId }"
+        class="cursor-pointer"
         @click="handleModeSwitch(mode.id)"
       >
-        <component :is="getModeIcon(mode.id)" class="mr-2 h-4 w-4" :class="getModeColor(mode.id)" />
-        <span>{{ mode.name }}</span>
+        <component :is="getModeIcon(mode.id)" class="mr-2.5 h-4 w-4" :class="getModeColor(mode.id)" />
+        <div class="flex-1">
+          <div class="font-medium">{{ mode.name }}</div>
+          <div class="text-xs text-muted-foreground">{{ getModeDescription(mode.id) }}</div>
+        </div>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

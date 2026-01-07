@@ -145,6 +145,7 @@ impl ModelDownloader {
         &self,
         url: &str,
         models_dir: &Path,
+        model_id: &str,
         progress_callback: Option<ProgressCallback>,
     ) -> AsrResult<PathBuf> {
         let filename = url
@@ -154,7 +155,7 @@ impl ModelDownloader {
 
         // 检查是否是单个 .onnx 文件（如 VAD 模型）
         if filename.ends_with(".onnx") {
-            return self.download_single_file(url, models_dir, filename, progress_callback).await;
+            return self.download_single_file(url, models_dir, model_id, filename, progress_callback).await;
         }
 
         // 下载到临时目录
@@ -174,8 +175,7 @@ impl ModelDownloader {
             .await
             .ok();
 
-        // 从 URL 提取模型 ID（去掉 .tar.bz2 后缀）
-        let model_id = filename.trim_end_matches(".tar.bz2");
+        // 使用传入的模型 ID
         let model_path = models_dir.join(model_id);
 
         tracing::info!("模型安装完成: {:?}", model_path);
@@ -187,11 +187,11 @@ impl ModelDownloader {
         &self,
         url: &str,
         models_dir: &Path,
+        model_id: &str,
         filename: &str,
         progress_callback: Option<ProgressCallback>,
     ) -> AsrResult<PathBuf> {
-        // 创建模型目录（使用文件名去掉扩展名作为目录名）
-        let model_id = filename.trim_end_matches(".onnx");
+        // 创建模型目录（使用传入的模型 ID）
         let model_dir = models_dir.join(model_id);
         tokio::fs::create_dir_all(&model_dir)
             .await

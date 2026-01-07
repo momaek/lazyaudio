@@ -98,7 +98,7 @@ function goToRecordingMode() {
 <template>
   <button
     v-if="recordingState.isActive"
-    class="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
+    class="flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 h-7"
     :class="[
       recordingState.isRecording
         ? 'bg-la-recording/15 text-la-recording hover:bg-la-recording/25'
@@ -114,10 +114,10 @@ function goToRecordingMode() {
     <Pause v-else class="h-3 w-3" />
 
     <!-- 时长 -->
-    <span class="tabular-nums">{{ displayDuration }}</span>
+    <span class="tabular-nums font-semibold">{{ displayDuration }}</span>
 
     <!-- 模式名称 -->
-    <span class="hidden sm:inline text-xs opacity-75">
+    <span class="hidden sm:inline opacity-70">
       {{ modeStore.currentPrimaryMode?.name || '' }}
     </span>
   </button>
