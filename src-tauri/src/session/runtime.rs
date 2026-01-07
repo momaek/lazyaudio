@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
 
 use chrono::Utc;
@@ -26,6 +26,21 @@ use crate::event::{
 use crate::storage::{TranscriptSegment, TranscriptSource};
 
 use super::types::SessionId;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActiveSource {
+    Microphone,
+    System,
+}
+
+impl ActiveSource {
+    fn to_transcript_source(self) -> TranscriptSource {
+        match self {
+            ActiveSource::Microphone => TranscriptSource::Microphone,
+            ActiveSource::System => TranscriptSource::System,
+        }
+    }
+}
 
 /// 运行中的 Session 句柄
 #[derive(Debug)]
@@ -107,6 +122,7 @@ impl SessionRuntimeManager {
         session_id: SessionId,
         use_microphone: bool,
         use_system_audio: bool,
+        merge_for_asr: bool,
         mic_id: Option<String>,
         system_source_id: Option<String>,
         app_handle: Option<tauri::AppHandle>,
@@ -151,6 +167,7 @@ impl SessionRuntimeManager {
                 is_paused_clone,
                 use_microphone,
                 use_system_audio,
+                merge_for_asr,
                 mic_id,
                 system_source_id,
                 event_bus,
@@ -238,6 +255,7 @@ fn run_session_audio(
     is_paused: Arc<AtomicBool>,
     use_microphone: bool,
     use_system_audio: bool,
+    merge_for_asr: bool,
     mic_id: Option<String>,
     system_source_id: Option<String>,
     event_bus: SharedEventBus,
@@ -390,11 +408,25 @@ fn run_session_audio(
         // None = 还未初始化，Some(None) = 不需要（已经是 16kHz），Some(Some(r)) = 需要
         let mut resampler: Option<Option<Resampler>> = None;
 
+        let default_source = if use_microphone && use_system_audio {
+            TranscriptSource::Mixed
+        } else if use_microphone {
+            TranscriptSource::Microphone
+        } else {
+            TranscriptSource::System
+        };
+
+        let mut allow_separate = use_microphone && use_system_audio && !merge_for_asr;
+        let mut active_source: Option<ActiveSource> = None;
+
         // Recognizer（可能没有）
         let mut recognizer = recognizer;
 
         // Multi-pass: segment_id 计数器
         let mut segment_id_counter: u64 = 0;
+
+        let segment_sources: Arc<Mutex<HashMap<String, TranscriptSource>>> =
+            Arc::new(Mutex::new(HashMap::new()));
         
         // 临时音频缓冲区（用于收集一个语音段落的所有音频数据）
         let mut temp_audio_buffer: Vec<f32> = Vec::new();
@@ -442,9 +474,16 @@ fn run_session_audio(
             // 设置精修结果回调（在主循环开始前同步设置）
             let event_bus_for_refine = event_bus.clone();
             let session_id_for_refine = session_id.clone();
+            let segment_sources_for_refine = segment_sources.clone();
             let refiner_for_callback = refiner.clone();
             
             refiner_for_callback.set_callback(Arc::new(move |result: RefineResult| {
+                let source = segment_sources_for_refine
+                    .lock()
+                    .ok()
+                    .and_then(|mut map| map.remove(&result.segment_id))
+                    .unwrap_or(TranscriptSource::Mixed);
+
                 // 发送 TranscriptUpdated 事件
                 let segment = TranscriptSegment {
                     id: result.segment_id.clone(),
@@ -453,7 +492,7 @@ fn run_session_audio(
                     text: result.text.clone(),
                     is_final: true,
                     confidence: Some(result.confidence),
-                    source: Some(TranscriptSource::Mixed),
+                    source: Some(source),
                     language: None,
                     words: None,
                     created_at: Utc::now().to_rfc3339(),
@@ -525,6 +564,11 @@ fn run_session_audio(
             None
         };
 
+        if allow_separate && silero_vad.is_none() {
+            warn!("VAD 未就绪，无法进行分路识别，将回退为合并模式");
+            allow_separate = false;
+        }
+
         // VAD 模式下的音频缓冲区
         let mut vad_audio_buffer: Vec<f32> = Vec::new();
         let mut vad_buffer_start_time: f64 = 0.0;
@@ -573,8 +617,86 @@ fn run_session_audio(
                 None
             };
 
-            // 合并音频数据用于 ASR
-            let audio_for_asr = merge_audio_chunks(&mic_chunk, &system_chunk);
+        // 选择用于 ASR 的音频
+        let mut source_for_asr = default_source;
+        let audio_for_asr = if allow_separate {
+                let vad_is_speech = silero_vad.as_ref().map(|v| v.is_speech()).unwrap_or(false);
+                let mic_energy = mic_chunk
+                    .as_ref()
+                    .map(|chunk| {
+                        let sum = chunk.samples.iter().map(|s| s * s).sum::<f32>();
+                        (sum / chunk.samples.len().max(1) as f32).sqrt()
+                    })
+                    .unwrap_or(0.0);
+                let system_energy = system_chunk
+                    .as_ref()
+                    .map(|chunk| {
+                        let sum = chunk.samples.iter().map(|s| s * s).sum::<f32>();
+                        (sum / chunk.samples.len().max(1) as f32).sqrt()
+                    })
+                    .unwrap_or(0.0);
+                let energy_threshold = 0.005;
+                let hysteresis = 0.002;
+                let mic_active = mic_energy > energy_threshold;
+                let system_active = system_energy > energy_threshold;
+
+                let select_source = |current: Option<ActiveSource>| -> Option<ActiveSource> {
+                    match (mic_active, system_active) {
+                        (true, false) => Some(ActiveSource::Microphone),
+                        (false, true) => Some(ActiveSource::System),
+                        (true, true) => {
+                            let diff = mic_energy - system_energy;
+                            if diff.abs() < hysteresis {
+                                current.or(Some(ActiveSource::System))
+                            } else if diff > 0.0 {
+                                Some(ActiveSource::Microphone)
+                            } else {
+                                Some(ActiveSource::System)
+                            }
+                        }
+                        (false, false) => None,
+                    }
+                };
+
+                let next_source = if let Some(current) = active_source {
+                    if vad_is_speech {
+                        Some(current)
+                    } else {
+                        select_source(Some(current))
+                    }
+                } else {
+                    select_source(None)
+                };
+
+                if next_source != active_source {
+                    active_source = next_source;
+                    last_partial_text.clear();
+                    temp_audio_buffer.clear();
+                    vad_audio_buffer.clear();
+                    if let Some(ref mut vad) = silero_vad {
+                        vad.reset();
+                    }
+                    if let Some(ref mut rec) = recognizer {
+                        rec.reset();
+                    }
+                    resampler = None;
+                }
+
+                match active_source {
+                    Some(ActiveSource::Microphone) => {
+                        source_for_asr = TranscriptSource::Microphone;
+                        mic_chunk.clone()
+                    }
+                    Some(ActiveSource::System) => {
+                        source_for_asr = TranscriptSource::System;
+                        system_chunk.clone()
+                    }
+                    None => None,
+                }
+            } else {
+                source_for_asr = default_source;
+                merge_audio_chunks(&mic_chunk, &system_chunk)
+            };
             
             if let Some(chunk) = &audio_for_asr {
                 // 更新电平
@@ -704,7 +826,7 @@ fn run_session_audio(
                                     text: final_result.text.clone(),
                                     is_final: true,
                                     confidence: Some(final_result.confidence),
-                                    source: Some(TranscriptSource::Mixed),
+                                    source: Some(source_for_asr),
                                     language: None,
                                     words: None,
                                     created_at: Utc::now().to_rfc3339(),
@@ -718,6 +840,9 @@ fn run_session_audio(
                                 
                                 // 调度延迟精修
                                 if let Some(ref refiner) = delayed_refiner {
+                                    if let Ok(mut map) = segment_sources.lock() {
+                                        map.insert(segment_id.clone(), source_for_asr);
+                                    }
                                     let refiner = refiner.clone();
                                     let session_id_clone = session_id.clone();
                                     let segment_id_clone = segment_id.clone();
@@ -774,7 +899,7 @@ fn run_session_audio(
                                     text: result.text.clone(),
                                     is_final: true,
                                     confidence: Some(result.confidence),
-                                    source: Some(TranscriptSource::Mixed),
+                                    source: Some(source_for_asr),
                                     language: None,
                                     words: None,
                                     created_at: Utc::now().to_rfc3339(),
@@ -817,7 +942,7 @@ fn run_session_audio(
                                 text: final_result.text.clone(),
                                 is_final: true,
                                 confidence: Some(final_result.confidence),
-                                source: Some(TranscriptSource::Mixed),
+                                source: Some(source_for_asr),
                                 language: None,
                                 words: None,
                                 created_at: Utc::now().to_rfc3339(),
@@ -833,6 +958,9 @@ fn run_session_audio(
                             // Multi-pass: 调度延迟精修
                             if let Some(ref refiner) = delayed_refiner {
                                 if !temp_audio_buffer.is_empty() {
+                                    if let Ok(mut map) = segment_sources.lock() {
+                                        map.insert(segment_id.clone(), source_for_asr);
+                                    }
                                     let refiner = refiner.clone();
                                     let session_id_clone = session_id.clone();
                                     let segment_id_clone = segment_id.clone();
