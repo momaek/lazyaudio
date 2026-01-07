@@ -505,6 +505,15 @@ impl SessionManager {
         Ok(session.to_info())
     }
 
+    /// 获取 Session 配置
+    pub fn get_config(&self, session_id: &SessionId) -> SessionResult<SessionConfig> {
+        let sessions = self.active_sessions.read().expect("获取锁失败");
+        let session = sessions
+            .get(session_id)
+            .ok_or_else(|| SessionError::NotFound(session_id.clone()))?;
+        Ok(session.config.clone())
+    }
+
     /// 获取 Session 元数据
     pub fn get_meta(&self, session_id: &SessionId) -> SessionResult<SessionMeta> {
         let sessions = self.active_sessions.read().expect("获取锁失败");
@@ -689,4 +698,3 @@ mod tests {
         assert_eq!(manager.recording_count(), 1);
     }
 }
-

@@ -76,16 +76,17 @@ fn session_create(
 /// 开始 Session 录制
 #[tauri::command]
 #[specta::specta]
-fn session_start(
+async fn session_start(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     session_id: String,
 ) -> Result<(), String> {
     // 获取 Session 配置
-    let session_info = state
+    let session_config = state
         .session_manager
-        .get(&session_id)
+        .get_config(&session_id)
         .map_err(|e| e.to_string())?;
+    let app_config = state.storage.get_config().await;
 
     // 启动状态机
     state
@@ -94,17 +95,16 @@ fn session_start(
         .map_err(|e| e.to_string())?;
 
     // 启动音频运行时
-    // 解析 session 配置来确定是否使用麦克风和系统音频
-    // 从 SessionInfo 我们知道 mode_id，但需要从活跃 session 获取配置
-    // 这里简化处理：默认都启用
     state
         .session_runtime
         .start(
             session_id,
-            true,  // use_microphone - 默认启用
-            true,  // use_system_audio - 默认启用
+            session_config.use_microphone,
+            session_config.use_system_audio,
+            session_config.merge_for_asr,
+            app_config.asr.vad_sensitivity,
             None,  // mic_id - 使用默认
-            None,  // system_source_id - 使用默认
+            None,  // system_source_id - 目前使用默认
             Some(app),
         )
         .map_err(|e| e.to_string())

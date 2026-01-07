@@ -932,6 +932,10 @@ useMicrophone?: boolean;
  */
 useSystemAudio?: boolean; 
 /**
+ * ASR 是否合并多路音频
+ */
+mergeForAsr?: boolean; 
+/**
  * 麦克风优先级
  */
 microphonePriority?: number }

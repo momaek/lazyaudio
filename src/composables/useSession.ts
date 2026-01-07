@@ -62,6 +62,7 @@ export function useSession() {
         enableRecording: options.config?.enableRecording ?? true,
         useMicrophone: options.config?.useMicrophone ?? true,
         useSystemAudio: options.config?.useSystemAudio ?? false,
+        mergeForAsr: options.config?.mergeForAsr ?? false,
         microphonePriority: options.config?.microphonePriority ?? 50,
       }
 
@@ -598,4 +599,3 @@ export function useSessionHistory() {
     loadMore,
   }
 }
-

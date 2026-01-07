@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -89,11 +90,18 @@ const showScrollButton = ref(false)
 
 // 音频源选择
 const selectedAudioSource = ref('both')
+const mergeForAsr = ref(false)
 const audioSourceOptions = [
   { value: 'system', label: '系统音频', icon: Monitor },
   { value: 'microphone', label: '麦克风', icon: Mic },
   { value: 'both', label: '系统音频+麦克风', icon: Volume2 },
 ]
+
+watch(selectedAudioSource, (value) => {
+  if (value !== 'both') {
+    mergeForAsr.value = false
+  }
+})
 
 // Refs
 const scrollAreaRef = ref<InstanceType<typeof ScrollArea> | null>(null)
@@ -180,6 +188,7 @@ async function startRecording() {
     config: {
       useMicrophone: useMic,
       useSystemAudio: useSystem,
+      mergeForAsr: mergeForAsr.value,
       enableRecording: true,
       microphonePriority: 50,
     },
@@ -385,6 +394,14 @@ onUnmounted(() => {
               :class="{ 'animate-spin': sourcesLoading }"
             />
           </Button>
+        </div>
+
+        <div
+          v-if="selectedAudioSource === 'both'"
+          class="w-full max-w-xs mb-6 flex items-center justify-between text-sm text-muted-foreground"
+        >
+          <span>合并转录</span>
+          <Switch v-model:checked="mergeForAsr" />
         </div>
 
         <!-- 开始按钮 -->

@@ -34,6 +34,9 @@ pub struct SessionConfig {
     /// 是否使用系统音频
     #[serde(default)]
     pub use_system_audio: bool,
+    /// ASR 是否合并多路音频
+    #[serde(default)]
+    pub merge_for_asr: bool,
     /// 麦克风优先级
     #[serde(default = "default_priority")]
     pub microphone_priority: u8,
@@ -56,6 +59,7 @@ impl Default for SessionConfig {
             enable_recording: true,
             use_microphone: true,
             use_system_audio: false,
+            merge_for_asr: false,
             microphone_priority: crate::audio::PRIORITY_PRIMARY,
         }
     }
@@ -69,6 +73,7 @@ impl SessionConfig {
             mode_id: "meeting".to_string(),
             use_microphone: true,
             use_system_audio: true,
+            merge_for_asr: false,
             ..Default::default()
         }
     }
@@ -211,4 +216,3 @@ mod tests {
         assert_eq!(config.microphone_priority, crate::audio::PRIORITY_INPUT_METHOD);
     }
 }
-

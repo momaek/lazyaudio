@@ -4,8 +4,9 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use chrono::Utc;
 use tracing::{error, info, warn};
@@ -40,6 +41,15 @@ impl ActiveSource {
             ActiveSource::System => TranscriptSource::System,
         }
     }
+}
+
+struct Tier1Task {
+    session_id: String,
+    segment_id: String,
+    start_time: f64,
+    end_time: f64,
+    source: TranscriptSource,
+    audio_samples: Vec<f32>,
 }
 
 /// 运行中的 Session 句柄
@@ -123,6 +133,7 @@ impl SessionRuntimeManager {
         use_microphone: bool,
         use_system_audio: bool,
         merge_for_asr: bool,
+        vad_sensitivity: f32,
         mic_id: Option<String>,
         system_source_id: Option<String>,
         app_handle: Option<tauri::AppHandle>,
@@ -168,9 +179,11 @@ impl SessionRuntimeManager {
                 use_microphone,
                 use_system_audio,
                 merge_for_asr,
+                vad_sensitivity,
                 mic_id,
                 system_source_id,
                 event_bus,
+                asr_engine_clone,
                 recognizer,
                 app_handle,
             );
@@ -248,6 +261,100 @@ pub fn create_shared_runtime_manager(
     Arc::new(SessionRuntimeManager::new(event_bus, asr_engine))
 }
 
+fn build_silero_vad_config(vad_sensitivity: f32) -> VadConfig {
+    let sensitivity = vad_sensitivity.clamp(0.0, 1.0);
+    // Higher sensitivity -> lower threshold and shorter required silence.
+    let threshold = (0.7 - 0.4 * sensitivity).clamp(0.2, 0.8);
+    let min_silence_duration = (0.9 - 0.6 * sensitivity).clamp(0.3, 1.2);
+
+    VadConfig {
+        min_silence_duration,
+        min_speech_duration: 0.3,
+        max_speech_duration: 28.0,
+        threshold,
+        ..Default::default()
+    }
+}
+
+fn spawn_tier1_worker(
+    asr_engine: Arc<RwLock<AsrEngine>>,
+    event_bus: SharedEventBus,
+    delayed_refiner: Option<Arc<DelayedRefiner>>,
+    segment_sources: Arc<Mutex<HashMap<String, TranscriptSource>>>,
+) -> Option<mpsc::Sender<Tier1Task>> {
+    let (tx, rx) = mpsc::channel::<Tier1Task>();
+    let (ready_tx, ready_rx) = mpsc::channel::<bool>();
+
+    std::thread::spawn(move || {
+        let mut recognizer = match asr_engine
+            .read()
+            .expect("获取 ASR 锁失败")
+            .create_recognizer()
+        {
+            Ok(r) => {
+                let _ = ready_tx.send(true);
+                r
+            }
+            Err(e) => {
+                warn!("Tier1 识别器创建失败，跳过段落识别: {}", e);
+                let _ = ready_tx.send(false);
+                return;
+            }
+        };
+
+        while let Ok(task) = rx.recv() {
+            recognizer.accept_waveform(&task.audio_samples);
+            let final_result = recognizer.finalize();
+            recognizer.reset();
+
+            if final_result.text.is_empty() {
+                continue;
+            }
+
+            let segment = TranscriptSegment {
+                id: task.segment_id.clone(),
+                start_time: task.start_time,
+                end_time: task.end_time,
+                text: final_result.text.clone(),
+                is_final: true,
+                confidence: Some(final_result.confidence),
+                source: Some(task.source),
+                language: None,
+                words: None,
+                created_at: Utc::now().to_rfc3339(),
+                tier: Some("tier1".to_string()),
+            };
+
+            event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
+                session_id: task.session_id.clone(),
+                segment,
+            }));
+
+            if let Some(ref refiner) = delayed_refiner {
+                if let Ok(mut map) = segment_sources.lock() {
+                    map.insert(task.segment_id.clone(), task.source);
+                }
+                let refiner = refiner.clone();
+                let session_id = task.session_id.clone();
+                let segment_id = task.segment_id.clone();
+                let audio_samples = task.audio_samples;
+                let tier1_text = final_result.text.clone();
+
+                tauri::async_runtime::spawn(async move {
+                    refiner
+                        .schedule(session_id, segment_id, audio_samples, tier1_text)
+                        .await;
+                });
+            }
+        }
+    });
+
+    match ready_rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(true) => Some(tx),
+        Ok(false) | Err(_) => None,
+    }
+}
+
 /// 运行 Session 音频采集和 ASR
 fn run_session_audio(
     session_id: SessionId,
@@ -256,9 +363,11 @@ fn run_session_audio(
     use_microphone: bool,
     use_system_audio: bool,
     merge_for_asr: bool,
+    vad_sensitivity: f32,
     mic_id: Option<String>,
     system_source_id: Option<String>,
     event_bus: SharedEventBus,
+    asr_engine: Arc<RwLock<AsrEngine>>,
     recognizer: Option<StreamingRecognizer>,
     app_handle: Option<tauri::AppHandle>,
 ) {
@@ -521,6 +630,17 @@ fn run_session_audio(
             None
         };
 
+        let tier1_sender = if recognizer.is_some() {
+            spawn_tier1_worker(
+                asr_engine.clone(),
+                event_bus.clone(),
+                delayed_refiner.clone(),
+                segment_sources.clone(),
+            )
+        } else {
+            None
+        };
+
         // ========== Silero VAD 初始化（神经网络语音活动检测） ==========
         // 用于精确切分语音段落，避免在句子中间被切断
         let mut silero_vad: Option<SileroVadWrapper> = if recognizer.is_some() {
@@ -531,21 +651,17 @@ fn run_session_audio(
                 .join(VAD_MODEL_ID);
 
             if vad_model_dir.exists() {
-                let vad_config = VadConfig {
-                    // 静音 1.0 秒后认为语音结束
-                    min_silence_duration: 1.0,
-                    // 最短语音 0.3 秒
-                    min_speech_duration: 0.3,
-                    // 最长语音 20 秒
-                    max_speech_duration: 20.0,
-                    // 检测阈值
-                    threshold: 0.5,
-                    ..Default::default()
-                };
+                let vad_config = build_silero_vad_config(vad_sensitivity);
 
                 match SileroVadWrapper::from_model_dir(&vad_model_dir, vad_config) {
                     Ok(vad) => {
-                        info!("Silero VAD 已加载，用于精确语音切分");
+                        let vad_config = vad.config();
+                        info!(
+                            "Silero VAD 已加载，用于精确语音切分 (threshold={:.2}, min_silence={:.2}s, max_speech={:.1}s)",
+                            vad_config.threshold,
+                            vad_config.min_silence_duration,
+                            vad_config.max_speech_duration
+                        );
                         Some(vad)
                     }
                     Err(e) => {
@@ -805,61 +921,77 @@ fn run_session_audio(
                         // 处理 VAD 检测到的完整语音段落
                         for vad_segment in vad_segments {
                             let elapsed = start_time.elapsed().as_secs_f64();
-                            
-                            // 用流式 ASR 的当前结果作为最终结果
-                            let final_result = recognizer.finalize();
-                            
-                            if !final_result.text.is_empty() {
-                                segment_id_counter += 1;
-                                let segment_id = format!("{}_{}", session_id, segment_id_counter);
-                                
-                                info!(
-                                    "VAD 切分语音段落: 时长 {:.1}s, 文本: '{}'",
-                                    vad_segment.duration_secs,
-                                    final_result.text
-                                );
-                                
-                                let segment = TranscriptSegment {
-                                    id: segment_id.clone(),
+                            segment_id_counter += 1;
+                            let segment_id = format!("{}_{}", session_id, segment_id_counter);
+
+                            if let Some(ref sender) = tier1_sender {
+                                let task = Tier1Task {
+                                    session_id: session_id.clone(),
+                                    segment_id: segment_id.clone(),
                                     start_time: vad_buffer_start_time,
                                     end_time: elapsed,
-                                    text: final_result.text.clone(),
-                                    is_final: true,
-                                    confidence: Some(final_result.confidence),
-                                    source: Some(source_for_asr),
-                                    language: None,
-                                    words: None,
-                                    created_at: Utc::now().to_rfc3339(),
-                                    tier: Some("tier1".to_string()),
+                                    source: source_for_asr,
+                                    audio_samples: vad_segment.samples,
                                 };
-                                
-                                event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
-                                    session_id: session_id.clone(),
-                                    segment,
-                                }));
-                                
-                                // 调度延迟精修
-                                if let Some(ref refiner) = delayed_refiner {
-                                    if let Ok(mut map) = segment_sources.lock() {
-                                        map.insert(segment_id.clone(), source_for_asr);
+
+                                if sender.send(task).is_err() {
+                                    warn!("Tier1 识别任务发送失败: segment={}", segment_id);
+                                }
+                            } else {
+                                let final_result = recognizer.finalize();
+
+                                if !final_result.text.is_empty() {
+                                    info!(
+                                        "VAD 切分语音段落: 时长 {:.1}s, 文本: '{}'",
+                                        vad_segment.duration_secs,
+                                        final_result.text
+                                    );
+
+                                    let segment = TranscriptSegment {
+                                        id: segment_id.clone(),
+                                        start_time: vad_buffer_start_time,
+                                        end_time: elapsed,
+                                        text: final_result.text.clone(),
+                                        is_final: true,
+                                        confidence: Some(final_result.confidence),
+                                        source: Some(source_for_asr),
+                                        language: None,
+                                        words: None,
+                                        created_at: Utc::now().to_rfc3339(),
+                                        tier: Some("tier1".to_string()),
+                                    };
+
+                                    event_bus.publish(AppEvent::TranscriptFinal(
+                                        TranscriptFinalPayload {
+                                            session_id: session_id.clone(),
+                                            segment,
+                                        },
+                                    ));
+
+                                    if let Some(ref refiner) = delayed_refiner {
+                                        if let Ok(mut map) = segment_sources.lock() {
+                                            map.insert(segment_id.clone(), source_for_asr);
+                                        }
+                                        let refiner = refiner.clone();
+                                        let session_id_clone = session_id.clone();
+                                        let segment_id_clone = segment_id.clone();
+                                        let audio_samples = vad_segment.samples;
+                                        let tier1_text = final_result.text.clone();
+
+                                        tauri::async_runtime::spawn(async move {
+                                            refiner
+                                                .schedule(
+                                                    session_id_clone,
+                                                    segment_id_clone,
+                                                    audio_samples,
+                                                    tier1_text,
+                                                )
+                                                .await;
+                                        });
                                     }
-                                    let refiner = refiner.clone();
-                                    let session_id_clone = session_id.clone();
-                                    let segment_id_clone = segment_id.clone();
-                                    let audio_samples = vad_segment.samples.clone();
-                                    let tier1_text = final_result.text.clone();
-                                    
-                                    tokio::spawn(async move {
-                                        refiner.schedule(
-                                            session_id_clone,
-                                            segment_id_clone,
-                                            audio_samples,
-                                            tier1_text,
-                                        ).await;
-                                    });
                                 }
                             }
-                            
+
                             // 清空缓冲区和重置 ASR
                             vad_audio_buffer.clear();
                             last_partial_text.clear();
@@ -970,7 +1102,7 @@ fn run_session_audio(
                                     let sample_count = temp_audio_buffer.len();
                                     
                                     // 调度延迟精修（在后台执行）
-                                    tokio::spawn(async move {
+                                    tauri::async_runtime::spawn(async move {
                                         refiner.schedule(
                                             session_id_clone,
                                             segment_id_clone,
