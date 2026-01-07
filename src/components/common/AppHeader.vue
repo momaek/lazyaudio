@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import ModeSwitcher from './ModeSwitcher.vue'
 import RecordingPill from './RecordingPill.vue'
 import { Search, History, Settings } from 'lucide-vue-next'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -25,6 +26,13 @@ function openCommandPalette() {
   // TODO: 实现命令面板
   console.log('打开命令面板')
 }
+
+const appWindow = getCurrentWindow()
+
+function startHeaderDrag(event: MouseEvent) {
+  if (event.button !== 0) return
+  appWindow.startDragging().catch(() => {})
+}
 </script>
 
 <template>
@@ -32,9 +40,9 @@ function openCommandPalette() {
     class="h-12 border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-0 z-50"
     data-tauri-drag-region
   >
-    <div class="h-full flex items-center justify-between">
+    <div class="h-full flex items-center">
       <!-- 左侧：Logo + 模式切换器 (带 macOS 红绿灯按钮留白 ~78px) -->
-      <div class="flex items-center gap-3 pl-[78px] pr-3">
+      <div class="flex items-center gap-3 pl-[78px] pr-3 ml-2">
         <div class="h-4 w-px bg-border/50"></div>
         <!-- Logo/品牌 -->
         <div class="flex items-center gap-2">
@@ -49,6 +57,12 @@ function openCommandPalette() {
         <!-- 模式切换器 -->
         <ModeSwitcher />
       </div>
+
+      <div
+        class="flex-1 h-full"
+        data-tauri-drag-region
+        @mousedown="startHeaderDrag"
+      ></div>
 
       <!-- 右侧：状态和操作 -->
       <div class="flex items-center gap-1 pr-3">
