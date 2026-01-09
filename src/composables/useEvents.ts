@@ -34,6 +34,8 @@ export interface SessionErrorPayload {
 export interface TranscriptPartialPayload {
   sessionId: string
   text: string
+  startTime: number
+  endTime: number
   confidence?: number
 }
 
@@ -574,4 +576,3 @@ export function waitForEvent<E extends EventName>(
     })
   })
 }
-

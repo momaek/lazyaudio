@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import TranscriptItem from '@/components/common/TranscriptItem.vue'
 import { useSession, useSessionHistory } from '@/composables/useSession'
 import { useTranscript } from '@/composables/useTranscript'
 import { useAudioSources } from '@/composables/useAudio'
@@ -52,6 +53,8 @@ const sessionId = ref<string | null>(null)
 const {
   segments,
   partialText,
+  activeSegmentId,
+  activeSegmentPartialText,
   isProcessing,
   recentlyRefinedIds,
   startListening: startTranscriptListening,
@@ -168,12 +171,6 @@ function formatDurationFromMs(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
-// 格式化时间戳
-function formatTimestamp(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
 
 
 // 开始录制
@@ -550,48 +547,19 @@ onUnmounted(() => {
         class="flex-1 relative"
         @scroll.native="handleScroll"
       >
-        <div class="p-4 space-y-4">
-          <!-- 已完成的转录 -->
-          <div
+        <div class="p-4 space-y-2">
+          <!-- 已固化的段落 -->
+          <TranscriptItem
             v-for="segment in segments"
-            :key="segment.id"
-            class="flex gap-4 group"
-            :class="{ 
-              'segment-updating': segment.tier === 'tier1',
-              'segment-just-refined': recentlyRefinedIds.has(segment.id)
-            }"
-          >
-            <span class="text-xs tabular-nums shrink-0 pt-0.5 cursor-pointer hover:text-foreground transition-colors"
-              :class="segment.tier === 'tier1' ? 'text-muted-foreground/50' : 'text-muted-foreground'"
-            >
-              {{ formatTimestamp(segment.startTime) }}
-            </span>
-            <p 
-              class="text-sm leading-relaxed transition-all duration-300"
-              :class="segment.tier === 'tier1' ? 'text-muted-foreground/70 italic' : 'text-foreground'"
-            >
-              {{ segment.text }}
-              <span 
-                v-if="segment.tier === 'tier1'" 
-                class="inline-block w-1 h-1 rounded-full bg-muted-foreground/50 ml-1 animate-pulse"
-                title="等待精修（约3秒）..."
-              />
-            </p>
-          </div>
-
-          <!-- 实时输入指示 -->
-          <div v-if="!isPaused" class="flex gap-4">
-            <span class="text-xs text-muted-foreground tabular-nums shrink-0 pt-0.5">
-              {{ formattedDuration }}
-            </span>
-            <p class="text-sm leading-relaxed text-muted-foreground">
-              <span v-if="partialText">{{ partialText }}</span>
-              <span class="inline-block w-0.5 h-4 bg-la-indigo animate-pulse ml-0.5" />
-            </p>
-          </div>
+            :key="segment.clientId"
+            :segment="segment"
+            :is-refining="recentlyRefinedIds.has(segment.clientId)"
+            :is-active="activeSegmentId === segment.clientId && !isPaused"
+            :partial-text="activeSegmentId === segment.clientId ? activeSegmentPartialText : ''"
+          />
 
           <!-- 空状态 -->
-          <div v-if="segments.length === 0 && !partialText && !isPaused" class="flex flex-col items-center justify-center py-12 text-center">
+          <div v-if="segments.length === 0 && !activeSegmentId && !isPaused" class="flex flex-col items-center justify-center py-12 text-center">
             <div class="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-4">
               <Mic class="h-6 w-6 text-muted-foreground" />
             </div>
@@ -649,29 +617,94 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* Tier 1 临时状态样式（等待精修） */
-.segment-updating {
-  opacity: 0.85;
+/* Partial 临时文本样式 */
+.transcript-item.partial {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.05);
+  border-left: 3px solid #6366f1;
+  opacity: 0.9;
 }
 
-/* Tier 2 精修完成的闪烁动画效果 */
-@keyframes refine-flash {
-  0% {
-    background-color: rgba(34, 197, 94, 0.15);
+.segment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-weight: 500;
+}
+
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 12px;
+}
+
+.tier-badge.tier-partial {
+  background: rgba(99, 102, 241, 0.15);
+  color: #4f46e5;
+}
+
+.segment-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #1f2937;
+  margin: 0;
+}
+
+.partial-text {
+  color: #6366f1 !important;
+  font-style: italic;
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: #6366f1;
+  margin-left: 2px;
+  animation: blink 1s infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .transcript-item.partial {
+    background: rgba(99, 102, 241, 0.1);
   }
-  100% {
-    background-color: transparent;
+  
+  .timestamp {
+    color: #9ca3af;
   }
-}
-
-.segment-just-refined {
-  animation: refine-flash 0.5s ease-out;
-  border-radius: 4px;
-}
-
-/* 精修完成时文字颜色过渡 */
-.segment-just-refined p {
-  color: var(--foreground) !important;
-  font-style: normal !important;
+  
+  .tier-badge.tier-partial {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+  }
+  
+  .segment-text {
+    color: #f9fafb;
+  }
+  
+  .partial-text {
+    color: #818cf8 !important;
+  }
+  
+  .cursor-blink {
+    background: #818cf8;
+  }
 }
 </style>

@@ -654,7 +654,7 @@ impl SessionAudioLoop {
         // 准备 ASR 样本
         let samples = match self.prepare_asr_samples(chunk) {
             Ok(s) => s,
-            Err(e) => {
+                                Err(e) => {
                 warn!("音频预处理失败: {}", e);
                 return;
             }
@@ -737,7 +737,8 @@ impl SessionAudioLoop {
         if let Some(ref mut recognizer) = self.recognizer {
             recognizer.accept_waveform(samples);
             let result = recognizer.get_result();
-            self.emit_partial_result(&result);
+            let elapsed = self.start_time.elapsed().as_secs_f64();
+            self.emit_partial_result(&result, self.vad_buffer_start_time, elapsed);
         }
 
         // 处理完整段落
@@ -763,7 +764,7 @@ impl SessionAudioLoop {
         // 处理 ASR
         let (result, is_endpoint) = if let Some(ref mut recognizer) = self.recognizer {
             recognizer.accept_waveform(samples);
-            let result = recognizer.get_result();
+                        let result = recognizer.get_result();
             let is_endpoint = recognizer.is_endpoint();
             (Some(result), is_endpoint)
         } else {
@@ -779,13 +780,16 @@ impl SessionAudioLoop {
                         recognizer.reset();
                     }
                 } else if result.text != self.last_partial_text {
+                    let elapsed = self.start_time.elapsed().as_secs_f64();
                     self.last_partial_text = result.text.clone();
                     self.event_bus
                         .publish(AppEvent::TranscriptPartial(TranscriptPartialPayload {
                             session_id: self.session_id.clone(),
                             text: result.text,
+                            start_time: self.temp_buffer_start_time,
+                            end_time: elapsed,
                             confidence: Some(result.confidence),
-                        }));
+                            }));
                 }
             }
         }
@@ -797,15 +801,17 @@ impl SessionAudioLoop {
     }
 
     /// 发送实时识别结果
-    fn emit_partial_result(&mut self, result: &RecognitionResult) {
+    fn emit_partial_result(&mut self, result: &RecognitionResult, start_time: f64, end_time: f64) {
         if !result.text.is_empty() && result.text != self.last_partial_text {
             self.last_partial_text = result.text.clone();
             self.event_bus
                 .publish(AppEvent::TranscriptPartial(TranscriptPartialPayload {
                     session_id: self.session_id.clone(),
                     text: result.text.clone(),
-                                confidence: Some(result.confidence),
-                            }));
+                    start_time,
+                    end_time,
+                    confidence: Some(result.confidence),
+                }));
         }
     }
 
@@ -817,16 +823,16 @@ impl SessionAudioLoop {
 
         if let Some(ref sender) = self.tier1_sender {
             // 发送给 Tier1 Worker
-            let task = Tier1Task {
+                                let task = Tier1Task {
                 session_id: self.session_id.clone(),
-                segment_id: segment_id.clone(),
+                                    segment_id: segment_id.clone(),
                 start_time: self.vad_buffer_start_time,
-                end_time: elapsed,
+                                    end_time: elapsed,
                 source,
-                audio_samples: vad_segment.samples,
-            };
+                                    audio_samples: vad_segment.samples,
+                                };
             let _ = sender.send(task);
-        } else {
+                            } else {
             // 直接识别
             let final_result = if let Some(ref mut recognizer) = self.recognizer {
                 recognizer.finalize()
@@ -834,9 +840,9 @@ impl SessionAudioLoop {
                 return;
             };
 
-            if !final_result.text.is_empty() {
-                info!(
-                    "VAD 切分语音段落: 时长 {:.1}s, 文本: '{}'",
+                                if !final_result.text.is_empty() {
+                                    info!(
+                                        "VAD 切分语音段落: 时长 {:.1}s, 文本: '{}'",
                     vad_segment.duration_secs, final_result.text
                 );
 
@@ -847,6 +853,7 @@ impl SessionAudioLoop {
                     &final_result.text,
                     final_result.confidence,
                     source,
+                    "tier1",  // VAD 切分后识别，标记为 tier1
                 );
 
                 // 调度延迟精修
@@ -871,16 +878,16 @@ impl SessionAudioLoop {
     ) {
         self.last_partial_text.clear();
         if let Some(ref mut recognizer) = self.recognizer {
-            recognizer.reset();
-        }
-    }
+                            recognizer.reset();
+                        }
+                        }
                         
     /// 处理 Endpoint 检测到的完整句子（内部实现）
     fn handle_endpoint_internal(&mut self, source: TranscriptSource) {
         // 获取最终识别结果
         let final_result = if let Some(ref mut recognizer) = self.recognizer {
             recognizer.finalize()
-        } else {
+                    } else {
             return;
         };
 
@@ -904,6 +911,7 @@ impl SessionAudioLoop {
             &final_result.text,
             final_result.confidence,
             source,
+            "tier0",  // Stream endpoint 检测，标记为 tier0
         );
 
         // 调度延迟精修
@@ -920,7 +928,7 @@ impl SessionAudioLoop {
         self.temp_audio_buffer.clear();
         self.last_partial_text.clear();
         if let Some(ref mut recognizer) = self.recognizer {
-            recognizer.reset();
+                                recognizer.reset();
         }
     }
 
@@ -933,26 +941,27 @@ impl SessionAudioLoop {
         text: &str,
         confidence: f32,
         source: TranscriptSource,
+        tier: &str,
     ) {
-                                let segment = TranscriptSegment {
+                            let segment = TranscriptSegment {
             id: segment_id.to_string(),
             start_time,
             end_time,
             text: text.to_string(),
-                                    is_final: true,
+                                is_final: true,
             confidence: Some(confidence),
             source: Some(source),
-                                    language: None,
-                                    words: None,
-                                    created_at: Utc::now().to_rfc3339(),
-                                    tier: Some("tier1".to_string()),
+                                language: None,
+                                words: None,
+                                created_at: Utc::now().to_rfc3339(),
+                                    tier: Some(tier.to_string()),
                                 };
                                 
         self.event_bus
             .publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
                 session_id: self.session_id.clone(),
-                                    segment,
-                                }));
+                                segment,
+                            }));
     }
 
     /// 调度延迟精修任务

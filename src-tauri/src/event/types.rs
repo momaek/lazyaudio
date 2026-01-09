@@ -196,6 +196,10 @@ pub struct TranscriptPartialPayload {
     pub session_id: String,
     /// 临时转录文本
     pub text: String,
+    /// 开始时间（秒）
+    pub start_time: f64,
+    /// 结束时间（秒）
+    pub end_time: f64,
     /// 置信度（可选）
     #[serde(default)]
     pub confidence: Option<f32>,
@@ -401,6 +405,8 @@ mod tests {
         let event = AppEvent::TranscriptPartial(TranscriptPartialPayload {
             session_id: "test".to_string(),
             text: "Hello World".to_string(),
+            start_time: 0.0,
+            end_time: 1.0,
             confidence: Some(0.95),
         });
 
@@ -409,4 +415,3 @@ mod tests {
         assert!(json.contains("Hello World"));
     }
 }
-
