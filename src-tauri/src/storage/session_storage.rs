@@ -433,6 +433,7 @@ pub enum TranscriptSource {
 
 /// 词级时间戳
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct WordTimestamp {
     /// 词
     pub word: String,
@@ -443,6 +444,17 @@ pub struct WordTimestamp {
     /// 置信度
     #[serde(default)]
     pub confidence: Option<f32>,
+}
+
+impl From<crate::asr::WordTimestamp> for WordTimestamp {
+    fn from(wt: crate::asr::WordTimestamp) -> Self {
+        Self {
+            word: wt.word,
+            start: wt.start,
+            end: wt.end,
+            confidence: wt.confidence,
+        }
+    }
 }
 
 #[cfg(test)]

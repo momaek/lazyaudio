@@ -414,6 +414,9 @@ export function useTranscript(sessionId: Ref<string | null>) {
       }
       
       console.log(`📝 收到 ${segment.tier}: [${segment.startTime.toFixed(1)}s-${segment.endTime.toFixed(1)}s]`)
+      console.log(`📝 Tier1 转录文本:`, segment.text.substring(0, 50))
+      console.log(`📝 Tier1 词级时间戳 (${segment.words?.length || 0}):`, segment.words)
+      console.log(`📝 Tier1 完整段落:`, segment)
 
       const activeIndex = getActiveIndex()
       if (activeIndex !== -1) {
@@ -441,6 +444,12 @@ export function useTranscript(sessionId: Ref<string | null>) {
       if (!sessionId.value || payload.sessionId !== sessionId.value) return
       
       console.log(`🔄 收到 Tier2 精修: ${payload.segmentId}`)
+      // 在 useTranscript.ts 的事件监听中添加日志
+      console.log('收到转录文本:', payload.segment.text)
+      console.log('词级时间戳:', payload.segment?.words)
+      console.log('置信度:', payload.confidence)
+      console.log('识别层级:', payload.tier)
+      console.log('完整段落:', payload.segment)
       
       // 1. 优先用 segmentId 精确匹配
       let index = displaySegments.value.findIndex(s => s.id === payload.segmentId)

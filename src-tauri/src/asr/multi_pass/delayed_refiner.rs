@@ -78,6 +78,12 @@ pub struct RefineResult {
     pub tier1_text: String,
     /// 是否有实质性变化
     pub has_changed: bool,
+    /// 词级时间戳（已加上段落偏移量，相对于 session 的绝对时间）
+    pub words: Vec<crate::asr::WordTimestamp>,
+    /// 段落开始时间（相对于 session，秒）
+    pub start_time: f64,
+    /// 段落结束时间（相对于 session，秒）
+    pub end_time: f64,
 }
 
 /// 精修结果回调类型
@@ -97,6 +103,10 @@ struct PendingRefineTask {
     scheduled_at: Instant,
     /// 到期时间（何时执行精修）
     ready_at: Instant,
+    /// 段落开始时间（相对于 session，秒）
+    start_time: f64,
+    /// 段落结束时间（相对于 session，秒）
+    end_time: f64,
 }
 
 /// 延迟精修调度器
@@ -186,6 +196,8 @@ impl DelayedRefiner {
         segment_id: String,
         audio_samples: Vec<f32>,
         tier1_text: String,
+        start_time: f64,
+        end_time: f64,
     ) {
         if !self.config.enabled {
             tracing::debug!("延迟精修已禁用，跳过 segment: {}", segment_id);
@@ -230,6 +242,8 @@ impl DelayedRefiner {
             tier1_text,
             scheduled_at: now,
             ready_at,
+            start_time,
+            end_time,
         };
 
         let mut tasks = self.inner.pending_tasks.write().await;
@@ -367,7 +381,7 @@ impl DelayedRefinerInner {
         );
 
         // 执行 SenseVoice 离线识别
-        let (tier2_text, confidence) = if let Some(ref sense_voice) = self.sense_voice {
+        let (tier2_text, confidence, words) = if let Some(ref sense_voice) = self.sense_voice {
             // 有 SenseVoice，执行真正的离线识别
             let timeout = Duration::from_millis(self.config.timeout_ms);
             let samples = task.audio_samples.clone();
@@ -387,15 +401,15 @@ impl DelayedRefinerInner {
                         r.text,
                         r.confidence
                     );
-                    (r.text, r.confidence)
+                    (r.text, r.confidence, r.timestamps)
                 }
                 Ok(Err(e)) => {
                     tracing::warn!("SenseVoice 识别任务失败: segment={}, error={:?}", segment_id, e);
-                    (task.tier1_text.clone(), 0.9)
+                    (task.tier1_text.clone(), 0.9, Vec::new())
                 }
                 Err(_) => {
                     tracing::warn!("SenseVoice 精修超时: segment={}", segment_id);
-                    (task.tier1_text.clone(), 0.9)
+                    (task.tier1_text.clone(), 0.9, Vec::new())
                 }
             }
         } else {
@@ -404,13 +418,26 @@ impl DelayedRefinerInner {
                 "无 SenseVoice 识别器，直接确认原文: segment={}",
                 segment_id
             );
-            (task.tier1_text.clone(), 0.95)
+            (task.tier1_text.clone(), 0.95, Vec::new())
         };
 
         // 检查是否有实质性变化
         let tier2_text_trimmed = tier2_text.trim();
         let tier1_text_trimmed = task.tier1_text.trim();
         let has_changed = tier2_text_trimmed != tier1_text_trimmed;
+
+        // 词级时间戳需要加上段落的 start_time 偏移量
+        // 因为识别器返回的是相对于音频片段的时间（从 0 开始）
+        // 而我们需要相对于 session 的绝对时间
+        let offset = task.start_time;
+        let adjusted_words = words
+            .into_iter()
+            .map(|mut wt| {
+                wt.start += offset;
+                wt.end += offset;
+                wt
+            })
+            .collect();
 
         let refine_result = RefineResult {
             segment_id: task.segment_id,
@@ -423,6 +450,9 @@ impl DelayedRefinerInner {
             confidence,
             tier1_text: task.tier1_text,
             has_changed,
+            words: adjusted_words,
+            start_time: task.start_time,
+            end_time: task.end_time,
         };
 
         if has_changed {
@@ -471,6 +501,9 @@ mod tests {
             confidence: 0.95,
             tier1_text: "原始文本".to_string(),
             has_changed: true,
+            words: Vec::new(),
+            start_time: 0.0,
+            end_time: 10.0,
         };
 
         assert!(result.has_changed);
@@ -495,6 +528,9 @@ mod tests {
             confidence: 0.9,
             tier1_text: "test".to_string(),
             has_changed: false,
+            words: Vec::new(),
+            start_time: 0.0,
+            end_time: 5.0,
         };
 
         callback(result);

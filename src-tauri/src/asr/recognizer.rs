@@ -265,7 +265,9 @@ impl StreamingRecognizer {
 
     /// 解析时间戳
     fn parse_timestamps(&self, tokens: &[String], timestamps: &[f32]) -> Vec<WordTimestamp> {
+        
         if tokens.is_empty() || timestamps.is_empty() {
+            tracing::info!("⚠️ tokens 或 timestamps 为空，跳过词级时间戳解析");
             return Vec::new();
         }
 

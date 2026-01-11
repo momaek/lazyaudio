@@ -47,6 +47,12 @@ pub(crate) fn spawn_tier1_worker(
                 continue;
             }
 
+            tracing::info!(
+                "📝 Tier1 识别结果: text='{}', word_timestamps={}",
+                final_result.text.chars().take(30).collect::<String>(),
+                final_result.timestamps.len()
+            );
+
             let segment = TranscriptSegment {
                 id: task.segment_id.clone(),
                 start_time: task.start_time,
@@ -56,10 +62,34 @@ pub(crate) fn spawn_tier1_worker(
                 confidence: Some(final_result.confidence),
                 source: Some(task.source),
                 language: None,
-                words: None,
+                words: if final_result.timestamps.is_empty() {
+                    None
+                } else {
+                    // 词级时间戳需要加上段落的 start_time 偏移量
+                    // 因为识别器返回的是相对于音频片段的时间（从 0 开始）
+                    // 而我们需要相对于 session 的绝对时间
+                    let offset = task.start_time;
+                    Some(
+                        final_result
+                            .timestamps
+                            .iter()
+                            .map(|wt| {
+                                let mut converted: crate::storage::WordTimestamp = wt.clone().into();
+                                converted.start += offset;
+                                converted.end += offset;
+                                converted
+                            })
+                            .collect(),
+                    )
+                },
                 created_at: Utc::now().to_rfc3339(),
                 tier: Some("tier1".to_string()),
             };
+
+            tracing::info!(
+                "🚀 发送 TranscriptFinal 事件: words.len={:?}",
+                segment.words.as_ref().map(|w| w.len())
+            );
 
             event_bus.publish(AppEvent::TranscriptFinal(TranscriptFinalPayload {
                 session_id: task.session_id.clone(),
@@ -75,10 +105,12 @@ pub(crate) fn spawn_tier1_worker(
                 let segment_id = task.segment_id.clone();
                 let audio_samples = task.audio_samples;
                 let tier1_text = final_result.text.clone();
+                let start_time = task.start_time;
+                let end_time = task.end_time;
 
                 tauri::async_runtime::spawn(async move {
                     refiner
-                        .schedule(session_id, segment_id, audio_samples, tier1_text)
+                        .schedule(session_id, segment_id, audio_samples, tier1_text, start_time, end_time)
                         .await;
                 });
             }

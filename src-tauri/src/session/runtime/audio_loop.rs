@@ -362,16 +362,21 @@ impl SessionAudioLoop {
                     .unwrap_or(TranscriptSource::Mixed);
 
                 // 发送 TranscriptUpdated 事件
+                // 注意：result.words 中的时间戳已经是相对于 session 的绝对时间
                 let segment = TranscriptSegment {
                     id: result.segment_id.clone(),
-                    start_time: 0.0,
-                    end_time: 0.0,
+                    start_time: result.start_time,
+                    end_time: result.end_time,
                     text: result.text.clone(),
                     is_final: true,
                     confidence: Some(result.confidence),
                     source: Some(source),
                     language: None,
-                    words: None,
+                    words: if result.words.is_empty() {
+                        None
+                    } else {
+                        Some(result.words.iter().map(|wt| wt.clone().into()).collect())
+                    },
                     created_at: Utc::now().to_rfc3339(),
                     tier: Some("tier2".to_string()),
                 };
@@ -857,7 +862,14 @@ impl SessionAudioLoop {
                 );
 
                 // 调度延迟精修
-                self.schedule_refine(segment_id, vad_segment.samples, final_result.text, source);
+                self.schedule_refine(
+                    segment_id,
+                    vad_segment.samples,
+                    final_result.text,
+                    source,
+                    self.vad_buffer_start_time,
+                    elapsed,
+                );
             }
 
             if let Some(ref mut recognizer) = self.recognizer {
@@ -921,6 +933,8 @@ impl SessionAudioLoop {
                 self.temp_audio_buffer.clone(),
                 final_result.text,
                 source,
+                self.temp_buffer_start_time,
+                elapsed,
             );
         }
 
@@ -971,6 +985,8 @@ impl SessionAudioLoop {
         audio_samples: Vec<f32>,
         tier1_text: String,
         source: TranscriptSource,
+        start_time: f64,
+        end_time: f64,
     ) {
         let Some(ref refiner) = self.delayed_refiner else {
             return;
@@ -986,7 +1002,7 @@ impl SessionAudioLoop {
         let session_id = self.session_id.clone();
                                     tauri::async_runtime::spawn(async move {
             refiner
-                .schedule(session_id, segment_id, audio_samples, tier1_text)
+                .schedule(session_id, segment_id, audio_samples, tier1_text, start_time, end_time)
                 .await;
         });
     }
