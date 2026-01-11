@@ -36,6 +36,50 @@ async setConfig(config: AppConfig) : Promise<Result<null, string>> {
 }
 },
 /**
+ * 激活输入法模式
+ */
+async inputMethodActivate() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("input_method_activate") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 确认输入
+ */
+async inputMethodConfirm() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("input_method_confirm") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 取消输入
+ */
+async inputMethodCancel() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("input_method_cancel") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 切换输入法模式
+ */
+async inputMethodToggle() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("input_method_toggle") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * 创建新的 Session
  */
 async sessionCreate(config: SessionConfig) : Promise<Result<string, string>> {

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { invoke } from '@tauri-apps/api/core'
 import { type UnlistenFn } from '@tauri-apps/api/event'
-import { events } from '@/types/bindings'
+import { commands, events } from '@/types/bindings'
+import { useAppEvents, EventNames } from '@/composables/useEvents'
 import { useAppStore } from '@/stores/app'
 import {
   ArrowLeft,
@@ -12,11 +13,10 @@ import {
   Mic,
   Bot,
   Keyboard,
+  Sparkles,
   HardDrive,
   Shield,
   Wrench,
-  Play,
-  Square,
   Monitor,
   RefreshCw,
   AlertCircle,
@@ -26,6 +26,7 @@ import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -46,6 +47,7 @@ const settingCategories = [
   { id: 'appearance', name: '外观', icon: Palette },
   { id: 'audio', name: '音频', icon: Mic },
   { id: 'ai', name: 'AI', icon: Bot },
+  { id: 'input-method', name: '输入法', icon: Sparkles },
   { id: 'shortcuts', name: '快捷键', icon: Keyboard },
   { id: 'storage', name: '存储', icon: HardDrive },
   { id: 'permissions', name: '权限', icon: Shield },
@@ -59,6 +61,50 @@ const themeOptions = [
   { value: 'dark', label: '深色' },
   { value: 'system', label: '跟随系统' },
 ]
+
+// ========== 输入法模式 ==========
+const inputMethodShortcut = ref('CommandOrControl+Shift+Space')
+const isInputMethodActive = ref(false)
+const isInputMethodToggling = ref(false)
+const { on, offAll } = useAppEvents()
+
+const inputMethodHint = computed(() => {
+  return isInputMethodActive.value
+    ? '输入法模式已开启，悬浮窗将显示实时识别内容'
+    : '开启后可通过全局快捷键唤起语音输入'
+})
+
+async function loadInputMethodConfig() {
+  const result = await commands.getConfig()
+  if (result.status === 'ok') {
+    inputMethodShortcut.value = result.data.hotkeys.inputMethodToggle
+  }
+}
+
+async function activateInputMethod() {
+  await invoke('input_method_activate')
+}
+
+async function cancelInputMethod() {
+  await invoke('input_method_cancel')
+}
+
+async function handleInputMethodToggle(nextValue: boolean) {
+  if (isInputMethodToggling.value) return
+  isInputMethodToggling.value = true
+  try {
+    if (nextValue) {
+      await activateInputMethod()
+    } else {
+      await cancelInputMethod()
+    }
+    isInputMethodActive.value = nextValue
+  } catch (e) {
+    console.error('切换输入法模式失败:', e)
+  } finally {
+    isInputMethodToggling.value = false
+  }
+}
 
 // ========== 音频测试相关 ==========
 // 音频源列表
@@ -172,10 +218,21 @@ function goBack() {
 }
 
 onMounted(async () => {
+  await loadInputMethodConfig()
   await setupListeners()
+  await on(EventNames.INPUT_METHOD_ACTIVATED, () => {
+    isInputMethodActive.value = true
+  })
+  await on(EventNames.INPUT_METHOD_CONFIRMED, () => {
+    isInputMethodActive.value = false
+  })
+  await on(EventNames.INPUT_METHOD_CANCELLED, () => {
+    isInputMethodActive.value = false
+  })
 })
 
 onUnmounted(() => {
+  offAll()
   unlisten.forEach(fn => fn())
   if (isCapturing.value) {
     stopCapture()
@@ -280,6 +337,39 @@ onUnmounted(() => {
           </Card>
           
           <p class="text-muted-foreground text-sm">更多 AI 设置功能开发中...</p>
+        </div>
+
+        <!-- 输入法模式 -->
+        <div v-show="activeTab === 'input-method'" class="space-y-6">
+          <div>
+            <h2 class="text-lg font-semibold mb-4">输入法模式</h2>
+            <Separator class="mb-6" />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle class="text-base">语音输入</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <div class="text-sm text-muted-foreground">
+                {{ inputMethodHint }}
+              </div>
+              <div class="flex items-center gap-2 text-sm">
+                <kbd class="px-2 py-1 rounded bg-muted border text-xs">
+                  {{ inputMethodShortcut }}
+                </kbd>
+                <span class="text-muted-foreground">全局快捷键</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-muted-foreground">开启输入法模式</div>
+                <Switch
+                  :checked="isInputMethodActive"
+                  :disabled="isInputMethodToggling"
+                  @update:checked="handleInputMethodToggle"
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <!-- 快捷键设置 -->

@@ -25,10 +25,12 @@ pub mod types;
 
 use audio::AudioSource;
 use commands::{ModelDownloadComplete, ModelDownloadProgress};
+use mode::input_method::register_input_method_shortcut_from_state;
 use permissions::{AllPermissionsStatus, PermissionManager, PermissionStatus, PermissionType};
 use session::{SessionConfig, SessionInfo};
 use state::AppState;
 use storage::{AppConfig, SessionMeta, SessionRecord, TranscriptSegment};
+use tauri::Manager;
 use tauri_specta::{collect_commands, Builder, Event};
 
 // ============================================================================
@@ -54,6 +56,50 @@ async fn get_config(state: tauri::State<'_, AppState>) -> Result<AppConfig, Stri
 #[specta::specta]
 async fn set_config(state: tauri::State<'_, AppState>, config: AppConfig) -> Result<(), String> {
     state.storage.set_config(config).await.map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// 输入法模式 Commands
+// ============================================================================
+
+/// 激活输入法模式
+#[tauri::command]
+#[specta::specta]
+async fn input_method_activate(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.input_method.activate(app).await
+}
+
+/// 确认输入
+#[tauri::command]
+#[specta::specta]
+async fn input_method_confirm(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.input_method.confirm(app).await
+}
+
+/// 取消输入
+#[tauri::command]
+#[specta::specta]
+async fn input_method_cancel(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.input_method.cancel(app).await
+}
+
+/// 切换输入法模式
+#[tauri::command]
+#[specta::specta]
+async fn input_method_toggle(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.input_method.toggle(app).await
 }
 
 // ============================================================================
@@ -785,6 +831,10 @@ fn build_specta_builder() -> Builder {
             greet,
             get_config,
             set_config,
+            input_method_activate,
+            input_method_confirm,
+            input_method_cancel,
+            input_method_toggle,
             // Session 管理（活跃 Session）
             session_create,
             session_start,
@@ -880,6 +930,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(app_state)
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
@@ -889,6 +941,9 @@ pub fn run() {
             let bridge = event::TauriBridge::new(app.handle().clone(), event_bus);
             bridge.start_forwarding();
             tracing::info!("TauriBridge 事件转发已启动");
+
+            // 注册输入法快捷键
+            register_input_method_shortcut_from_state(&app.handle(), &app.state::<AppState>());
 
             Ok(())
         })

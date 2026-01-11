@@ -11,6 +11,7 @@ use crate::audio::{
     create_shared_microphone_manager_with_bus, AudioSource, SharedLevel, SharedMicrophoneManager,
 };
 use crate::event::{create_shared_event_bus, SharedEventBus};
+use crate::mode::input_method::{create_shared_input_method_manager, SharedInputMethodManager};
 use crate::session::{
     create_shared_runtime_manager, SessionManager, SharedSessionManager,
     SharedSessionRuntimeManager,
@@ -133,6 +134,8 @@ pub struct AppState {
     pub session_manager: SharedSessionManager,
     /// Session 运行时管理器
     pub session_runtime: SharedSessionRuntimeManager,
+    /// 输入法模式管理器
+    pub input_method: SharedInputMethodManager,
     /// 音频源缓存
     pub audio_source_cache: AudioSourceCache,
 }
@@ -201,6 +204,13 @@ impl AppState {
             event_bus.clone(),
             asr_engine_arc.clone(),
         );
+
+        let input_method = create_shared_input_method_manager(
+            event_bus.clone(),
+            session_manager.clone(),
+            session_runtime.clone(),
+            storage.clone(),
+        );
         
         Self {
             storage,
@@ -210,6 +220,7 @@ impl AppState {
             microphone_manager,
             session_manager,
             session_runtime,
+            input_method,
             audio_source_cache: AudioSourceCache::new(),
         }
     }
