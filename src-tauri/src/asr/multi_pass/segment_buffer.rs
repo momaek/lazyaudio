@@ -157,6 +157,11 @@ impl SegmentBuffer {
         self.buffer.iter().find(|seg| seg.id == id)
     }
 
+    /// 获取缓冲区中的段落总数
+    pub fn len(&self) -> usize {
+        self.buffer.len()
+    }
+
     /// 清理过期或超限的段落
     fn cleanup(&mut self) {
         let now = SystemTime::now()
@@ -177,16 +182,6 @@ impl SegmentBuffer {
         while self.buffer.len() > self.config.max_buffer_size {
             self.buffer.pop_front();
         }
-    }
-
-    /// 获取缓冲区大小
-    pub fn len(&self) -> usize {
-        self.buffer.len()
-    }
-
-    /// 检查缓冲区是否为空
-    pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
     }
 
     /// 清空缓冲区

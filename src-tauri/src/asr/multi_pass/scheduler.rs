@@ -3,7 +3,7 @@
 //! 协调各层级识别器的执行时机，定期批量处理识别任务
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time;
 
@@ -139,17 +139,25 @@ impl MultiPassScheduler {
                 // 获取待处理的段落
                 let pending_segments = {
                     let buffer = segment_buffer.read().await;
-                    buffer.get_pending_tier2(batch_size)
+                    let total_count = buffer.len();
+                    let pending = buffer.get_pending_tier2(batch_size)
                         .into_iter()
                         .map(|seg| (seg.id, seg.samples.clone()))
-                        .collect::<Vec<_>>()
+                        .collect::<Vec<_>>();
+                    
+                    tracing::info!(
+                        "Tier2 调度检查: total_segments={}, pending_tier2={}", 
+                        total_count, 
+                        pending.len()
+                    );
+                    pending
                 };
 
                 if pending_segments.is_empty() {
                     continue;
                 }
 
-                tracing::debug!("Tier 2 调度: 处理 {} 个段落", pending_segments.len());
+                tracing::info!("🎯 Tier 2 调度: 处理 {} 个段落", pending_segments.len());
 
                 // 处理每个段落
                 if let Some(ref recognizer) = tier2_recognizer {
@@ -159,6 +167,14 @@ impl MultiPassScheduler {
                             let mut rec = recognizer.write().await;
                             rec.recognize(&samples)
                         };
+
+                        if !result.text.is_empty() {
+                            tracing::info!(
+                                "✨ Tier2 识别结果: segment={}, text='{}'",
+                                segment_id,
+                                result.text.chars().take(50).collect::<String>()
+                            );
+                        }
 
                         // 更新结果
                         result_merger.update_tier_result(
@@ -171,6 +187,8 @@ impl MultiPassScheduler {
                         let mut buffer = segment_buffer.write().await;
                         buffer.mark_tier2_processed(segment_id);
                     }
+                } else {
+                    tracing::warn!("Tier2 识别器未初始化，跳过批量处理");
                 }
             }
 

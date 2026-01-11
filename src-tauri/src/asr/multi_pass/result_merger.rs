@@ -15,8 +15,8 @@ pub struct ResultMerger {
     /// 存储所有段落的多级识别结果
     results: Arc<RwLock<HashMap<u64, MultiPassResult>>>,
     
-    /// 结果更新回调
-    on_update: Option<ResultUpdateCallback>,
+    /// 结果更新回调（使用 RwLock 实现内部可变性）
+    on_update: Arc<RwLock<Option<ResultUpdateCallback>>>,
 }
 
 impl ResultMerger {
@@ -24,13 +24,14 @@ impl ResultMerger {
     pub fn new() -> Self {
         Self {
             results: Arc::new(RwLock::new(HashMap::new())),
-            on_update: None,
+            on_update: Arc::new(RwLock::new(None)),
         }
     }
 
     /// 设置结果更新回调
-    pub fn set_update_callback(&mut self, callback: ResultUpdateCallback) {
-        self.on_update = Some(callback);
+    pub fn set_update_callback(&self, callback: ResultUpdateCallback) {
+        let mut on_update = self.on_update.write().unwrap();
+        *on_update = Some(callback);
     }
 
     /// 添加 Tier 1 结果（初始结果）
@@ -43,7 +44,7 @@ impl ResultMerger {
         }
 
         // 触发回调
-        if let Some(ref callback) = self.on_update {
+        if let Some(ref callback) = *self.on_update.read().unwrap() {
             callback(segment_id, &multi_result);
         }
     }
@@ -66,7 +67,7 @@ impl ResultMerger {
             }
             
             // 触发回调
-            if let Some(ref callback) = self.on_update {
+            if let Some(ref callback) = *self.on_update.read().unwrap() {
                 callback(segment_id, multi_result);
             }
         }

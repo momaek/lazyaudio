@@ -1,39 +1,25 @@
 //! Tier 2 识别器
 //!
-//! 使用离线识别模型（Paraformer/SenseVoice）进行精确识别
+//! 使用离线识别模型（SenseVoice）进行精确识别
 
-use sherpa_rs::zipformer::{ZipFormer, ZipFormerConfig};
+use std::path::Path;
 
-use crate::asr::model::ModelFiles;
-use crate::asr::types::{AsrConfig, AsrError, AsrResult, RecognitionResult};
+use crate::asr::types::{AsrResult, RecognitionResult};
+use super::sense_voice_refiner::SenseVoiceRefiner;
 
 /// Tier 2 识别器
 ///
-/// 使用 sherpa-rs 的 ZipFormer 进行离线识别
+/// 使用 SenseVoice 进行离线识别
 pub struct Tier2Recognizer {
-    /// sherpa 识别器
-    recognizer: ZipFormer,
-    /// 配置
-    config: AsrConfig,
+    /// SenseVoice 识别器
+    recognizer: SenseVoiceRefiner,
 }
 
 impl Tier2Recognizer {
-    /// 从模型文件创建识别器
-    pub fn from_model_files(model_files: &ModelFiles, config: AsrConfig) -> AsrResult<Self> {
-        let zipformer_config = ZipFormerConfig {
-            encoder: model_files.encoder.to_string_lossy().to_string(),
-            decoder: model_files.decoder.to_string_lossy().to_string(),
-            joiner: model_files.joiner.to_string_lossy().to_string(),
-            tokens: model_files.tokens.to_string_lossy().to_string(),
-            num_threads: Some(config.num_threads as i32),
-            debug: false,
-            provider: None,
-        };
-
-        let recognizer = ZipFormer::new(zipformer_config)
-            .map_err(|e| AsrError::ModelLoadError(format!("创建 Tier2 识别器失败: {}", e)))?;
-
-        Ok(Self { recognizer, config })
+    /// 从模型目录创建识别器
+    pub fn from_model_dir(model_dir: &Path, num_threads: i32) -> AsrResult<Self> {
+        let recognizer = SenseVoiceRefiner::new(model_dir, num_threads)?;
+        Ok(Self { recognizer })
     }
 
     /// 识别完整的音频段落
@@ -48,22 +34,7 @@ impl Tier2Recognizer {
             return RecognitionResult::empty();
         }
 
-        // 调用离线识别
-        let text = self
-            .recognizer
-            .decode(self.config.sample_rate, samples.to_vec());
-
-        if text.trim().is_empty() {
-            RecognitionResult::empty()
-        } else {
-            // Tier 2 结果标记为 final，置信度较高
-            RecognitionResult::final_result(text, 0.95, 0)
-        }
-    }
-
-    /// 获取配置
-    pub fn config(&self) -> &AsrConfig {
-        &self.config
+        self.recognizer.recognize(samples)
     }
 }
 

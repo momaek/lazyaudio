@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use sherpa_rs::silero_vad::{SileroVad as SherpaVad, SileroVadConfig, SpeechSegment};
+use sherpa_rs::silero_vad::{SileroVad as SherpaVad, SileroVadConfig};
 
 use super::types::{AsrError, AsrResult};
 
