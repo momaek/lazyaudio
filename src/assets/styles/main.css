@@ -4,59 +4,50 @@
 
 @layer base {
   :root {
-    /* LazyAudio 浅色主题 */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    /* LazyAudio 浅色主题 - V2 设计系统 */
+    --background: 249 100% 99%;         /* #F9FAFB */
+    --foreground: 215 25% 27%;          /* #1F2937 */
+    --card: 0 0% 100%;                  /* #FFFFFF */
+    --card-foreground: 215 25% 27%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
-    --primary: 239 84% 67%;
+    --popover-foreground: 215 25% 27%;
+    --primary: 159 75% 23%;             /* #0c6a41 - 新品牌色深绿 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 84% 60%;
+    --secondary: 214 32% 91%;           /* #E5E7EB */
+    --secondary-foreground: 215 25% 27%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 220 9% 46%;     /* #6B7280 */
+    --accent: 214 32% 91%;
+    --accent-foreground: 215 25% 27%;
+    --destructive: 0 84% 60%;           /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 239 84% 67%;
+    --border: 214 32% 91%;              /* #E5E7EB */
+    --input: 214 32% 91%;
+    --ring: 159 75% 23%;
     --radius: 0.5rem;
   }
 
   .dark {
-    /* LazyAudio 深色主题 - 声波蓝紫调 */
-    --background: 240 15% 6%;           /* #0f0f14 - 最深背景 */
-    --foreground: 210 40% 96%;          /* #f1f5f9 - 主文字 */
-    --card: 240 12% 9%;                 /* #16161d - 卡片背景 */
-    --card-foreground: 210 40% 96%;
-    --popover: 240 12% 9%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 239 84% 67%;             /* #6366f1 - 靛蓝主色 */
+    /* LazyAudio 深色主题 - V2 设计系统（深绿调） */
+    --background: 156 30% 5%;           /* #0a0f0d - 深绿黑背景 */
+    --foreground: 0 0% 100%;            /* #FFFFFF - 主文字 */
+    --card: 156 26% 8%;                 /* #161e1b - 卡片背景 */
+    --card-foreground: 0 0% 100%;
+    --popover: 156 26% 8%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 159 75% 23%;             /* #0c6a41 - 新品牌色深绿 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 10% 14%;           /* #1e1e26 - 次级背景 */
-    --secondary-foreground: 210 40% 96%;
-    --muted: 240 10% 14%;
-    --muted-foreground: 215 16% 57%;    /* #94a3b8 - 次要文字 */
-    --accent: 240 10% 18%;              /* 悬浮/选中状态 */
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 72% 51%;           /* #ef4444 - 错误/停止 */
+    --secondary: 156 22% 12%;           /* #1c2622 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 156 22% 12%;
+    --muted-foreground: 149 21% 66%;    /* #9db8ad - 次要文字 */
+    --accent: 156 22% 16%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;           /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
-    --border: 240 8% 18%;               /* 边框色 */
-    --input: 240 8% 18%;
-    --ring: 239 84% 67%;
-
-    /* LazyAudio 扩展色 */
-    --la-violet: 263 70% 58%;           /* #8b5cf6 - 紫罗兰 */
-    --la-purple: 270 60% 70%;           /* #a78bfa - 淡紫 */
-    --la-success: 160 84% 39%;          /* #10b981 - 成功/录制完成 */
-    --la-warning: 38 92% 50%;           /* #f59e0b - 警告/暂停 */
-    --la-info: 217 91% 60%;             /* #3b82f6 - 信息/链接 */
-    --la-recording: 0 84% 60%;          /* #ef4444 - 录制中 */
-    --la-cyan: 187 82% 45%;             /* #06b6d4 - 输入法模式 */
+    --border: 156 18% 19%;              /* #293831 - 边框色 */
+    --input: 156 18% 19%;
+    --ring: 159 75% 23%;
   }
 }
 
@@ -64,67 +55,193 @@
   * {
     @apply border-border;
   }
+  
   html, body {
     @apply bg-background text-foreground;
+    font-family: 'Noto Sans', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     overscroll-behavior: none;
   }
   
-  /* 滚动条样式 */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  /* 浅色滚动条样式 */
+  :root:not(.dark) ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-  ::-webkit-scrollbar-track {
+  :root:not(.dark) ::-webkit-scrollbar-track {
     background: transparent;
   }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted));
-    border-radius: 4px;
+  :root:not(.dark) ::-webkit-scrollbar-thumb {
+    background: #E5E7EB;
+    border-radius: 10px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
+  :root:not(.dark) ::-webkit-scrollbar-thumb:hover {
+    background: #D1D5DB;
+  }
+  
+  /* 深色滚动条样式 */
+  .dark ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #293831;
+    border-radius: 10px;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #344d41;
+  }
+}
+
+@layer utilities {
+  /* 毛玻璃效果 - 深色环境 */
+  .glass-morphism {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(20, 255, 236, 0.3);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  }
+  
+  /* 毛玻璃效果 - 浅色环境 */
+  .glass-morphism-light {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(20, 184, 166, 0.2);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  /* 降级方案（不支持 backdrop-filter 的浏览器） */
+  @supports not (backdrop-filter: blur(20px)) {
+    .glass-morphism {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    .glass-morphism-light {
+      background: rgba(255, 255, 255, 0.9);
+    }
+  }
+  
+  /* 呼吸灯动画 */
+  .breathing-led {
+    animation: breathe 2s ease-in-out infinite;
+  }
+  
+  /* 波形线样式 */
+  .wave-line {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: waveMove 3s linear infinite;
+  }
+  
+  /* 进度条 Shimmer 效果 */
+  .progress-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .progress-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+  
+  /* Material Icons Fill 变体 */
+  .fill-0 {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  
+  .fill-1 {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  
+  /* 自定义滚动条类 */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #E5E7EB;
+    border-radius: 10px;
+  }
+  
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #293831;
   }
 }
 
 @layer components {
-  /* 录制状态脉动动画 */
-  .recording-pulse {
-    animation: recording-pulse 1.5s ease-in-out infinite;
+  /* 录制指示脉动 */
+  .recording-dot {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #ef4444;
   }
   
-  @keyframes recording-pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
+  .recording-dot::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background-color: inherit;
+    animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    opacity: 0.75;
   }
   
-  /* 品牌渐变 */
+  /* 波形条 */
+  .waveform-bar {
+    width: 2px;
+    background-color: #0c6a41;
+    border-radius: 1px;
+    min-height: 2px;
+    transition: height 150ms ease-out;
+  }
+  
+  /* 品牌渐变（更新为新配色） */
   .la-gradient {
-    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(263 70% 58%) 50%, hsl(270 60% 70%) 100%);
+    background: linear-gradient(135deg, #0c6a41 0%, #0D9488 50%, #2DD4BF 100%);
   }
   
   .la-gradient-text {
-    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(263 70% 58%) 100%);
+    background: linear-gradient(135deg, #0c6a41 0%, #2DD4BF 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
-  /* 模式标识色 */
+  /* 模式标识色（更新） */
   .mode-meeting {
-    --mode-color: 239 84% 67%;  /* 靛蓝 */
+    --mode-color: 159 75% 23%;  /* 深绿 */
   }
   .mode-interviewer {
-    --mode-color: 263 70% 58%;  /* 紫色 */
+    --mode-color: 174 72% 56%;  /* 青绿 */
   }
   .mode-interviewee {
     --mode-color: 38 92% 50%;   /* 琥珀 */
   }
   .mode-input-method {
-    --mode-color: 187 82% 45%;  /* 青色 */
+    --mode-color: 174 100% 46%;  /* 青色 */
   }
 }

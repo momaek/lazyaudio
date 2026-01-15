@@ -13,8 +13,8 @@
       
       <!-- 始终显示来源 -->
       <span v-if="segment.source" class="source-badge" :class="`source-${segment.source}`">
-        <Mic v-if="segment.source === 'microphone'" class="w-3 h-3" />
-        <Monitor v-else-if="segment.source === 'system'" class="w-3 h-3" />
+        <MaterialIcon v-if="segment.source === 'microphone'" name="mic" size="sm" />
+        <MaterialIcon v-else-if="segment.source === 'system'" name="laptop_mac" size="sm" />
         {{ sourceLabel }}
       </span>
       
@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Mic, Monitor } from 'lucide-vue-next'
+import MaterialIcon from './MaterialIcon.vue'
 import type { SegmentWithMeta } from '@/composables/useTranscript'
 
 interface Props {

@@ -2,9 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePermissions } from '@/composables/usePermissions'
-import { Shield, Mic, Monitor, CheckCircle2, XCircle, AlertCircle, ExternalLink, Loader2 } from 'lucide-vue-next'
+import MaterialIcon from '@/components/common/MaterialIcon.vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import type { PermissionType } from '@/types'
 
 const router = useRouter()
@@ -21,49 +20,49 @@ const {
 const permissionConfig: Record<PermissionType, {
   name: string
   description: string
-  icon: typeof Shield
+  iconName: string
 }> = {
   ScreenCapture: {
-    name: '屏幕录制',
-    description: '用于采集系统音频（macOS 需要此权限）',
-    icon: Monitor,
+    name: 'System Audio',
+    description: 'Capture and route audio from other desktop applications.',
+    iconName: 'speaker_group',
   },
   Microphone: {
-    name: '麦克风',
-    description: '用于采集麦克风音频',
-    icon: Mic,
+    name: 'Microphone Access',
+    description: 'Required for voice commands and live transcription.',
+    iconName: 'mic',
   },
   Accessibility: {
-    name: '辅助功能',
-    description: '用于输入法模式的键盘模拟（可选）',
-    icon: Shield,
+    name: 'Accessibility',
+    description: 'Used for keyboard simulation and global hotkey management.',
+    iconName: 'keyboard_command_key',
   },
 }
 
 // 请求权限中的状态
 const requestingPermission = ref<PermissionType | null>(null)
 
-// 获取权限状态图标
-function getStatusIcon(status: string | undefined) {
+// 获取状态标签
+function getStatusBadge(status: string | undefined) {
   switch (status) {
     case 'Granted':
-      return CheckCircle2
+      return {
+        text: 'AUTHORIZED',
+        class: 'bg-primary-bright/10 text-primary-bright border-primary-bright/20',
+        dotClass: 'bg-primary-bright'
+      }
     case 'Denied':
-      return XCircle
+      return {
+        text: 'DENIED',
+        class: 'bg-zinc-800 text-zinc-400 border-zinc-700',
+        dotClass: 'bg-red-500/60'
+      }
     default:
-      return AlertCircle
-  }
-}
-
-// 获取状态颜色
-function getStatusColor(status: string | undefined) {
-  switch (status) {
-    case 'Granted':
-      return 'text-la-success'
-    case 'Denied':
-      return 'text-destructive'
-    default:
-      return 'text-la-warning'
+      return {
+        text: 'REQUIRED',
+        class: 'bg-zinc-800 text-zinc-400 border-zinc-700',
+        dotClass: 'bg-amber-500/60'
+      }
   }
 }
 
@@ -86,11 +85,6 @@ function continueNext() {
   router.push('/onboarding/model')
 }
 
-// 跳过当前步骤
-function skipStep() {
-  router.push('/onboarding/model')
-}
-
 // 初始化
 onMounted(async () => {
   await checkAllPermissions()
@@ -98,97 +92,140 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col items-center justify-center p-8">
-    <!-- 标题 -->
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl la-gradient mb-4 shadow-lg shadow-la-indigo/20">
-        <Shield class="w-8 h-8 text-white" />
+  <div class="min-h-screen flex flex-col font-display selection:bg-primary-bright/30 bg-background-dark-ink text-white">
+    <!-- 顶部导航 -->
+    <header class="flex items-center justify-between border-b border-border-dark-ink px-8 py-5 bg-background-dark-ink/80 backdrop-blur-md sticky top-0 z-50">
+      <div class="flex items-center gap-3">
+        <div class="size-8 bg-primary-bright rounded-lg flex items-center justify-center text-background-dark">
+          <MaterialIcon name="graphic_eq" size="lg" weight="700" />
+        </div>
+        <h2 class="text-lg font-bold tracking-tight text-white">LazyAudio</h2>
       </div>
-      <h1 class="text-2xl font-bold mb-2">权限设置</h1>
-      <p class="text-muted-foreground">
-        LazyAudio 需要以下权限才能正常工作
-      </p>
-    </div>
+      <div class="flex items-center gap-6">
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold">Setup Phase</span>
+          <span class="text-xs font-medium text-primary-bright">01 / 04 Permissions</span>
+        </div>
+        <div class="size-9 rounded-full border border-primary-bright/20 p-0.5">
+          <div class="w-full h-full rounded-full bg-zinc-700" />
+        </div>
+      </div>
+    </header>
 
-    <!-- 权限卡片 -->
-    <div class="w-full max-w-md space-y-3 mb-8">
-      <Card
-        v-for="perm in permissionList"
-        :key="perm.type"
-        class="bg-card/50 border-border/50 backdrop-blur-sm transition-all duration-200"
-        :class="{ 
-          'border-la-success/30 bg-la-success/5': perm.status === 'Granted',
-          'hover:border-border': perm.status !== 'Granted'
-        }"
-      >
-        <CardHeader class="pb-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-secondary">
-                <component
-                  :is="permissionConfig[perm.type]?.icon || Shield"
-                  class="w-5 h-5 text-la-indigo"
-                />
-              </div>
-              <div>
-                <CardTitle class="text-base">
-                  {{ permissionConfig[perm.type]?.name || perm.type }}
-                </CardTitle>
-                <CardDescription class="text-xs">
-                  {{ permissionConfig[perm.type]?.description }}
-                </CardDescription>
-              </div>
-            </div>
-            <component
-              :is="getStatusIcon(perm.status)"
-              :class="['w-5 h-5', getStatusColor(perm.status)]"
-            />
-          </div>
-        </CardHeader>
-        <CardContent v-if="perm.status !== 'Granted'">
-          <Button
-            size="sm"
-            variant="secondary"
-            class="w-full gap-2"
-            :disabled="requestingPermission === perm.type"
-            @click="handleRequestPermission(perm.type)"
+    <!-- 主内容 -->
+    <main class="flex-1 flex items-center justify-center p-6 py-16">
+      <div class="max-w-[640px] w-full flex flex-col items-center">
+        <!-- 标题 -->
+        <div class="text-center mb-12">
+          <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-white">
+            System Permissions
+          </h1>
+          <p class="text-zinc-400 text-lg max-w-md mx-auto leading-relaxed">
+            To orchestrate your audio workflow, LazyAudio requires specific system-level access.
+          </p>
+        </div>
+
+        <!-- 权限卡片 -->
+        <div class="w-full space-y-3">
+          <div
+            v-for="perm in permissionList"
+            :key="perm.type"
+            class="group relative flex items-center gap-5 p-5 bg-surface-dark-ink border border-border-dark-ink rounded-xl transition-all hover:border-primary-bright/30"
           >
-            <Loader2
-              v-if="requestingPermission === perm.type"
-              class="w-4 h-4 animate-spin"
-            />
-            <ExternalLink v-else class="w-4 h-4" />
-            {{ perm.status === 'NotDetermined' ? '授权' : '前往设置' }}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+            <!-- 图标 -->
+            <div class="size-12 bg-zinc-900 rounded-lg flex items-center justify-center text-zinc-400 group-hover:text-primary-bright transition-colors">
+              <MaterialIcon :name="permissionConfig[perm.type]?.iconName || 'shield'" size="lg" />
+            </div>
 
-    <!-- 操作按钮 -->
-    <div class="flex flex-col items-center gap-3">
-      <Button
-        size="lg"
-        class="px-8"
-        :disabled="!allGranted && !isLoading"
-        @click="continueNext"
-      >
-        {{ allGranted ? '继续' : '请先授权必要权限' }}
-      </Button>
-      
-      <!-- 跳过按钮 -->
-      <Button
-        variant="ghost"
-        size="sm"
-        class="text-muted-foreground hover:text-foreground"
-        @click="skipStep"
-      >
-        跳过此步骤
-      </Button>
-    </div>
+            <!-- 内容 -->
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-base font-semibold text-zinc-100">
+                  {{ permissionConfig[perm.type]?.name || perm.type }}
+                </h3>
+                <span 
+                  class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
+                  :class="getStatusBadge(perm.status).class"
+                >
+                  <span 
+                    class="status-dot"
+                    :class="getStatusBadge(perm.status).dotClass"
+                  />
+                  {{ getStatusBadge(perm.status).text }}
+                </span>
+              </div>
+              <p class="text-sm text-zinc-500 leading-relaxed max-w-sm">
+                {{ permissionConfig[perm.type]?.description }}
+              </p>
+            </div>
 
-    <!-- 提示 -->
-    <p class="mt-4 text-xs text-muted-foreground text-center max-w-sm">
-      跳过后部分功能可能无法正常使用，你可以稍后在设置中授权
-    </p>
+            <!-- 操作按钮 -->
+            <div v-if="perm.status === 'Granted'" class="size-10 flex items-center justify-center text-primary-bright">
+              <MaterialIcon name="check_circle" size="lg" />
+            </div>
+            <button
+              v-else
+              class="px-5 py-2 font-bold text-sm rounded-lg transition-all active:scale-95"
+              :class="[
+                perm.status === 'NotDetermined'
+                  ? 'bg-primary-bright text-black hover:brightness-110 shadow-lg shadow-primary-bright/10'
+                  : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border border-zinc-700'
+              ]"
+              :disabled="requestingPermission === perm.type"
+              @click="handleRequestPermission(perm.type)"
+            >
+              <MaterialIcon 
+                v-if="requestingPermission === perm.type"
+                name="progress_activity" 
+                size="sm"
+                class="animate-spin"
+              />
+              <template v-else>
+                {{ perm.status === 'NotDetermined' ? 'Grant' : 'Open Settings' }}
+              </template>
+            </button>
+          </div>
+        </div>
+
+        <!-- 底部操作 -->
+        <div class="mt-14 w-full flex flex-col items-center gap-5">
+          <button
+            class="w-full max-w-[320px] py-4 font-bold rounded-xl transition-all border"
+            :class="[
+              allGranted 
+                ? 'bg-primary-bright text-black hover:brightness-110 border-transparent shadow-lg shadow-primary-bright/20'
+                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-border-dark-ink opacity-50'
+            ]"
+            :disabled="!allGranted"
+            @click="continueNext"
+          >
+            Continue to Workspace
+          </button>
+          
+          <div class="flex items-center gap-4 text-xs font-medium uppercase tracking-widest text-zinc-500">
+            <span class="flex items-center gap-1.5">
+              <MaterialIcon name="settings" size="sm" />
+              System Preferences
+            </span>
+            <span class="h-3 w-px bg-zinc-800" />
+            <a class="text-primary-bright hover:text-primary-bright/80 transition-colors" href="#">
+              Support Guide
+            </a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 背景光晕 -->
+    <div class="fixed top-0 right-0 -z-10 w-[600px] h-[600px] bg-primary-bright/5 blur-[140px] rounded-full pointer-events-none" />
+    <div class="fixed bottom-0 left-0 -z-10 w-[500px] h-[500px] bg-primary-bright/5 blur-[120px] rounded-full pointer-events-none" />
   </div>
 </template>
+
+<style scoped>
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+</style>

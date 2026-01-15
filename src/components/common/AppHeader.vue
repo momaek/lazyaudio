@@ -1,18 +1,18 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useSessionStore } from '@/stores/session'
 import ModeSwitcher from './ModeSwitcher.vue'
-import RecordingPill from './RecordingPill.vue'
-import { Search, History, Settings } from 'lucide-vue-next'
+import RecordingPanel from './RecordingPanel.vue'
+import AudioControlPanel from './AudioControlPanel.vue'
+import MaterialIcon from './MaterialIcon.vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
 const router = useRouter()
+const sessionStore = useSessionStore()
+
+// AI 侧边栏状态（通过事件总线或store管理）
+const isAiSidebarOpen = ref(false)
 
 function goToHistory() {
   router.push('/history')
@@ -22,9 +22,10 @@ function goToSettings() {
   router.push('/settings')
 }
 
-function openCommandPalette() {
-  // TODO: 实现命令面板
-  console.log('打开命令面板')
+function toggleAiSidebar() {
+  isAiSidebarOpen.value = !isAiSidebarOpen.value
+  // 触发全局事件或更新 store
+  window.dispatchEvent(new CustomEvent('toggle-ai-sidebar', { detail: isAiSidebarOpen.value }))
 }
 
 const appWindow = getCurrentWindow()
@@ -37,94 +38,77 @@ function startHeaderDrag(event: MouseEvent) {
 
 <template>
   <header 
-    class="h-12 border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-0 z-50"
-    data-tauri-drag-region
+    class="h-20 border-b bg-white dark:bg-background-dark/95 dark:backdrop-blur-xl z-30 shrink-0 border-border-light dark:border-border-dark"
   >
-    <div class="h-full flex items-center">
-      <!-- 左侧：Logo + 模式切换器 (带 macOS 红绿灯按钮留白 ~78px) -->
-      <div class="flex items-center gap-3 pl-[78px] pr-3 ml-2">
-        <div class="h-4 w-px bg-border/50"></div>
-        <!-- Logo/品牌 -->
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
-            <span class="text-white text-xs font-bold">LA</span>
+    <div class="h-full flex items-center px-6">
+      <!-- 左侧：Logo + 名称 + 模式切换器 -->
+      <div class="flex items-center gap-6 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="size-9 rounded bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+            <MaterialIcon name="graphic_eq" size="lg" />
           </div>
-          <span class="text-sm font-semibold text-foreground">LazyAudio</span>
+          <div class="flex flex-col leading-none font-display">
+            <h1 class="text-sm font-bold tracking-tight">LazyAudio</h1>
+            <span class="text-[10px] text-primary dark:text-primary-bright font-bold uppercase tracking-widest">Studio</span>
+          </div>
         </div>
         
-        <div class="h-4 w-px bg-border/50"></div>
+        <div class="h-8 w-px bg-border-light dark:bg-border-dark"></div>
         
         <!-- 模式切换器 -->
         <ModeSwitcher />
       </div>
 
+      <!-- 中间：录制面板（仅录制时显示）+ 可拖拽区域 -->
       <div
-        class="flex-1 h-full"
+        class="flex-1 flex items-center justify-center min-w-0"
         data-tauri-drag-region
         @mousedown="startHeaderDrag"
-      ></div>
+      >
+        <RecordingPanel />
+      </div>
 
-      <!-- 右侧：状态和操作 -->
-      <div class="flex items-center gap-1 pr-3">
-        <!-- 录制状态胶囊 -->
-        <RecordingPill />
+      <!-- 右侧：音频控制 + 功能按钮 -->
+      <div class="flex items-center gap-4 shrink-0">
+        <!-- 音频控制面板 -->
+        <AudioControlPanel />
+        
+        <div class="h-8 w-px bg-border-light dark:bg-border-dark"></div>
+        
+        <!-- 功能按钮组 -->
+        <div class="flex items-center gap-1">
+          <!-- 历史记录 -->
+          <button
+            class="size-10 rounded-xl flex items-center justify-center transition-all text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+            title="历史记录"
+            @click="goToHistory"
+          >
+            <MaterialIcon name="history" />
+          </button>
 
-        <!-- 命令面板 -->
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-8 w-8 text-muted-foreground hover:text-foreground"
-                @click="openCommandPalette"
-              >
-                <Search class="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>命令面板 <kbd class="ml-1 text-xs opacity-60">⌘K</kbd></p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+          <!-- 设置 -->
+          <button
+            class="size-10 rounded-xl flex items-center justify-center transition-all text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+            title="设置"
+            @click="goToSettings"
+          >
+            <MaterialIcon name="settings" />
+          </button>
 
-        <!-- 历史记录 -->
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-8 w-8 text-muted-foreground hover:text-foreground"
-                @click="goToHistory"
-              >
-                <History class="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>历史记录</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <!-- 设置 -->
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-8 w-8 text-muted-foreground hover:text-foreground"
-                @click="goToSettings"
-              >
-                <Settings class="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>设置</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+          <!-- AI Toggle -->
+          <button
+            class="size-10 rounded-xl flex items-center justify-center transition-all"
+            :class="[
+              isAiSidebarOpen
+                ? 'bg-primary/10 dark:bg-primary-bright/10 text-primary dark:text-primary-bright'
+                : 'text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+            ]"
+            title="AI Insights"
+            @click="toggleAiSidebar"
+          >
+            <MaterialIcon name="auto_awesome" size="lg" :fill="isAiSidebarOpen" />
+          </button>
+        </div>
       </div>
     </div>
   </header>

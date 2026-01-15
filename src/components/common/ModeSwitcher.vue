@@ -5,7 +5,7 @@ import { useModeStore } from '@/stores/mode'
 import { useSessionStore } from '@/stores/session'
 import { useAppStore } from '@/stores/app'
 import { commands } from '@/types/bindings'
-import { ChevronDown, Mic, UserSearch, User, Loader2 } from 'lucide-vue-next'
+import MaterialIcon from './MaterialIcon.vue'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -29,22 +29,40 @@ const modeStore = useModeStore()
 const sessionStore = useSessionStore()
 const appStore = useAppStore()
 
+// 下拉菜单状态
+const isOpen = ref(false)
+
 // 确认对话框状态
 const showConfirmDialog = ref(false)
 const pendingModeId = ref<string | null>(null)
 const isSwitching = ref(false)
 
-// 获取模式图标组件
-function getModeIcon(modeId: string) {
+// Click away 指令
+const vClickAway = {
+  mounted(el: HTMLElement, binding: any) {
+    el.clickAwayEvent = function(event: Event) {
+      if (!(el === event.target || el.contains(event.target as Node))) {
+        binding.value(event)
+      }
+    }
+    document.addEventListener('click', el.clickAwayEvent)
+  },
+  unmounted(el: any) {
+    document.removeEventListener('click', el.clickAwayEvent)
+  }
+}
+
+// 获取模式图标名称
+function getModeIconName(modeId: string): string {
   switch (modeId) {
     case 'meeting':
-      return Mic
+      return 'video_chat'
     case 'interviewer':
-      return UserSearch
+      return 'record_voice_over'
     case 'interviewee':
-      return User
+      return 'person'
     default:
-      return Mic
+      return 'video_chat'
   }
 }
 
@@ -52,13 +70,13 @@ function getModeIcon(modeId: string) {
 function getModeColor(modeId: string) {
   switch (modeId) {
     case 'meeting':
-      return 'text-la-indigo'
+      return 'text-brand-primary'
     case 'interviewer':
-      return 'text-la-violet'
+      return 'text-primary-light'
     case 'interviewee':
-      return 'text-la-warning'
+      return 'text-warning'
     default:
-      return 'text-muted-foreground'
+      return 'text-muted-foreground dark:text-text-muted-dark'
   }
 }
 
@@ -80,11 +98,15 @@ function getModeDescription(modeId: string) {
 const currentModeDisplay = computed(() => {
   const mode = modeStore.currentPrimaryMode
   if (!mode) {
-    return { name: '选择模式', icon: Mic, color: 'text-muted-foreground' }
+    return { 
+      name: '选择模式', 
+      iconName: 'video_chat', 
+      color: 'text-muted-foreground dark:text-text-muted-dark' 
+    }
   }
   return {
     name: mode.name,
-    icon: getModeIcon(mode.id),
+    iconName: getModeIconName(mode.id),
     color: getModeColor(mode.id),
   }
 })
@@ -149,35 +171,78 @@ function cancelSwitch() {
 </script>
 
 <template>
-  <DropdownMenu>
-    <DropdownMenuTrigger as-child>
-      <Button 
-        variant="ghost" 
-        class="h-8 px-2.5 gap-1.5 text-sm font-medium hover:bg-accent/50 data-[state=open]:bg-accent/50"
-      >
-        <component :is="currentModeDisplay.icon" class="h-3.5 w-3.5" :class="currentModeDisplay.color" />
-        <span>{{ currentModeDisplay.name }}</span>
-        <ChevronDown class="h-3 w-3 opacity-50" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" class="w-52">
-      <DropdownMenuLabel class="text-xs text-muted-foreground font-normal">工作模式</DropdownMenuLabel>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        v-for="mode in modeStore.availablePrimaryModes"
-        :key="mode.id"
-        :class="{ 'bg-accent': mode.id === modeStore.currentPrimaryModeId }"
-        class="cursor-pointer"
-        @click="handleModeSwitch(mode.id)"
-      >
-        <component :is="getModeIcon(mode.id)" class="mr-2.5 h-4 w-4" :class="getModeColor(mode.id)" />
-        <div class="flex-1">
-          <div class="font-medium">{{ mode.name }}</div>
-          <div class="text-xs text-muted-foreground">{{ getModeDescription(mode.id) }}</div>
+  <div class="relative group">
+    <button 
+      class="flex items-center gap-3 px-4 py-2 rounded-xl bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-brand-primary/50 dark:hover:border-primary-bright/30 transition-all hover:bg-gray-50 dark:hover:bg-white/5 shadow-sm"
+      @click="() => { isOpen = !isOpen }"
+    >
+      <div class="flex items-center gap-2">
+        <MaterialIcon 
+          :name="currentModeDisplay.iconName" 
+          size="md" 
+          :fill="true"
+          :class="currentModeDisplay.color" 
+        />
+        <div class="text-left">
+          <p class="text-[10px] text-text-muted dark:text-text-muted-dark uppercase font-bold tracking-wider leading-none mb-0.5 font-display">
+            Mode
+          </p>
+          <p class="text-xs font-bold text-text-main dark:text-white font-display">
+            {{ currentModeDisplay.name }}
+          </p>
         </div>
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
+      </div>
+      <MaterialIcon 
+        name="expand_more" 
+        size="sm" 
+        class="text-text-muted dark:text-text-muted-dark transition-transform duration-200"
+        :class="{ 'rotate-180': isOpen }"
+      />
+    </button>
+
+    <!-- 下拉菜单 -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 -translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 -translate-y-2"
+    >
+      <div 
+        v-if="isOpen"
+        v-click-away="() => { isOpen = false }"
+        class="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-xl overflow-hidden z-50"
+      >
+        <div class="p-1.5 space-y-0.5">
+          <button
+            v-for="mode in modeStore.availablePrimaryModes"
+            :key="mode.id"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left"
+            :class="[
+              mode.id === modeStore.currentPrimaryModeId
+                ? 'bg-brand-primary/10 dark:bg-primary-bright/10 text-brand-primary dark:text-primary-bright'
+                : 'text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5'
+            ]"
+            @click="() => { handleModeSwitch(mode.id); isOpen = false }"
+          >
+            <MaterialIcon 
+              :name="getModeIconName(mode.id)" 
+              size="sm"
+              :fill="mode.id === modeStore.currentPrimaryModeId"
+            />
+            <span class="text-xs font-bold font-display">{{ mode.name }}</span>
+            <MaterialIcon 
+              v-if="mode.id === modeStore.currentPrimaryModeId"
+              name="check" 
+              size="sm"
+              class="ml-auto"
+            />
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </div>
 
   <!-- 确认切换对话框 -->
   <Dialog :open="showConfirmDialog" @update:open="(v) => !v && cancelSwitch()">
@@ -191,7 +256,7 @@ function cancelSwitch() {
       <DialogFooter>
         <Button variant="outline" :disabled="isSwitching" @click="cancelSwitch">取消</Button>
         <Button :disabled="isSwitching" @click="confirmSwitch">
-          <Loader2 v-if="isSwitching" class="mr-2 h-4 w-4 animate-spin" />
+          <MaterialIcon v-if="isSwitching" name="progress_activity" size="sm" class="mr-2 animate-spin" />
           {{ isSwitching ? '正在切换...' : '确认切换' }}
         </Button>
       </DialogFooter>
