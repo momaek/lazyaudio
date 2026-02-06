@@ -83,7 +83,7 @@ function goToPage(page: number) {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col p-6 gap-6">
+  <div class="flex flex-col p-6 gap-6 overflow-y-auto h-full">
     <!-- 工具栏 -->
     <div class="flex items-center gap-4">
       <!-- 搜索框 -->
@@ -171,10 +171,10 @@ function goToPage(page: number) {
 
     <!-- 列表 -->
     <div v-else-if="filteredRecords.length > 0" class="flex flex-col gap-2">
-      <button
+      <div
         v-for="record in paginatedRecords"
         :key="record.id"
-        class="flex items-center gap-4 p-4 rounded-[10px] text-left transition-colors"
+        class="flex items-center gap-4 p-4 rounded-[10px] cursor-pointer transition-colors"
         style="background-color: var(--la-bg-surface)"
         @click="viewDetail(record.id)"
       >
@@ -221,11 +221,11 @@ function goToPage(page: number) {
         <button
           class="size-8 rounded-md flex items-center justify-center transition-colors shrink-0"
           style="color: var(--la-text-muted)"
-          @click="handleDelete(record.id, $event)"
+          @click.stop="handleDelete(record.id, $event)"
         >
           <MaterialIcon name="delete" size="sm" />
         </button>
-      </button>
+      </div>
     </div>
 
     <!-- 空状态 -->

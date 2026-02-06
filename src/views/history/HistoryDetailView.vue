@@ -36,7 +36,7 @@ const activeTab = ref('transcript')
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col p-6 gap-6">
+  <div class="flex flex-col p-6 gap-6 overflow-y-auto h-full">
     <!-- Session Info Card -->
     <div
       class="rounded-xl p-6"

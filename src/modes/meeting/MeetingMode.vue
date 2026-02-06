@@ -169,7 +169,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="flex flex-col h-full overflow-hidden">
     <!-- 未录制状态 -->
     <MeetingIdleView
       v-if="!isRecording"

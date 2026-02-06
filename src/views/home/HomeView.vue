@@ -51,7 +51,7 @@ function toggleInputMethod() {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col items-center justify-center p-8">
+  <div class="flex flex-col items-center justify-center p-8 overflow-y-auto" style="height: 100%">
     <div class="w-full max-w-[720px] flex flex-col gap-8">
       <!-- 欢迎标题 -->
       <div class="text-center">

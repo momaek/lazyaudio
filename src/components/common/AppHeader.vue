@@ -6,7 +6,6 @@ import ModeSwitcher from './ModeSwitcher.vue'
 import RecordingPill from './RecordingPill.vue'
 import MaterialIcon from './MaterialIcon.vue'
 import { useSessionStore } from '@/stores/session'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,22 +38,19 @@ function goToSettings() {
 function goHome() {
   router.push('/')
 }
-
-const appWindow = getCurrentWindow()
-
-function startHeaderDrag(event: MouseEvent) {
-  if (event.button !== 0) return
-  appWindow.startDragging().catch(() => {})
-}
 </script>
 
 <template>
   <header
-    class="h-[52px] border-b shrink-0 z-30"
+    class="h-[52px] border-b shrink-0 z-30 select-none"
     style="background-color: var(--la-bg-inset); border-color: var(--la-divider)"
+    data-tauri-drag-region
   >
-    <div class="h-full flex items-center px-4">
-      <!-- 左侧：Logo + 名称 + 面包屑 + 模式切换 + RecordingPill -->
+    <div class="h-full flex items-center pr-4" data-tauri-drag-region>
+      <!-- 左侧留白：macOS 红绿灯区域（约 80px） -->
+      <div class="w-[80px] shrink-0" data-tauri-drag-region />
+
+      <!-- Logo + 名称 + 面包屑 + 模式切换 + RecordingPill -->
       <div class="flex items-center gap-3 shrink-0">
         <!-- Logo -->
         <button class="flex items-center gap-2" @click="goHome">
@@ -94,11 +90,7 @@ function startHeaderDrag(event: MouseEvent) {
       </div>
 
       <!-- 中间可拖拽区域 -->
-      <div
-        class="flex-1 min-w-0"
-        data-tauri-drag-region
-        @mousedown="startHeaderDrag"
-      />
+      <div class="flex-1 min-w-0" data-tauri-drag-region />
 
       <!-- 右侧功能按钮 -->
       <div class="flex items-center gap-1 shrink-0">

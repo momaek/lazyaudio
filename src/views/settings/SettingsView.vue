@@ -43,7 +43,7 @@ function switchTab(category: (typeof settingCategories)[number]) {
 </script>
 
 <template>
-  <div class="flex-1 flex min-h-0">
+  <div class="flex h-full overflow-hidden">
     <!-- 左侧导航 220px -->
     <nav
       class="w-[220px] shrink-0 p-4 flex flex-col gap-1 border-r overflow-y-auto"

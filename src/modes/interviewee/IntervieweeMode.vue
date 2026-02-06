@@ -26,7 +26,7 @@ function closeFloatingWindow() {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col items-center p-8 gap-8">
+  <div class="flex flex-col items-center p-8 gap-8 overflow-y-auto h-full">
     <div class="w-full max-w-lg flex flex-col gap-6">
       <!-- 标题区 -->
       <div class="text-center">

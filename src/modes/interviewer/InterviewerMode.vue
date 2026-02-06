@@ -122,45 +122,58 @@ function setRating(stars: number) {
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="flex flex-col h-full overflow-hidden">
     <!-- 空闲态 -->
     <template v-if="!isRecording">
-      <div class="flex-1 flex flex-col items-center justify-center p-8 gap-6">
-        <!-- 录制按钮 -->
-        <div class="relative">
+      <div class="flex-1 flex flex-col items-center justify-center p-8 gap-8">
+        <div class="w-full max-w-sm flex flex-col gap-6">
+          <!-- 标题 -->
+          <div class="text-center">
+            <div
+              class="inline-flex items-center justify-center size-12 rounded-xl mb-3"
+              style="background-color: color-mix(in srgb, var(--la-ai-purple) 20%, transparent)"
+            >
+              <MaterialIcon name="record_voice_over" size="lg" style="color: var(--la-ai-purple)" />
+            </div>
+            <h2 class="text-lg font-semibold" style="color: var(--la-text-primary)">
+              面试官模式
+            </h2>
+            <p class="text-sm mt-1" style="color: var(--la-text-secondary)">
+              输入候选人姓名，然后开始面试
+            </p>
+          </div>
+
+          <!-- 候选人姓名 -->
           <div
-            class="absolute inset-[-8px] rounded-full opacity-60 animate-pulse"
-            style="background-color: var(--la-ai-purple); opacity: 0.2"
-          />
+            class="rounded-xl p-4"
+            style="background-color: var(--la-bg-surface)"
+          >
+            <SectionLabel label="Candidate" class="mb-3 block" />
+            <Input
+              v-model="candidateName"
+              placeholder="输入候选人姓名"
+              class="border-0"
+              :style="{
+                backgroundColor: 'var(--la-bg-inset)',
+                color: 'var(--la-text-primary)',
+              }"
+            />
+          </div>
+
+          <!-- 开始面试按钮 -->
           <button
-            class="relative size-16 rounded-full flex items-center justify-center transition-transform hover:scale-105"
-            style="background-color: var(--la-ai-purple)"
+            class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+            :style="{
+              backgroundColor: !candidateName.trim() ? 'var(--la-bg-surface)' : 'var(--la-ai-purple)',
+              color: !candidateName.trim() ? 'var(--la-text-muted)' : 'white',
+              opacity: !candidateName.trim() ? 0.6 : 1,
+            }"
             :disabled="!candidateName.trim()"
             @click="startRecording"
           >
-            <MaterialIcon name="record_voice_over" size="lg" style="color: white" />
+            <MaterialIcon name="fiber_manual_record" size="sm" />
+            开始面试
           </button>
-        </div>
-
-        <div class="text-center">
-          <h2 class="text-lg font-semibold mb-1" style="color: var(--la-text-primary)">
-            准备开始面试
-          </h2>
-          <p class="text-sm" style="color: var(--la-text-secondary)">
-            输入候选人姓名后开始录制
-          </p>
-        </div>
-
-        <div class="w-full max-w-xs">
-          <Input
-            v-model="candidateName"
-            placeholder="候选人姓名"
-            class="text-center border-0"
-            :style="{
-              backgroundColor: 'var(--la-bg-surface)',
-              color: 'var(--la-text-primary)',
-            }"
-          />
         </div>
       </div>
     </template>
