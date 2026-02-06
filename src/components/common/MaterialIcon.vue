@@ -1,6 +1,6 @@
 <template>
   <span 
-    class="material-symbols-outlined"
+    class="material-symbols-rounded"
     :class="[sizeClass, fillClass, className]"
     :style="{ fontVariationSettings: variationSettings }"
   >

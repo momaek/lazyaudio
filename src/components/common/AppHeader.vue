@@ -1,18 +1,32 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSessionStore } from '@/stores/session'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useUiState } from '@/composables/useUiState'
 import ModeSwitcher from './ModeSwitcher.vue'
-import RecordingPanel from './RecordingPanel.vue'
-import AudioControlPanel from './AudioControlPanel.vue'
+import RecordingPill from './RecordingPill.vue'
 import MaterialIcon from './MaterialIcon.vue'
+import { useSessionStore } from '@/stores/session'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
+const route = useRoute()
 const router = useRouter()
+const { isAiSidebarOpen, toggleAiSidebar } = useUiState()
 const sessionStore = useSessionStore()
 
-// AI 侧边栏状态（通过事件总线或store管理）
-const isAiSidebarOpen = ref(false)
+// 面包屑导航
+const breadcrumb = computed(() => {
+  const path = route.path
+  if (path.startsWith('/history')) return 'History'
+  if (path.startsWith('/settings')) return 'Settings'
+  return null
+})
+
+// 是否有录制中的 session
+const hasActiveRecording = computed(() => {
+  return sessionStore.activeSessions.some(
+    (s) => s.state === 'recording' || s.state === 'paused'
+  )
+})
 
 function goToHistory() {
   router.push('/history')
@@ -22,10 +36,8 @@ function goToSettings() {
   router.push('/settings')
 }
 
-function toggleAiSidebar() {
-  isAiSidebarOpen.value = !isAiSidebarOpen.value
-  // 触发全局事件或更新 store
-  window.dispatchEvent(new CustomEvent('toggle-ai-sidebar', { detail: isAiSidebarOpen.value }))
+function goHome() {
+  router.push('/')
 }
 
 const appWindow = getCurrentWindow()
@@ -37,78 +49,93 @@ function startHeaderDrag(event: MouseEvent) {
 </script>
 
 <template>
-  <header 
-    class="h-20 border-b bg-white dark:bg-background-dark/95 dark:backdrop-blur-xl z-30 shrink-0 border-border-light dark:border-border-dark"
+  <header
+    class="h-[52px] border-b shrink-0 z-30"
+    style="background-color: var(--la-bg-inset); border-color: var(--la-divider)"
   >
-    <div class="h-full flex items-center px-6">
-      <!-- 左侧：Logo + 名称 + 模式切换器 -->
-      <div class="flex items-center gap-6 shrink-0">
-        <div class="flex items-center gap-2.5">
-          <div class="size-9 rounded bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
-            <MaterialIcon name="graphic_eq" size="lg" />
+    <div class="h-full flex items-center px-4">
+      <!-- 左侧：Logo + 名称 + 面包屑 + 模式切换 + RecordingPill -->
+      <div class="flex items-center gap-3 shrink-0">
+        <!-- Logo -->
+        <button class="flex items-center gap-2" @click="goHome">
+          <div
+            class="size-7 rounded-md flex items-center justify-center"
+            style="background-color: var(--la-accent)"
+          >
+            <MaterialIcon name="mic" size="sm" style="color: var(--la-text-inverted)" />
           </div>
-          <div class="flex flex-col leading-none font-display">
-            <h1 class="text-sm font-bold tracking-tight">LazyAudio</h1>
-            <span class="text-[10px] text-primary dark:text-primary-bright font-bold uppercase tracking-widest">Studio</span>
-          </div>
-        </div>
-        
-        <div class="h-8 w-px bg-border-light dark:bg-border-dark"></div>
-        
-        <!-- 模式切换器 -->
-        <ModeSwitcher />
+          <span
+            class="text-[15px] font-semibold"
+            style="color: var(--la-text-primary)"
+          >
+            LazyAudio
+          </span>
+        </button>
+
+        <!-- 面包屑分隔符 + 页面名 -->
+        <template v-if="breadcrumb">
+          <span class="text-sm" style="color: var(--la-text-tertiary)">/</span>
+          <span
+            class="text-sm font-medium"
+            style="color: var(--la-text-secondary)"
+          >
+            {{ breadcrumb }}
+          </span>
+        </template>
+
+        <!-- 模式切换器 (仅主页 / 模式页面显示) -->
+        <template v-if="!breadcrumb">
+          <div class="h-5 w-px" style="background-color: var(--la-border)" />
+          <ModeSwitcher />
+        </template>
+
+        <!-- RecordingPill (录制中显示) -->
+        <RecordingPill v-if="hasActiveRecording" />
       </div>
 
-      <!-- 中间：录制面板（仅录制时显示）+ 可拖拽区域 -->
+      <!-- 中间可拖拽区域 -->
       <div
-        class="flex-1 flex items-center justify-center min-w-0"
+        class="flex-1 min-w-0"
         data-tauri-drag-region
         @mousedown="startHeaderDrag"
-      >
-        <RecordingPanel />
-      </div>
+      />
 
-      <!-- 右侧：音频控制 + 功能按钮 -->
-      <div class="flex items-center gap-4 shrink-0">
-        <!-- 音频控制面板 -->
-        <AudioControlPanel />
-        
-        <div class="h-8 w-px bg-border-light dark:bg-border-dark"></div>
-        
-        <!-- 功能按钮组 -->
-        <div class="flex items-center gap-1">
-          <!-- 历史记录 -->
-          <button
-            class="size-10 rounded-xl flex items-center justify-center transition-all text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
-            title="历史记录"
-            @click="goToHistory"
-          >
-            <MaterialIcon name="history" />
-          </button>
+      <!-- 右侧功能按钮 -->
+      <div class="flex items-center gap-1 shrink-0">
+        <!-- 历史记录 -->
+        <button
+          class="size-8 rounded-md flex items-center justify-center transition-colors"
+          style="color: var(--la-text-secondary)"
+          title="历史记录"
+          @click="goToHistory"
+        >
+          <MaterialIcon name="history" size="sm" />
+        </button>
 
-          <!-- 设置 -->
-          <button
-            class="size-10 rounded-xl flex items-center justify-center transition-all text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
-            title="设置"
-            @click="goToSettings"
-          >
-            <MaterialIcon name="settings" />
-          </button>
+        <!-- 设置 -->
+        <button
+          class="size-8 rounded-md flex items-center justify-center transition-colors"
+          style="color: var(--la-text-secondary)"
+          title="设置"
+          @click="goToSettings"
+        >
+          <MaterialIcon name="settings" size="sm" />
+        </button>
 
-          <!-- AI Toggle -->
-          <button
-            class="size-10 rounded-xl flex items-center justify-center transition-all"
-            :class="[
-              isAiSidebarOpen
-                ? 'bg-primary/10 dark:bg-primary-bright/10 text-primary dark:text-primary-bright'
-                : 'text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
-            ]"
-            title="AI Insights"
-            @click="toggleAiSidebar"
-          >
-            <MaterialIcon name="auto_awesome" size="lg" :fill="isAiSidebarOpen" />
-          </button>
-        </div>
+        <!-- AI Insights 按钮 -->
+        <button
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          :style="
+            isAiSidebarOpen
+              ? { backgroundColor: 'var(--la-ai-purple)', color: 'var(--la-text-inverted)' }
+              : { backgroundColor: 'var(--la-bg-surface)', color: 'var(--la-text-secondary)' }
+          "
+          title="AI Insights"
+          @click="toggleAiSidebar"
+        >
+          <MaterialIcon name="psychology" size="sm" :fill="isAiSidebarOpen" />
+          <span>AI</span>
+        </button>
       </div>
     </div>
   </header>

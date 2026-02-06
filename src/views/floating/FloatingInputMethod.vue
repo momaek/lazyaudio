@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
 import { EventNames, useAppEvents } from '@/composables/useEvents'
 
 // 状态
 const isListening = ref(true)
-const recognizedText = ref('Working on the new design...')
+const recognizedText = ref('')
 const audioLevel = ref(0)
 const { on, offAll } = useAppEvents()
-
-// 判断是否深色主题 (可以从系统或配置读取)
-const isDark = ref(true)
 
 // 操作
 async function confirm() {
@@ -73,111 +70,89 @@ onUnmounted(() => {
 
 <template>
   <div class="h-screen flex items-center justify-center p-4 bg-transparent">
-    <!-- 悬浮条容器 -->
-    <div 
-      class="h-12 rounded-full px-4 flex items-center gap-4 min-w-[320px] max-w-md transition-all duration-300"
-      :class="[
-        isDark 
-          ? 'glass-morphism hover:border-teal-vibrant/60' 
-          : 'glass-morphism-light hover:border-teal-mute/60'
-      ]"
+    <!-- 悬浮窗容器 400x180 -->
+    <div
+      class="w-[400px] rounded-2xl flex flex-col overflow-hidden animate-float-appear"
+      style="background-color: var(--la-bg-surface)"
       data-tauri-drag-region
     >
-      <!-- 呼吸灯 -->
-      <div class="relative flex items-center justify-center shrink-0">
-        <div 
-          class="breathing-led w-2 h-2 rounded-full"
-          :class="[
-            isListening 
-              ? (isDark ? 'bg-green-400' : 'bg-green-500') 
-              : (isDark ? 'bg-gray-500' : 'bg-gray-400')
-          ]"
-          :style="{ 
-            boxShadow: isListening 
-              ? (isDark ? '0 0 8px #4ade80' : '0 0 8px rgba(34,197,94,0.6)') 
-              : 'none'
-          }"
+      <!-- Header 36px -->
+      <div class="h-9 flex items-center gap-3 px-4 shrink-0">
+        <MaterialIcon
+          name="mic"
+          size="sm"
+          :style="{ color: isListening ? 'var(--la-recording-red)' : 'var(--la-text-muted)' }"
         />
-      </div>
-
-      <!-- 波形 SVG -->
-      <div class="w-16 h-6 shrink-0 flex items-center overflow-hidden">
-        <svg 
-          class="w-full h-full opacity-80"
-          :class="[isDark ? 'text-teal-vibrant' : 'text-teal-600']"
-          viewBox="0 0 100 40"
+        <!-- 进度条 -->
+        <div
+          class="w-20 h-[3px] rounded-full overflow-hidden"
+          style="background-color: var(--la-bg-inset)"
         >
-          <path 
-            class="wave-line"
-            d="M0 20 Q 25 5, 50 20 T 100 20"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-width="2.5"
+          <div
+            class="h-full rounded-full transition-all duration-150"
+            style="background-color: var(--la-accent)"
+            :style="{ width: `${audioLevel}%` }"
           />
-        </svg>
-      </div>
-
-      <!-- 文本内容 -->
-      <div class="flex-1 truncate">
-        <span 
-          class="text-sm font-normal tracking-tight"
-          :class="[
-            recognizedText 
-              ? (isDark ? 'text-white/90' : 'text-slate-800') 
-              : (isDark ? 'text-white/40' : 'text-slate-400')
-          ]"
+        </div>
+        <span
+          class="text-xs font-medium"
+          :style="{ color: isListening ? 'var(--la-accent)' : 'var(--la-text-muted)' }"
         >
-          {{ recognizedText || 'Listening...' }}
-          <span 
-            v-if="!recognizedText"
-            class="opacity-40"
-          >
-            ...
-          </span>
+          {{ isListening ? 'Listening...' : 'Idle' }}
         </span>
       </div>
 
-      <!-- 操作按钮 -->
-      <div class="flex items-center gap-1 pl-2 ml-2"
-        :class="[isDark ? 'border-l border-white/10' : 'border-l border-slate-200']"
-      >
-        <button 
-          class="w-6 h-6 flex items-center justify-center transition-colors"
-          :class="[isDark ? 'text-white/30 hover:text-white' : 'text-slate-400 hover:text-slate-900']"
-          title="Confirm"
-          @click="confirm"
+      <!-- Body — 文本内容 -->
+      <div class="flex-1 px-4 py-3 min-h-[80px]">
+        <p
+          class="text-base leading-relaxed"
+          :style="{
+            color: recognizedText ? 'var(--la-text-primary)' : 'var(--la-text-muted)',
+          }"
         >
-          <MaterialIcon name="check" size="sm" />
-        </button>
-        <button 
-          class="w-6 h-6 flex items-center justify-center transition-colors"
-          :class="[isDark ? 'text-white/30 hover:text-red-400' : 'text-slate-400 hover:text-red-500']"
-          title="Cancel"
+          {{ recognizedText || '开始说话...' }}
+          <span
+            v-if="isListening && !recognizedText"
+            style="color: var(--la-text-tertiary)"
+          >
+            ...
+          </span>
+        </p>
+      </div>
+
+      <!-- Footer 44px -->
+      <div
+        class="h-11 flex items-center justify-end gap-2 px-4 border-t"
+        style="border-color: var(--la-divider)"
+      >
+        <button
+          class="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+          style="color: var(--la-text-secondary)"
+          title="Cancel (Esc)"
           @click="cancel"
         >
-          <MaterialIcon name="close" size="sm" />
+          Cancel
+          <kbd
+            class="ml-1.5 px-1 py-0.5 rounded text-[10px]"
+            style="background-color: var(--la-bg-inset); color: var(--la-text-tertiary)"
+          >
+            Esc
+          </kbd>
+        </button>
+        <button
+          class="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+          style="background-color: var(--la-accent); color: var(--la-text-inverted)"
+          title="Confirm (Enter)"
+          @click="confirm"
+        >
+          Confirm
+          <kbd
+            class="ml-1.5 px-1 py-0.5 rounded text-[10px] opacity-70"
+          >
+            ↵
+          </kbd>
         </button>
       </div>
     </div>
-
-    <!-- 键盘提示（悬浮在下方） -->
-    <div 
-      class="fixed bottom-8 flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest"
-      :class="[isDark ? 'text-white/20' : 'text-slate-400/60']"
-    >
-      <span>Press</span>
-      <kbd 
-        class="px-2 py-1 rounded border text-[10px]"
-        :class="[isDark ? 'bg-white/5 border-white/10' : 'bg-white border-slate-300']"
-      >
-        ⌥ SPACE
-      </kbd>
-      <span>To Toggle</span>
-    </div>
   </div>
 </template>
-
-<style scoped>
-/* 已在 main.css 中定义 glass-morphism 和 breathing-led */
-</style>

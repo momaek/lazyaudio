@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Pin, Minimize2, X, Pause, Square } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
+import MaterialIcon from '@/components/common/MaterialIcon.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 // 状态
@@ -10,36 +9,32 @@ const isRecording = ref(false)
 const duration = ref('00:00:00')
 
 // 模拟数据
-const currentQuestion = ref('请介绍一下你最近做过的一个项目，以及你在其中担任的角色和遇到的挑战。')
-const suggestion = ref(`
-**建议回答结构：**
+const currentQuestion = ref(
+  '请介绍一下你最近做过的一个项目，以及你在其中担任的角色和遇到的挑战。'
+)
+const suggestion = ref(
+  `建议回答结构：
+1. 项目背景：简要介绍项目的目标和规模
+2. 你的角色：明确说明你的职责
+3. 具体挑战：描述遇到的技术或协作难题
+4. 解决方案：说明你是如何解决的
+5. 成果：量化的结果或学到的经验
 
-1. **项目背景**：简要介绍项目的目标和规模
-2. **你的角色**：明确说明你的职责
-3. **具体挑战**：描述遇到的技术或协作难题
-4. **解决方案**：说明你是如何解决的
-5. **成果**：量化的结果或学到的经验
+关键点：使用 STAR 方法，强调个人贡献，准备回答追问。`
+)
+const recentTranscript = ref(
+  '面试官：好的，那我们开始吧。首先请你做一下自我介绍...'
+)
 
-**关键点提醒：**
-- 使用 STAR 方法（情境、任务、行动、结果）
-- 强调你的个人贡献
-- 准备好回答后续追问
-`.trim())
-
-const recentTranscript = ref('面试官：好的，那我们开始吧。首先请你做一下自我介绍...')
-
-// 操作
 function togglePin() {
   isPinned.value = !isPinned.value
 }
 
 function minimize() {
-  // TODO: 调用 Tauri API 最小化窗口
   console.log('最小化')
 }
 
 function close() {
-  // TODO: 调用 Tauri API 关闭窗口
   console.log('关闭')
 }
 
@@ -49,121 +44,144 @@ function toggleRecording() {
 
 function stopRecording() {
   isRecording.value = false
-  // TODO: 结束录制
 }
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-background/80 backdrop-blur-xl rounded-lg border border-border overflow-hidden">
-    <!-- 标题栏 (可拖拽区域) -->
+  <div class="h-screen flex items-center justify-center p-4 bg-transparent">
+    <!-- 悬浮窗容器 480x320 -->
     <div
-      class="h-10 px-3 flex items-center justify-between border-b border-border shrink-0"
-      data-tauri-drag-region
+      class="w-[480px] h-[320px] rounded-2xl flex flex-col overflow-hidden border animate-float-appear"
+      style="
+        background-color: var(--la-bg-surface);
+        opacity: 0.95;
+        border-color: var(--la-accent);
+      "
     >
-      <div class="flex items-center gap-2">
-        <span class="text-sm font-medium">面试助手</span>
-        <span v-if="isRecording" class="text-xs text-muted-foreground tabular-nums">
-          {{ duration }}
-        </span>
-      </div>
-      <div class="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          class="h-6 w-6"
-          :class="{ 'text-primary': isPinned }"
-          @click="togglePin"
-        >
-          <Pin class="h-3 w-3" />
-        </Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6" @click="minimize">
-          <Minimize2 class="h-3 w-3" />
-        </Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6" @click="close">
-          <X class="h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-
-    <!-- 主体内容 -->
-    <ScrollArea class="flex-1">
-      <div class="p-4 space-y-4">
-        <!-- 当前问题 -->
-        <div class="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
-          <p class="text-xs font-medium text-amber-400 mb-1">识别到的问题</p>
-          <p class="text-sm">{{ currentQuestion }}</p>
-        </div>
-
-        <!-- 回答建议 -->
-        <div class="rounded-lg bg-card border p-3">
-          <p class="text-xs font-medium text-cyan-400 mb-2">回答建议</p>
-          <div class="prose prose-sm dark:prose-invert max-w-none">
-            <pre class="whitespace-pre-wrap font-sans text-xs leading-relaxed">{{ suggestion }}</pre>
-          </div>
-        </div>
-
-        <!-- 实时转录 -->
-        <details class="group">
-          <summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            实时转录
-          </summary>
-          <div class="mt-2 p-2 rounded bg-muted/50 text-xs">
-            {{ recentTranscript }}
-          </div>
-        </details>
-      </div>
-    </ScrollArea>
-
-    <!-- 底部控制栏 -->
-    <div class="h-12 px-3 flex items-center justify-between border-t border-border shrink-0">
-      <div class="flex items-center gap-2">
-        <!-- 录制状态 -->
-        <span
-          v-if="isRecording"
-          class="flex items-center gap-1.5 text-xs"
-        >
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+      <!-- Header 40px -->
+      <div
+        class="h-10 px-3 flex items-center justify-between shrink-0"
+        style="background-color: var(--la-bg-inset)"
+        data-tauri-drag-region
+      >
+        <div class="flex items-center gap-2">
+          <MaterialIcon name="person" size="sm" style="color: var(--la-accent)" />
+          <span class="text-sm font-medium" style="color: var(--la-text-primary)">
+            面试助手
           </span>
-          录制中
-        </span>
-        <span v-else class="text-xs text-muted-foreground">
-          待命
-        </span>
+          <span
+            v-if="isRecording"
+            class="text-xs font-mono tabular-nums"
+            style="color: var(--la-text-tertiary)"
+          >
+            {{ duration }}
+          </span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            class="size-6 flex items-center justify-center rounded transition-colors"
+            :style="{ color: isPinned ? 'var(--la-accent)' : 'var(--la-text-muted)' }"
+            @click="togglePin"
+          >
+            <MaterialIcon name="push_pin" size="sm" :fill="isPinned" />
+          </button>
+          <button
+            class="size-6 flex items-center justify-center rounded transition-colors"
+            style="color: var(--la-text-muted)"
+            @click="minimize"
+          >
+            <MaterialIcon name="minimize" size="sm" />
+          </button>
+          <button
+            class="size-6 flex items-center justify-center rounded transition-colors"
+            style="color: var(--la-text-muted)"
+            @click="close"
+          >
+            <MaterialIcon name="close" size="sm" />
+          </button>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <Button
-          v-if="isRecording"
-          variant="outline"
-          size="sm"
-          class="h-7 gap-1"
-          @click="toggleRecording"
-        >
-          <Pause class="h-3 w-3" />
-          暂停
-        </Button>
-        <Button
-          v-if="isRecording"
-          variant="destructive"
-          size="sm"
-          class="h-7 gap-1"
-          @click="stopRecording"
-        >
-          <Square class="h-3 w-3" />
-          结束
-        </Button>
-        <Button
-          v-if="!isRecording"
-          size="sm"
-          class="h-7"
-          @click="toggleRecording"
-        >
-          开始
-        </Button>
+      <!-- 主体 -->
+      <ScrollArea class="flex-1">
+        <div class="p-4 space-y-3">
+          <!-- 当前问题 -->
+          <div
+            class="rounded-[10px] p-3 border"
+            style="
+              background-color: color-mix(in srgb, var(--la-accent) 8%, transparent);
+              border-color: color-mix(in srgb, var(--la-accent) 20%, transparent);
+            "
+          >
+            <p
+              class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+              style="color: var(--la-accent)"
+            >
+              Detected Question
+            </p>
+            <p class="text-sm" style="color: var(--la-text-primary)">
+              {{ currentQuestion }}
+            </p>
+          </div>
+
+          <!-- 回答建议 -->
+          <div class="rounded-[10px] p-3" style="background-color: var(--la-bg-inset)">
+            <p
+              class="text-[10px] font-semibold uppercase tracking-wider mb-2"
+              style="color: var(--la-ai-purple)"
+            >
+              Suggested Answer
+            </p>
+            <pre
+              class="whitespace-pre-wrap text-xs leading-relaxed"
+              style="color: var(--la-text-secondary); font-family: 'Inter', sans-serif"
+            >{{ suggestion }}</pre>
+          </div>
+        </div>
+      </ScrollArea>
+
+      <!-- Live transcript 条 48px -->
+      <div
+        class="h-12 px-4 flex items-center justify-between border-t shrink-0"
+        style="border-color: var(--la-divider)"
+      >
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span v-if="isRecording" class="recording-dot shrink-0" />
+          <span
+            class="text-xs truncate"
+            style="color: var(--la-text-tertiary)"
+          >
+            {{ recentTranscript }}
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            v-if="isRecording"
+            class="px-2 py-1 rounded-md text-xs font-medium"
+            style="color: var(--la-text-secondary)"
+            @click="toggleRecording"
+          >
+            <MaterialIcon name="pause" size="sm" />
+          </button>
+          <button
+            v-if="isRecording"
+            class="px-2 py-1 rounded-md text-xs font-medium"
+            style="color: var(--la-recording-red)"
+            @click="stopRecording"
+          >
+            <MaterialIcon name="stop" size="sm" />
+          </button>
+          <button
+            v-if="!isRecording"
+            class="px-3 py-1 rounded-md text-xs font-medium"
+            style="background-color: var(--la-accent); color: var(--la-text-inverted)"
+            @click="toggleRecording"
+          >
+            开始
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
-

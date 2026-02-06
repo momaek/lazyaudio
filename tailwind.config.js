@@ -15,7 +15,7 @@ export default {
     },
     extend: {
       colors: {
-        // shadcn/ui 基础颜色（保留兼容性）
+        // shadcn-vue 基础颜色（保留兼容性）
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -49,50 +49,29 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        
-        // LazyAudio V2 设计系统颜色
-        'brand-primary': '#0c6a41',
-        'primary-bright': '#2DD4BF',
-        'primary-light': '#0D9488',
-        'teal-vibrant': '#14ffec',
-        'teal-mute': '#14b8a6',
-        
-        // 浅色主题
-        'background-light': '#F9FAFB',
-        'surface-light': '#FFFFFF',
-        'surface-secondary': '#F1F5F9',
-        'border-light': '#E5E7EB',
-        'text-main': '#1F2937',
-        'text-strong': '#111827',
-        'text-muted': '#6B7280',
-        'text-muted-strong': '#4B5563',
-        
-        // 深色主题
-        'background-dark': '#0a0f0d',
-        'background-dark-alt': '#0c0f0e',
-        'background-dark-soft': '#121416',
-        'background-dark-ink': '#0B0B0B',
-        'surface-dark': '#161e1b',
-        'surface-dark-alt': '#1c2622',
-        'surface-dark-ink': '#141414',
-        'border-dark': '#293831',
-        'border-dark-ink': '#262626',
-        'text-white': '#FFFFFF',
-        'text-muted-dark': '#9db8ad',
-        'text-dim-dark': '#A1A1AA',
-        
-        // 语义化颜色
-        success: '#22C55E',
-        warning: '#F59E0B',
-        error: '#EF4444',
-        info: '#3B82F6',
-        recording: '#EF4444',
+
+        // LazyAudio Dark Terminal 设计系统
+        'la-bg-primary': 'var(--la-bg-primary)',
+        'la-bg-surface': 'var(--la-bg-surface)',
+        'la-bg-inset': 'var(--la-bg-inset)',
+        'la-accent': 'var(--la-accent)',
+        'la-accent-dim': 'var(--la-accent-dim)',
+        'la-text-primary': 'var(--la-text-primary)',
+        'la-text-secondary': 'var(--la-text-secondary)',
+        'la-text-tertiary': 'var(--la-text-tertiary)',
+        'la-text-muted': 'var(--la-text-muted)',
+        'la-text-inverted': 'var(--la-text-inverted)',
+        'la-recording-red': 'var(--la-recording-red)',
+        'la-recording-red-dim': 'var(--la-recording-red-dim)',
+        'la-ai-purple': 'var(--la-ai-purple)',
+        'la-tier1-blue': 'var(--la-tier1-blue)',
+        'la-tier2-green': 'var(--la-tier2-green)',
+        'la-border': 'var(--la-border)',
+        'la-divider': 'var(--la-divider)',
       },
       fontFamily: {
-        display: ['Space Grotesk', 'sans-serif'],
-        body: ['Noto Sans', 'sans-serif'],
-        sans: ['Noto Sans', 'sans-serif'],
-        mono: ['SF Mono', 'Monaco', 'Consolas', 'monospace'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'SF Mono', 'Monaco', 'Consolas', 'monospace'],
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -112,14 +91,6 @@ export default {
         '2xl': '2rem',    // 32px
         '3xl': '3rem',    // 48px
       },
-      boxShadow: {
-        sm: '0 1px 2px rgba(0,0,0,0.05)',
-        DEFAULT: '0 4px 6px rgba(0,0,0,0.1)',
-        md: '0 4px 6px rgba(0,0,0,0.1)',
-        lg: '0 10px 15px rgba(0,0,0,0.1)',
-        xl: '0 20px 25px rgba(0,0,0,0.1)',
-        '2xl': '0 25px 50px rgba(0,0,0,0.25)',
-      },
       keyframes: {
         'accordion-down': {
           from: { height: 0 },
@@ -133,21 +104,33 @@ export default {
           from: { opacity: 0 },
           to: { opacity: 1 },
         },
+        'fade-in-up': {
+          from: { opacity: 0, transform: 'translateY(8px)' },
+          to: { opacity: 1, transform: 'translateY(0)' },
+        },
         'slide-in-from-bottom': {
           from: { transform: 'translateY(10px)', opacity: 0 },
           to: { transform: 'translateY(0)', opacity: 1 },
         },
-        'pulse-recording': {
+        'recording-blink': {
           '0%, 100%': { opacity: 1 },
-          '50%': { opacity: 0.5 },
+          '50%': { opacity: 0.3 },
         },
-        breathe: {
-          '0%, 100%': { opacity: 0.4, transform: 'scale(0.9)' },
-          '50%': { opacity: 1, transform: 'scale(1.1)' },
+        'sidebar-expand': {
+          from: { width: 0, opacity: 0 },
+          to: { width: '340px', opacity: 1 },
         },
-        waveMove: {
-          '0%': { strokeDashoffset: 200 },
-          '100%': { strokeDashoffset: 0 },
+        'sidebar-collapse': {
+          from: { width: '340px', opacity: 1 },
+          to: { width: 0, opacity: 0 },
+        },
+        'float-appear': {
+          from: { opacity: 0, transform: 'scale(0.95)' },
+          to: { opacity: 1, transform: 'scale(1)' },
+        },
+        'float-disappear': {
+          from: { opacity: 1, transform: 'scale(1)' },
+          to: { opacity: 0, transform: 'scale(0.95)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
@@ -156,17 +139,25 @@ export default {
         ping: {
           '75%, 100%': { transform: 'scale(2)', opacity: 0 },
         },
+        'skeleton-pulse': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.5 },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.3s ease-out',
+        'fade-in-up': 'fade-in-up 0.2s ease-out',
         'slide-in': 'slide-in-from-bottom 0.3s ease-out',
-        'pulse-recording': 'pulse-recording 1.5s ease-in-out infinite',
-        'breathe': 'breathe 2s ease-in-out infinite',
-        'wave-move': 'waveMove 3s linear infinite',
+        'recording-blink': 'recording-blink 1.5s ease-in-out infinite',
+        'sidebar-expand': 'sidebar-expand 0.25s ease-in-out',
+        'sidebar-collapse': 'sidebar-collapse 0.25s ease-in-out',
+        'float-appear': 'float-appear 0.2s ease-out',
+        'float-disappear': 'float-disappear 0.15s ease-in',
         'shimmer': 'shimmer 2s linear infinite',
         'ping': 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
+        'skeleton-pulse': 'skeleton-pulse 1.5s ease-in-out infinite',
       },
     },
   },

@@ -1,157 +1,270 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Search, Filter, Mic, UserSearch, User, Calendar, Clock, FileText } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import MaterialIcon from '@/components/common/MaterialIcon.vue'
+import StatusBadge from '@/components/common/StatusBadge.vue'
+import { useSessionHistory } from '@/composables/useSession'
+import { formatRelativeTime, formatDurationFromMs } from '@/lib/formatters'
 
 const router = useRouter()
 
-// 搜索关键词
+const { sessions, isLoading, error, deleteHistory, refresh } =
+  useSessionHistory()
+
 const searchQuery = ref('')
+const modeFilter = ref<string | null>(null)
 
-// 模拟历史记录数据
-const historyRecords = ref([
-  {
-    id: '1',
-    title: '产品需求评审会议',
-    modeId: 'meeting',
-    modeName: '会议模式',
-    createdAt: '2026-01-06 14:30',
-    duration: '45:23',
-    wordCount: 3420,
-    preview: '今天我们来讨论一下新版本的产品需求，主要包括以下几个方面...',
-  },
-  {
-    id: '2',
-    title: '前端工程师面试 - 张三',
-    modeId: 'interviewer',
-    modeName: '面试官模式',
-    createdAt: '2026-01-05 10:00',
-    duration: '52:10',
-    wordCount: 4200,
-    preview: '请先做一下自我介绍...',
-  },
-])
+// 分页
+const currentPage = ref(1)
+const pageSize = 10
 
-// 获取模式图标
-function getModeIcon(modeId: string) {
+const filteredRecords = computed(() => {
+  let result = sessions.value
+
+  if (modeFilter.value) {
+    result = result.filter((s) => s.modeId === modeFilter.value)
+  }
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.trim().toLowerCase()
+    result = result.filter((s) => {
+      const name = (s.name || '').toLowerCase()
+      return name.includes(query)
+    })
+  }
+
+  return result
+})
+
+const totalCount = computed(() => filteredRecords.value.length)
+const paginatedRecords = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredRecords.value.slice(start, start + pageSize)
+})
+const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
+
+function getModeIconName(modeId: string): string {
   switch (modeId) {
-    case 'meeting':
-      return Mic
-    case 'interviewer':
-      return UserSearch
-    case 'interviewee':
-      return User
-    default:
-      return Mic
+    case 'meeting': return 'edit_note'
+    case 'interviewer': return 'record_voice_over'
+    case 'interviewee': return 'person'
+    default: return 'edit_note'
   }
 }
 
-// 获取模式颜色
-function getModeColor(modeId: string) {
+function getModeName(modeId: string): string {
   switch (modeId) {
-    case 'meeting':
-      return 'bg-la-indigo/10 text-la-indigo'
-    case 'interviewer':
-      return 'bg-la-violet/10 text-la-violet'
-    case 'interviewee':
-      return 'bg-la-warning/10 text-la-warning'
-    default:
-      return 'bg-muted text-muted-foreground'
+    case 'meeting': return 'Meeting'
+    case 'interviewer': return 'Interviewer'
+    case 'interviewee': return 'Interviewee'
+    default: return modeId
   }
 }
 
-// 返回
-function goBack() {
-  router.back()
-}
-
-// 查看详情
 function viewDetail(id: string) {
   router.push(`/history/${id}`)
+}
+
+async function handleDelete(id: string, event: Event) {
+  event.stopPropagation()
+  if (confirm('确定要删除这条记录吗？')) {
+    await deleteHistory(id)
+  }
+}
+
+function toggleFilter(modeId: string) {
+  modeFilter.value = modeFilter.value === modeId ? null : modeId
+  currentPage.value = 1
+}
+
+function goToPage(page: number) {
+  currentPage.value = page
 }
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- 标题栏 -->
-    <div class="flex items-center gap-4 mb-6">
-      <Button variant="ghost" size="icon" class="text-muted-foreground" @click="goBack">
-        <ArrowLeft class="h-5 w-5" />
-      </Button>
-      <h1 class="text-2xl font-bold">历史记录</h1>
-    </div>
-
-    <!-- 搜索和筛选 -->
-    <div class="flex gap-4 mb-6">
-      <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
+  <div class="flex-1 flex flex-col p-6 gap-6">
+    <!-- 工具栏 -->
+    <div class="flex items-center gap-4">
+      <!-- 搜索框 -->
+      <div class="relative w-80">
+        <MaterialIcon
+          name="search"
+          size="sm"
+          class="absolute left-3 top-1/2 -translate-y-1/2"
+          style="color: var(--la-text-tertiary)"
+        />
+        <input
           v-model="searchQuery"
-          placeholder="搜索转录内容..."
-          class="pl-10 bg-card/50 border-border/50"
+          placeholder="搜索会议名称..."
+          class="w-full h-9 pl-9 pr-4 rounded-md text-sm border-0 outline-none"
+          style="background-color: var(--la-bg-surface); color: var(--la-text-primary)"
         />
       </div>
-      <Button variant="outline" class="gap-2">
-        <Filter class="h-4 w-4" />
-        筛选
-      </Button>
+
+      <!-- 过滤标签 -->
+      <div class="flex gap-1">
+        <button
+          class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          :style="
+            modeFilter === null
+              ? { backgroundColor: 'var(--la-accent)', color: 'var(--la-text-inverted)' }
+              : { backgroundColor: 'var(--la-bg-surface)', color: 'var(--la-text-secondary)' }
+          "
+          @click="modeFilter = null; currentPage = 1"
+        >
+          All
+        </button>
+        <button
+          class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          :style="
+            modeFilter === 'meeting'
+              ? { backgroundColor: 'var(--la-accent)', color: 'var(--la-text-inverted)' }
+              : { backgroundColor: 'var(--la-bg-surface)', color: 'var(--la-text-secondary)' }
+          "
+          @click="toggleFilter('meeting')"
+        >
+          Meeting
+        </button>
+        <button
+          class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          :style="
+            modeFilter === 'interviewer'
+              ? { backgroundColor: 'var(--la-accent)', color: 'var(--la-text-inverted)' }
+              : { backgroundColor: 'var(--la-bg-surface)', color: 'var(--la-text-secondary)' }
+          "
+          @click="toggleFilter('interviewer')"
+        >
+          Interviewer
+        </button>
+      </div>
     </div>
 
-    <!-- 记录列表 -->
-    <div v-if="historyRecords.length > 0" class="space-y-3">
-      <Card
-        v-for="record in historyRecords"
+    <!-- 加载状态 -->
+    <div
+      v-if="isLoading && sessions.length === 0"
+      class="flex-1 flex items-center justify-center"
+    >
+      <MaterialIcon
+        name="progress_activity"
+        size="xl"
+        class="animate-spin"
+        style="color: var(--la-text-tertiary)"
+      />
+    </div>
+
+    <!-- 错误状态 -->
+    <div
+      v-else-if="error"
+      class="flex-1 flex flex-col items-center justify-center gap-3"
+    >
+      <MaterialIcon name="error" size="xl" style="color: var(--la-recording-red); opacity: 0.5" />
+      <p class="text-sm" style="color: var(--la-text-secondary)">{{ error }}</p>
+      <button
+        class="px-4 py-1.5 rounded-md text-xs font-medium"
+        style="background-color: var(--la-bg-surface); color: var(--la-text-secondary)"
+        @click="refresh"
+      >
+        重试
+      </button>
+    </div>
+
+    <!-- 列表 -->
+    <div v-else-if="filteredRecords.length > 0" class="flex flex-col gap-2">
+      <button
+        v-for="record in paginatedRecords"
         :key="record.id"
-        class="cursor-pointer bg-card/50 border-border/50 hover:bg-card/80 transition-colors"
+        class="flex items-center gap-4 p-4 rounded-[10px] text-left transition-colors"
+        style="background-color: var(--la-bg-surface)"
         @click="viewDetail(record.id)"
       >
-        <CardContent class="p-4">
-          <div class="flex items-start justify-between mb-2">
-            <div class="flex items-center gap-3">
-              <div :class="['p-2 rounded-lg', getModeColor(record.modeId)]">
-                <component :is="getModeIcon(record.modeId)" class="h-4 w-4" />
-              </div>
-              <div>
-                <h3 class="font-medium">{{ record.title }}</h3>
-                <Badge variant="secondary" class="text-xs mt-1">
-                  {{ record.modeName }}
-                </Badge>
-              </div>
-            </div>
+        <!-- 模式图标 -->
+        <div
+          class="size-10 rounded-[10px] flex items-center justify-center shrink-0"
+          style="background-color: var(--la-bg-inset); color: var(--la-text-secondary)"
+        >
+          <MaterialIcon :name="getModeIconName(record.modeId)" size="md" />
+        </div>
+
+        <!-- 标题 + 元数据 -->
+        <div class="flex-1 min-w-0">
+          <h3
+            class="text-sm font-medium truncate"
+            style="color: var(--la-text-primary)"
+          >
+            {{ record.name || '未命名会议' }}
+          </h3>
+          <div class="flex items-center gap-3 mt-1">
+            <span class="text-xs" style="color: var(--la-text-tertiary)">
+              {{ getModeName(record.modeId) }}
+            </span>
+            <span class="text-xs" style="color: var(--la-text-tertiary)">
+              {{ formatRelativeTime(record.createdAt) }}
+            </span>
+            <span class="text-xs font-mono" style="color: var(--la-text-tertiary)">
+              {{ formatDurationFromMs(record.durationMs) }}
+            </span>
+            <span
+              v-if="record.wordCount > 0"
+              class="text-xs"
+              style="color: var(--la-text-tertiary)"
+            >
+              {{ record.wordCount }} 字
+            </span>
           </div>
-          <p class="text-sm text-muted-foreground line-clamp-2 ml-11">
-            {{ record.preview }}
-          </p>
-        </CardContent>
-        <CardFooter class="px-4 py-2 border-t border-border/50 text-xs text-muted-foreground gap-4">
-          <span class="flex items-center gap-1">
-            <Calendar class="h-3 w-3" />
-            {{ record.createdAt }}
-          </span>
-          <span class="flex items-center gap-1">
-            <Clock class="h-3 w-3" />
-            {{ record.duration }}
-          </span>
-          <span class="flex items-center gap-1">
-            <FileText class="h-3 w-3" />
-            {{ record.wordCount }} 字
-          </span>
-        </CardFooter>
-      </Card>
+        </div>
+
+        <!-- 状态 -->
+        <StatusBadge status="completed" />
+
+        <!-- 删除 -->
+        <button
+          class="size-8 rounded-md flex items-center justify-center transition-colors shrink-0"
+          style="color: var(--la-text-muted)"
+          @click="handleDelete(record.id, $event)"
+        >
+          <MaterialIcon name="delete" size="sm" />
+        </button>
+      </button>
     </div>
 
     <!-- 空状态 -->
     <div
       v-else
-      class="flex flex-col items-center justify-center py-16 text-muted-foreground"
+      class="flex-1 flex flex-col items-center justify-center gap-3"
     >
-      <FileText class="h-12 w-12 mb-4 opacity-50" />
-      <p class="text-lg font-medium mb-2">暂无历史记录</p>
-      <p class="text-sm">开始录制后，记录将显示在这里</p>
+      <MaterialIcon name="history" size="xl" style="color: var(--la-text-muted)" />
+      <p class="text-sm font-medium" style="color: var(--la-text-secondary)">
+        {{ searchQuery ? '未找到匹配结果' : 'No sessions yet' }}
+      </p>
+      <p class="text-xs" style="color: var(--la-text-tertiary)">
+        {{ searchQuery ? '尝试其他关键词' : '开始录制后，记录将显示在这里' }}
+      </p>
+    </div>
+
+    <!-- 分页 -->
+    <div
+      v-if="totalCount > 0"
+      class="flex items-center justify-between pt-2"
+    >
+      <span class="text-xs" style="color: var(--la-text-tertiary)">
+        Showing {{ Math.min((currentPage - 1) * pageSize + 1, totalCount) }}-{{ Math.min(currentPage * pageSize, totalCount) }} of {{ totalCount }} sessions
+      </span>
+      <div class="flex items-center gap-1">
+        <button
+          v-for="page in totalPages"
+          :key="page"
+          class="size-8 rounded-md flex items-center justify-center text-xs font-medium transition-colors"
+          :style="
+            page === currentPage
+              ? { backgroundColor: 'var(--la-accent)', color: 'var(--la-text-inverted)' }
+              : { color: 'var(--la-text-secondary)' }
+          "
+          @click="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

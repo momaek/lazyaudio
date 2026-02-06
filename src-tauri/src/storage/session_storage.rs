@@ -380,6 +380,12 @@ pub struct TranscriptSegment {
     /// 音频来源
     #[serde(default)]
     pub source: Option<TranscriptSource>,
+    /// 说话人 ID（Speaker Diarization 识别结果）
+    #[serde(default)]
+    pub speaker_id: Option<String>,
+    /// 说话人标签（如 "Speaker 1"、"张三"）
+    #[serde(default)]
+    pub speaker_label: Option<String>,
     /// 检测到的语言
     #[serde(default)]
     pub language: Option<String>,
@@ -405,6 +411,8 @@ impl TranscriptSegment {
             is_final,
             confidence: None,
             source: None,
+            speaker_id: None,
+            speaker_label: None,
             language: None,
             words: None,
             created_at: Utc::now().to_rfc3339(),

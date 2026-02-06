@@ -94,6 +94,8 @@ impl MultiPassWorker {
             is_final: true,
             confidence: Some(final_result.confidence),
             source: Some(source),
+            speaker_id: None,
+            speaker_label: None,
             language: None,
             words: if final_result.timestamps.is_empty() {
                 None

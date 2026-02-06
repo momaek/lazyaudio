@@ -1,21 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import {
-  UserSearch,
-  Play,
-  Pause,
-  Square,
-  Clock,
-  Plus,
-  Star,
-  MessageSquare,
-} from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import MaterialIcon from '@/components/common/MaterialIcon.vue'
+import SectionLabel from '@/components/common/SectionLabel.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 
 // 状态
 const isRecording = ref(false)
@@ -40,35 +28,48 @@ const askedQuestions = ref([
 
 // 模拟转录
 const transcripts = ref([
-  { id: '1', speaker: '面试官', time: '00:00:10', text: '好的，那我们开始今天的面试。首先请你做一个简单的自我介绍。' },
-  { id: '2', speaker: '候选人', time: '00:00:25', text: '好的，我叫张三，毕业于某大学计算机专业，有5年的前端开发经验...' },
+  {
+    id: '1',
+    speaker: '面试官',
+    time: '00:00:10',
+    text: '好的，那我们开始今天的面试。首先请你做一个简单的自我介绍。',
+  },
+  {
+    id: '2',
+    speaker: '候选人',
+    time: '00:00:25',
+    text: '好的，我叫张三，毕业于某大学计算机专业，有5年的前端开发经验...',
+  },
 ])
+
+// 笔记
+const candidateNotes = ref('')
+const candidateRating = ref(0)
 
 const formattedDuration = computed(() => {
   const hours = Math.floor(duration.value / 3600)
   const minutes = Math.floor((duration.value % 3600) / 60)
   const seconds = duration.value % 60
-  
+
   if (hours > 0) {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   }
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 })
 
-// 模拟录制
 let levelInterval: ReturnType<typeof setInterval> | null = null
 let durationInterval: ReturnType<typeof setInterval> | null = null
 
 function startRecording() {
   isRecording.value = true
   isPaused.value = false
-  
+
   levelInterval = setInterval(() => {
     if (!isPaused.value) {
       audioLevel.value = 20 + Math.random() * 60
     }
   }, 100)
-  
+
   durationInterval = setInterval(() => {
     if (!isPaused.value) {
       duration.value++
@@ -87,7 +88,7 @@ function resumeRecording() {
 function stopRecording() {
   isRecording.value = false
   isPaused.value = false
-  
+
   if (levelInterval) {
     clearInterval(levelInterval)
     levelInterval = null
@@ -96,7 +97,7 @@ function stopRecording() {
     clearInterval(durationInterval)
     durationInterval = null
   }
-  
+
   audioLevel.value = 0
   duration.value = 0
 }
@@ -109,165 +110,240 @@ function addQuestion(question: string) {
     rating: 0,
   })
 }
+
+function addMark() {
+  // TODO: 添加标记到转录中
+  console.log('[InterviewerMode] Mark at', formattedDuration.value)
+}
+
+function setRating(stars: number) {
+  candidateRating.value = stars
+}
 </script>
 
 <template>
   <div class="h-full flex flex-col">
-    <!-- 未录制状态 -->
+    <!-- 空闲态 -->
     <template v-if="!isRecording">
-      <div class="flex-1 flex flex-col items-center justify-center p-8">
-        <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-la-violet to-la-purple flex items-center justify-center mb-6 shadow-lg shadow-la-violet/20">
-          <UserSearch class="w-12 h-12 text-white" />
+      <div class="flex-1 flex flex-col items-center justify-center p-8 gap-6">
+        <!-- 录制按钮 -->
+        <div class="relative">
+          <div
+            class="absolute inset-[-8px] rounded-full opacity-60 animate-pulse"
+            style="background-color: var(--la-ai-purple); opacity: 0.2"
+          />
+          <button
+            class="relative size-16 rounded-full flex items-center justify-center transition-transform hover:scale-105"
+            style="background-color: var(--la-ai-purple)"
+            :disabled="!candidateName.trim()"
+            @click="startRecording"
+          >
+            <MaterialIcon name="record_voice_over" size="lg" style="color: white" />
+          </button>
         </div>
-        
-        <h2 class="text-xl font-semibold mb-2">准备开始面试</h2>
-        <p class="text-muted-foreground mb-8">输入候选人姓名后开始录制</p>
-        
-        <!-- 候选人姓名输入 -->
-        <div class="w-full max-w-xs mb-6">
+
+        <div class="text-center">
+          <h2 class="text-lg font-semibold mb-1" style="color: var(--la-text-primary)">
+            准备开始面试
+          </h2>
+          <p class="text-sm" style="color: var(--la-text-secondary)">
+            输入候选人姓名后开始录制
+          </p>
+        </div>
+
+        <div class="w-full max-w-xs">
           <Input
             v-model="candidateName"
-            placeholder="请输入候选人姓名"
-            class="text-center bg-card/50 border-border/50"
+            placeholder="候选人姓名"
+            class="text-center border-0"
+            :style="{
+              backgroundColor: 'var(--la-bg-surface)',
+              color: 'var(--la-text-primary)',
+            }"
           />
         </div>
-        
-        <!-- 开始按钮 -->
-        <Button size="lg" class="gap-2 px-8" :disabled="!candidateName.trim()" @click="startRecording">
-          <Play class="h-5 w-5" />
-          开始面试
-        </Button>
       </div>
     </template>
 
-    <!-- 录制中状态 -->
+    <!-- 录制态 -->
     <template v-else>
-      <!-- 控制栏 -->
-      <div class="border-b border-border/50 px-4 py-3 flex items-center justify-between shrink-0 bg-card/50">
-        <div class="flex items-center gap-4">
-          <!-- 录制状态 -->
-          <div class="flex items-center gap-2">
-            <span v-if="!isPaused" class="relative flex h-3 w-3">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-la-recording opacity-75" />
-              <span class="relative inline-flex rounded-full h-3 w-3 bg-la-recording" />
-            </span>
-            <Pause v-else class="h-3 w-3 text-la-warning" />
-            <span class="text-sm font-medium">
-              面试: {{ candidateName }}
-            </span>
-          </div>
-
-          <!-- 音量电平 -->
-          <div class="w-24">
-            <Progress :model-value="audioLevel" class="h-1.5" />
-          </div>
-
-          <!-- 时长 -->
-          <div class="flex items-center gap-1.5 text-sm tabular-nums">
-            <Clock class="h-3 w-3 text-muted-foreground" />
-            {{ formattedDuration }}
-          </div>
+      <!-- Control Bar -->
+      <div
+        class="h-14 flex items-center px-4 shrink-0 border-b"
+        style="background-color: var(--la-bg-inset); border-color: var(--la-divider)"
+      >
+        <!-- 左区 -->
+        <div class="flex items-center gap-3 shrink-0">
+          <span
+            class="text-xs font-medium px-3 py-1 rounded-full"
+            style="background-color: var(--la-bg-surface); color: var(--la-text-secondary)"
+          >
+            面试: {{ candidateName }}
+          </span>
         </div>
 
-        <!-- 操作按钮 -->
-        <div class="flex items-center gap-2">
-          <Button v-if="!isPaused" variant="secondary" size="sm" @click="pauseRecording">
-            <Pause class="h-4 w-4" />
-          </Button>
-          <Button v-else variant="secondary" size="sm" @click="resumeRecording">
-            <Play class="h-4 w-4" />
-          </Button>
-          <Button variant="destructive" size="sm" class="gap-1" @click="stopRecording">
-            <Square class="h-4 w-4" />
-            结束面试
-          </Button>
+        <!-- 中区 -->
+        <div class="flex-1 flex items-center justify-center gap-3">
+          <button
+            v-if="!isPaused"
+            class="size-[34px] rounded-full flex items-center justify-center"
+            style="background-color: var(--la-bg-surface); color: var(--la-text-secondary)"
+            @click="pauseRecording"
+          >
+            <MaterialIcon name="pause" size="sm" />
+          </button>
+          <button
+            v-else
+            class="size-[34px] rounded-full flex items-center justify-center"
+            style="background-color: var(--la-bg-surface); color: var(--la-text-secondary)"
+            @click="resumeRecording"
+          >
+            <MaterialIcon name="play_arrow" size="sm" />
+          </button>
+
+          <button
+            class="size-10 rounded-full flex items-center justify-center"
+            style="background-color: var(--la-recording-red)"
+            @click="stopRecording"
+          >
+            <div class="size-3.5 rounded-sm" style="background-color: white" />
+          </button>
+
+          <span
+            class="text-sm font-mono font-semibold tabular-nums"
+            style="color: var(--la-text-primary)"
+          >
+            {{ formattedDuration }}
+          </span>
+
+          <span v-if="!isPaused" class="recording-dot" />
+        </div>
+
+        <!-- 右区：Mark 按钮 -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+            style="background-color: var(--la-bg-surface); color: var(--la-text-secondary)"
+            @click="addMark"
+          >
+            <MaterialIcon name="flag" size="sm" />
+            Mark
+          </button>
         </div>
       </div>
 
       <!-- 主内容区 -->
       <div class="flex-1 flex min-h-0">
         <!-- 左侧：转录区 -->
-        <div class="flex-1 flex flex-col border-r border-border/50">
-          <div class="px-4 py-2 text-sm font-medium text-muted-foreground border-b border-border/50">
-            实时转录
-          </div>
+        <div class="flex-1 flex flex-col border-r" style="border-color: var(--la-divider)">
           <ScrollArea class="flex-1">
-            <div class="p-4 space-y-4">
+            <div class="px-7 py-6 space-y-4">
               <div
                 v-for="item in transcripts"
                 :key="item.id"
                 class="flex gap-3"
               >
-                <Badge
-                  variant="outline"
-                  :class="[
-                    'shrink-0',
-                    item.speaker === '面试官' ? 'bg-la-violet/10 text-la-violet border-la-violet/20' : 'bg-secondary',
-                  ]"
+                <span
+                  class="shrink-0 px-2 py-0.5 rounded text-xs font-medium"
+                  :style="{
+                    backgroundColor:
+                      item.speaker === '面试官'
+                        ? 'color-mix(in srgb, var(--la-ai-purple) 15%, transparent)'
+                        : 'var(--la-bg-surface)',
+                    color:
+                      item.speaker === '面试官'
+                        ? 'var(--la-ai-purple)'
+                        : 'var(--la-text-secondary)',
+                  }"
                 >
                   {{ item.speaker }}
-                </Badge>
+                </span>
                 <div>
-                  <span class="text-xs text-muted-foreground">{{ item.time }}</span>
-                  <p class="text-sm mt-0.5">{{ item.text }}</p>
+                  <span
+                    class="text-xs font-mono"
+                    style="color: var(--la-text-tertiary)"
+                  >
+                    {{ item.time }}
+                  </span>
+                  <p class="text-sm mt-0.5" style="color: var(--la-text-primary)">
+                    {{ item.text }}
+                  </p>
                 </div>
               </div>
             </div>
           </ScrollArea>
         </div>
 
-        <!-- 右侧：问题跟踪 -->
-        <div class="w-80 flex flex-col shrink-0">
-          <div class="px-4 py-2 text-sm font-medium text-muted-foreground border-b border-border/50">
-            问题追踪
-          </div>
+        <!-- 右侧：Candidate Notes + Suggested Questions -->
+        <div
+          class="w-[300px] flex flex-col shrink-0"
+          style="background-color: var(--la-bg-inset)"
+        >
           <ScrollArea class="flex-1">
-            <div class="p-4 space-y-6">
+            <div class="p-4 space-y-5">
+              <!-- Candidate Notes -->
+              <div>
+                <SectionLabel label="Candidate Notes" class="mb-3 block" />
+                <textarea
+                  v-model="candidateNotes"
+                  class="w-full h-24 rounded-[10px] p-3 text-sm border-0 outline-none resize-none"
+                  style="background-color: var(--la-bg-surface); color: var(--la-text-primary)"
+                  placeholder="添加面试笔记..."
+                />
+
+                <!-- 星级评分 -->
+                <div class="flex items-center gap-1 mt-2">
+                  <button
+                    v-for="i in 5"
+                    :key="i"
+                    @click="setRating(i)"
+                  >
+                    <MaterialIcon
+                      name="star"
+                      size="sm"
+                      :fill="i <= candidateRating"
+                      :style="{
+                        color: i <= candidateRating ? 'var(--la-accent)' : 'var(--la-text-muted)',
+                      }"
+                    />
+                  </button>
+                </div>
+              </div>
+
               <!-- 已提问 -->
               <div>
-                <h4 class="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                  <MessageSquare class="h-3 w-3" />
-                  已提问 ({{ askedQuestions.length }})
-                </h4>
+                <SectionLabel :label="`Asked (${askedQuestions.length})`" class="mb-3 block" />
                 <div class="space-y-2">
-                  <Card
+                  <div
                     v-for="q in askedQuestions"
                     :key="q.id"
-                    class="bg-card/50 border-border/50"
+                    class="p-3 rounded-[10px]"
+                    style="background-color: var(--la-bg-surface)"
                   >
-                    <CardContent class="p-3">
-                      <p class="text-sm mb-2">{{ q.text }}</p>
-                      <div class="flex items-center justify-between">
-                        <span class="text-xs text-muted-foreground">{{ q.time }}</span>
-                        <div class="flex gap-0.5">
-                          <Star
-                            v-for="i in 5"
-                            :key="i"
-                            class="h-3 w-3"
-                            :class="i <= q.rating ? 'text-la-warning fill-la-warning' : 'text-muted-foreground/30'"
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <p class="text-sm mb-1" style="color: var(--la-text-primary)">
+                      {{ q.text }}
+                    </p>
+                    <span class="text-xs font-mono" style="color: var(--la-text-tertiary)">
+                      {{ q.time }}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <!-- 推荐问题 -->
               <div>
-                <h4 class="text-xs font-medium text-muted-foreground mb-3">推荐问题</h4>
+                <SectionLabel label="Suggested" class="mb-3 block" />
                 <div class="space-y-1">
-                  <Button
+                  <button
                     v-for="q in questionBank"
                     :key="q.id"
-                    variant="ghost"
-                    size="sm"
-                    class="w-full justify-start text-left h-auto py-2 px-3"
+                    class="w-full flex items-start gap-2 p-2 rounded-md text-left text-sm transition-colors"
+                    style="color: var(--la-text-secondary)"
                     @click="addQuestion(q.text)"
                   >
-                    <Plus class="h-3 w-3 mr-2 shrink-0" />
-                    <span class="truncate">{{ q.text }}</span>
-                  </Button>
+                    <MaterialIcon name="add" size="sm" class="mt-0.5 shrink-0" style="color: var(--la-accent)" />
+                    <span>{{ q.text }}</span>
+                  </button>
                 </div>
               </div>
             </div>

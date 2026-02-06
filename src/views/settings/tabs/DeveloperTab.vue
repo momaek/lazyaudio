@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { type UnlistenFn } from '@tauri-apps/api/event'
 import { events } from '@/types/bindings'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
 import SectionLabel from '@/components/common/SectionLabel.vue'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Progress } from '@/components/ui/progress'
 import type { AudioSource } from '@/types'
 
 // 音频源列表
@@ -33,7 +33,6 @@ const micLevel = ref(0)
 // 事件监听器
 let unlisten: UnlistenFn[] = []
 
-// 加载音频源
 async function loadAudioSources() {
   try {
     isLoading.value = true
@@ -46,14 +45,10 @@ async function loadAudioSources() {
     microphones.value = mics
 
     const defaultSource = audioSources.value.find((s) => s.is_default)
-    if (defaultSource) {
-      selectedSource.value = defaultSource.id
-    }
+    if (defaultSource) selectedSource.value = defaultSource.id
 
     const defaultMic = microphones.value.find((s) => s.is_default)
-    if (defaultMic) {
-      selectedMicrophone.value = defaultMic.id
-    }
+    if (defaultMic) selectedMicrophone.value = defaultMic.id
   } catch (e) {
     error.value = `加载音频源失败: ${e}`
     console.error('加载音频源失败:', e)
@@ -62,7 +57,6 @@ async function loadAudioSources() {
   }
 }
 
-// 开始采集
 async function startCapture() {
   try {
     isLoading.value = true
@@ -83,7 +77,6 @@ async function startCapture() {
   }
 }
 
-// 停止采集
 async function stopCapture() {
   try {
     await invoke('stop_audio_test')
@@ -96,31 +89,18 @@ async function stopCapture() {
   }
 }
 
-// 设置事件监听
 async function setupListeners() {
   const unlistenLevel = await events.audioLevelEvent.listen((event) => {
-    micLevel.value = event.payload.micLevel * 100
-    audioLevel.value = event.payload.systemLevel * 100
+    const newMicLevel = event.payload.micLevel * 100
+    const newAudioLevel = event.payload.systemLevel * 100
+    micLevel.value = newMicLevel
+    audioLevel.value = newAudioLevel
   })
   unlisten.push(unlistenLevel)
 }
 
-// 计算状态
-const statusText = computed(() => {
-  if (isLoading.value) return '处理中...'
-  if (isCapturing.value) return '测试中'
-  return '就绪'
-})
-
-const statusColor = computed(() => {
-  if (isLoading.value) return 'var(--la-accent)'
-  if (isCapturing.value) return 'var(--la-recording-red)'
-  return 'var(--la-tier2-green)'
-})
-
 onMounted(async () => {
   await setupListeners()
-  await loadAudioSources()
 })
 
 onUnmounted(() => {
@@ -132,25 +112,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- 标题 -->
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-2xl font-bold" style="color: var(--la-text-primary)">音频采集测试</h1>
-        <p class="text-sm" style="color: var(--la-text-tertiary)">测试音频采集和 ASR 功能</p>
-      </div>
-      <span
-        class="text-xs font-medium px-2 py-0.5 rounded border"
-        :style="{ color: statusColor, borderColor: statusColor }"
-      >
-        {{ statusText }}
-      </span>
+  <div class="space-y-6">
+    <div>
+      <h2 class="text-lg font-semibold mb-1" style="color: var(--la-text-primary)">开发者工具</h2>
+      <p class="text-sm" style="color: var(--la-text-tertiary)">音频采集测试和调试工具</p>
     </div>
 
     <!-- 错误提示 -->
     <div
       v-if="error"
-      class="mb-6 p-3 rounded-lg flex items-start gap-3"
+      class="p-3 rounded-lg flex items-start gap-3"
       style="background-color: color-mix(in srgb, var(--la-recording-red) 10%, transparent)"
     >
       <MaterialIcon
@@ -165,7 +136,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="grid gap-6 md:grid-cols-2">
+    <div class="grid gap-6 lg:grid-cols-2">
       <!-- 音频源选择 -->
       <div class="rounded-[10px] p-5" style="background-color: var(--la-bg-surface)">
         <SectionLabel label="Audio Sources" class="mb-4 block" />
@@ -224,7 +195,6 @@ onUnmounted(() => {
             </Select>
           </div>
 
-          <!-- 刷新按钮 -->
           <button
             class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors"
             style="background-color: var(--la-bg-inset); color: var(--la-text-secondary)"
@@ -243,9 +213,12 @@ onUnmounted(() => {
           <SectionLabel label="Control Panel" />
           <span
             class="text-xs font-medium px-2 py-0.5 rounded border"
-            :style="{ color: statusColor, borderColor: statusColor }"
+            :style="{
+              color: isCapturing ? 'var(--la-recording-red)' : 'var(--la-tier2-green)',
+              borderColor: isCapturing ? 'var(--la-recording-red)' : 'var(--la-tier2-green)',
+            }"
           >
-            {{ statusText }}
+            {{ isCapturing ? '测试中' : '就绪' }}
           </span>
         </div>
         <div class="space-y-4">
@@ -308,7 +281,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 提示信息 -->
-    <div class="mt-6 rounded-[10px] p-4" style="background-color: var(--la-bg-surface)">
+    <div class="rounded-[10px] p-4" style="background-color: var(--la-bg-surface)">
       <p class="text-sm" style="color: var(--la-text-secondary)">
         提示：选择音频源后点击"开始测试"，观察电平指示器变化来验证音频采集是否正常。
       </p>

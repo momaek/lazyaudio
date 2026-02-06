@@ -18,10 +18,8 @@ const systemWaveformBars = ref([10, 10, 10, 10, 10, 10])
 let waveformInterval: ReturnType<typeof setInterval> | null = null
 
 function updateWaveform() {
-  // 麦克风波形（如果激活）
   if (selectedMicrophone.value) {
     waveformBars.value = waveformBars.value.map(() => {
-      // 基于实际音量生成随机高度
       const baseHeight = micLevel.value * 80
       return Math.max(20, baseHeight + Math.random() * 20)
     })
@@ -29,7 +27,6 @@ function updateWaveform() {
     waveformBars.value = [20, 20, 20, 20, 20, 20]
   }
 
-  // 系统音频波形（如果激活）
   if (selectedSystemAudio.value) {
     systemWaveformBars.value = systemWaveformBars.value.map(() => {
       const baseHeight = systemLevel.value * 80
@@ -40,24 +37,20 @@ function updateWaveform() {
   }
 }
 
-// 切换麦克风状态
 function toggleMicrophone() {
   if (selectedMicrophone.value) {
     selectedMicrophone.value = null
   } else {
-    // 选择第一个可用麦克风
     if (microphones.value.length > 0) {
       selectedMicrophone.value = microphones.value[0].id
     }
   }
 }
 
-// 切换系统音频状态
 function toggleSystemAudio() {
   if (selectedSystemAudio.value) {
     selectedSystemAudio.value = null
   } else {
-    // 选择第一个可用系统音频源
     if (systemSources.value.length > 0) {
       selectedSystemAudio.value = systemSources.value[0].id
     }
@@ -76,64 +69,67 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex items-center gap-4 bg-gray-50 dark:bg-surface-dark/40 p-1.5 rounded-xl border border-border-light dark:border-border-dark">
+  <div
+    class="flex items-center gap-4 p-1.5 rounded-xl border"
+    style="background-color: var(--la-bg-surface); border-color: var(--la-border)"
+  >
     <!-- 麦克风控制 -->
     <div class="flex items-center gap-2 px-2">
       <button
         class="size-7 rounded-lg flex items-center justify-center transition-colors"
-        :class="[
+        :style="
           selectedMicrophone
-            ? 'bg-primary text-white'
-            : 'text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white'
-        ]"
+            ? { backgroundColor: 'var(--la-accent)', color: 'var(--la-text-inverted)' }
+            : { color: 'var(--la-text-secondary)' }
+        "
         :title="selectedMicrophone ? '关闭麦克风' : '开启麦克风'"
         @click="toggleMicrophone"
       >
         <MaterialIcon name="mic" size="sm" />
       </button>
-      
+
       <!-- 波形条 -->
       <div class="flex items-end gap-[1px] h-3 w-8">
         <div
           v-for="(height, index) in waveformBars"
           :key="index"
           class="waveform-bar w-[2px] rounded-[1px] transition-all duration-100"
-          :style="{ height: `${height}%` }"
-          :class="[
-            selectedMicrophone ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-          ]"
+          :style="{
+            height: `${height}%`,
+            backgroundColor: selectedMicrophone ? 'var(--la-accent)' : 'var(--la-border)',
+          }"
         />
       </div>
     </div>
 
     <!-- 分隔线 -->
-    <div class="w-px h-4 bg-border-light dark:bg-border-dark" />
+    <div class="w-px h-4" style="background-color: var(--la-border)" />
 
     <!-- 系统音频控制 -->
     <div class="flex items-center gap-2 px-2">
       <button
         class="size-7 rounded-lg flex items-center justify-center transition-colors"
-        :class="[
+        :style="
           selectedSystemAudio
-            ? 'bg-primary text-white'
-            : 'text-text-muted dark:text-text-muted-dark hover:text-text-main dark:hover:text-white'
-        ]"
+            ? { backgroundColor: 'var(--la-accent)', color: 'var(--la-text-inverted)' }
+            : { color: 'var(--la-text-secondary)' }
+        "
         :title="selectedSystemAudio ? '关闭系统音频' : '开启系统音频'"
         @click="toggleSystemAudio"
       >
         <MaterialIcon name="laptop_mac" size="sm" />
       </button>
-      
+
       <!-- 波形条 -->
       <div class="flex items-end gap-[1px] h-3 w-8">
         <div
           v-for="(height, index) in systemWaveformBars"
           :key="index"
           class="waveform-bar w-[2px] rounded-[1px] transition-all duration-100"
-          :style="{ height: `${height}%` }"
-          :class="[
-            selectedSystemAudio ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-          ]"
+          :style="{
+            height: `${height}%`,
+            backgroundColor: selectedSystemAudio ? 'var(--la-accent)' : 'var(--la-border)',
+          }"
         />
       </div>
     </div>

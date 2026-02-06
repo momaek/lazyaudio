@@ -3,7 +3,6 @@ import { computed, ref, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useModeStore } from '@/stores/mode'
-import { Pause } from 'lucide-vue-next'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -25,7 +24,7 @@ const recordingState = computed(() => {
     }
   }
 
-  const pausedSession = sessionStore.activeSessions.find(s => s.state === 'paused')
+  const pausedSession = sessionStore.activeSessions.find((s) => s.state === 'paused')
   if (pausedSession) {
     return {
       isActive: true,
@@ -98,26 +97,36 @@ function goToRecordingMode() {
 <template>
   <button
     v-if="recordingState.isActive"
-    class="flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 h-7"
-    :class="[
-      recordingState.isRecording
-        ? 'bg-la-recording/15 text-la-recording hover:bg-la-recording/25'
-        : 'bg-la-warning/15 text-la-warning hover:bg-la-warning/25',
-    ]"
+    class="flex items-center gap-2 px-3 py-1 rounded-full transition-colors"
+    style="background-color: var(--la-recording-red-dim)"
     @click="goToRecordingMode"
   >
-    <!-- 状态指示器 -->
-    <span v-if="recordingState.isRecording" class="relative flex h-2 w-2">
-      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-la-recording opacity-75" />
-      <span class="relative inline-flex rounded-full h-2 w-2 bg-la-recording" />
+    <!-- 录制红点 / 暂停图标 -->
+    <span
+      v-if="recordingState.isRecording"
+      class="recording-dot"
+    />
+    <span
+      v-else
+      class="material-symbols-rounded text-xs"
+      style="color: var(--la-recording-red)"
+    >
+      pause
     </span>
-    <Pause v-else class="h-3 w-3" />
 
     <!-- 时长 -->
-    <span class="tabular-nums font-semibold">{{ displayDuration }}</span>
+    <span
+      class="text-[13px] font-mono font-semibold tabular-nums"
+      style="color: var(--la-recording-red)"
+    >
+      {{ displayDuration }}
+    </span>
 
     <!-- 模式名称 -->
-    <span class="hidden sm:inline opacity-70">
+    <span
+      class="text-xs"
+      style="color: var(--la-text-secondary)"
+    >
       {{ modeStore.currentPrimaryMode?.name || '' }}
     </span>
   </button>

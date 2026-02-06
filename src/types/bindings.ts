@@ -1198,6 +1198,14 @@ confidence?: number | null;
  */
 source?: TranscriptSource | null; 
 /**
+ * 说话人 ID（Speaker Diarization 识别结果）
+ */
+speakerId?: string | null; 
+/**
+ * 说话人标签（如 "Speaker 1"、"张三"）
+ */
+speakerLabel?: string | null; 
+/**
  * 检测到的语言
  */
 language?: string | null; 
