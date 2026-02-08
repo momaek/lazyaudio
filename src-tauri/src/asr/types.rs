@@ -200,6 +200,53 @@ pub enum ModelType {
     Vad,
 }
 
+// ============================================================================
+// ASR Provider 抽象
+// ============================================================================
+
+// 统一使用 storage::AsrProviderType，避免重复定义
+pub use crate::storage::AsrProviderType;
+
+/// ASR 识别器抽象 trait
+///
+/// 所有识别器（本地 sherpa-onnx、远端流式、远端批量）都实现此 trait。
+/// 方法保持同步（非 async），远端 Provider 内部通过 channel + tokio spawn
+/// 实现异步网络通信，对外暴露同步接口。
+pub trait AsrRecognizer: Send {
+    /// 输入音频采样（16kHz 单声道 f32）
+    fn accept_waveform(&mut self, samples: &[f32]) -> AsrResult<()>;
+
+    /// 获取当前识别结果（非阻塞，无新结果返回 empty）
+    fn get_result(&mut self) -> AsrResult<RecognitionResult>;
+
+    /// 检查是否检测到端点（语句结束）
+    fn is_endpoint(&self) -> bool;
+
+    /// 强制获取最终结果
+    fn finalize(&mut self) -> AsrResult<RecognitionResult>;
+
+    /// 重置识别器状态（保留内部计数器）
+    fn reset(&mut self);
+
+    /// 完全重置（包括内部计数器）
+    fn full_reset(&mut self);
+
+    /// 获取已处理的音频时长（秒）
+    fn processed_duration_secs(&self) -> f64;
+
+    /// 获取 Provider 类型
+    fn provider_type(&self) -> AsrProviderType;
+
+    /// 是否支持流式识别（partial results）
+    fn supports_streaming(&self) -> bool {
+        self.provider_type().supports_streaming()
+    }
+}
+
+// ============================================================================
+// 错误类型
+// ============================================================================
+
 /// ASR 错误类型
 #[derive(Debug, thiserror::Error)]
 pub enum AsrError {

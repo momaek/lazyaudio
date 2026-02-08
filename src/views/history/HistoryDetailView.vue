@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
+import ProviderBadge from '@/components/common/ProviderBadge.vue'
+import type { AsrProviderType } from '@/types/bindings'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,7 +14,7 @@ function goBack() {
   router.back()
 }
 
-// 模拟数据
+// 模拟数据（后续接入真实数据后 asrProvider / asrModel 来自 SessionMeta）
 const recordDetail = ref({
   id: sessionId.value,
   title: '产品需求评审会议',
@@ -21,6 +23,8 @@ const recordDetail = ref({
   createdAt: '2026-01-06 14:30',
   duration: '45:23',
   wordCount: 3420,
+  asrProvider: 'local' as AsrProviderType,
+  asrModel: 'sherpa-onnx-streaming-zh',
   transcript: `[00:00:15] 好的，大家好，今天我们来讨论一下新版本的产品需求。
 
 [00:00:32] 主要包括以下几个方面：第一是用户体验优化，第二是性能提升，第三是新功能开发。
@@ -68,6 +72,12 @@ const activeTab = ref('transcript')
             <span class="text-xs" style="color: var(--la-text-tertiary)">
               {{ recordDetail.wordCount }} 字
             </span>
+            <ProviderBadge
+              v-if="recordDetail.asrProvider"
+              :provider="recordDetail.asrProvider"
+              variant="tag"
+              size="sm"
+            />
           </div>
           </div>
         </div>

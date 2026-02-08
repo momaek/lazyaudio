@@ -34,6 +34,7 @@ mod engine;
 mod model;
 pub mod multi_pass;
 mod pipeline;
+pub mod providers;
 mod recognizer;
 pub mod silero_vad;
 mod types;
@@ -47,9 +48,10 @@ pub use multi_pass::{
     SegmentBufferConfig, Tier2Recognizer,
 };
 pub use pipeline::{AsrPipeline, AsrPipelineConfig, SyncAsrPipeline};
+pub use providers::{DeepgramRecognizer, LocalAsrRecognizer, OpenAiWhisperRecognizer};
 pub use recognizer::{BatchRecognizer, StreamingRecognizer};
 pub use silero_vad::{SileroVadWrapper, VadConfig, VadSegment, VAD_MODEL_ID};
 pub use types::{
-    AsrConfig, AsrError, AsrResult, DecodingMethod, ModelInfo, ModelType, MultiPassResult,
-    RecognitionResult, RecognitionTier, TierVersion, WordTimestamp,
+    AsrConfig, AsrError, AsrProviderType, AsrRecognizer, AsrResult, DecodingMethod, ModelInfo,
+    ModelType, MultiPassResult, RecognitionResult, RecognitionTier, TierVersion, WordTimestamp,
 };

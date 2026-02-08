@@ -12,6 +12,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+use super::config::AsrProviderType;
 use super::get_sessions_dir;
 
 /// 日期时间字符串类型（ISO 8601 格式）
@@ -210,6 +211,12 @@ pub struct SessionMeta {
     /// 用户标签
     #[serde(default)]
     pub tags: Vec<String>,
+    /// 使用的 ASR Provider 类型
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asr_provider: Option<AsrProviderType>,
+    /// 使用的 ASR 模型/服务 ID
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asr_model: Option<String>,
 }
 
 impl SessionMeta {
@@ -231,7 +238,15 @@ impl SessionMeta {
             stats: SessionStats::default(),
             mode_data: serde_json::Value::Null,
             tags: Vec::new(),
+            asr_provider: None,
+            asr_model: None,
         }
+    }
+
+    /// 设置 ASR Provider 信息
+    pub fn set_asr_info(&mut self, provider: AsrProviderType, model: Option<String>) {
+        self.asr_provider = Some(provider);
+        self.asr_model = model;
     }
 
     /// 生成目录名

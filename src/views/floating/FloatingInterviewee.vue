@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
+import ProviderBadge from '@/components/common/ProviderBadge.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useAsrConfig } from '@/composables/useConfig'
+
+const { asrProvider } = useAsrConfig()
 
 // 状态
 const isPinned = ref(true)
@@ -76,6 +80,7 @@ function stopRecording() {
           >
             {{ duration }}
           </span>
+          <ProviderBadge :provider="asrProvider" variant="tag" size="sm" />
         </div>
         <div class="flex items-center gap-1">
           <button

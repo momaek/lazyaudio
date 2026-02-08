@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
+import ProviderBadge from '@/components/common/ProviderBadge.vue'
+import { useAsrConfig } from '@/composables/useConfig'
 
 defineProps<{
   isPaused: boolean
@@ -9,6 +11,8 @@ defineProps<{
   formattedDuration: string
   audioSourceLabel: string
 }>()
+
+const { asrProvider } = useAsrConfig()
 
 const emit = defineEmits<{
   pause: []
@@ -37,6 +41,7 @@ const searchQuery = ref('')
         <MaterialIcon name="volume_up" size="sm" />
         {{ audioSourceLabel }}
       </button>
+      <ProviderBadge :provider="asrProvider" variant="pill" size="sm" />
     </div>
 
     <!-- 中区：录制控制 + 时长 -->

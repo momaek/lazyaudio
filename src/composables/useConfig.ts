@@ -6,7 +6,17 @@
 
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
-import type { AppConfig, Theme, Language, AsrConfig, AudioConfig, AiConfig } from '@/types/bindings'
+import type {
+  AppConfig,
+  Theme,
+  Language,
+  AsrConfig,
+  AsrProviderType,
+  AudioConfig,
+  AiConfig,
+  OpenAiWhisperConfig,
+  DeepgramConfig,
+} from '@/types/bindings'
 
 // ============================================================================
 // useConfig Composable
@@ -208,12 +218,21 @@ export function useAudioConfig() {
 /**
  * ASR 配置 Hook
  *
- * 专注于 ASR 相关配置
+ * 专注于 ASR 相关配置，包括 Provider 选择和远端 Provider 配置
  */
 export function useAsrConfig() {
   const { config, updateConfig } = useConfig()
 
   const asrConfig = computed(() => config.value?.asr)
+
+  // Provider 相关
+  const asrProvider = computed<AsrProviderType>(() => asrConfig.value?.provider ?? 'local')
+  const isLocalProvider = computed(() => asrProvider.value === 'local')
+  const isRemoteProvider = computed(() => asrProvider.value !== 'local')
+
+  // 各远端 Provider 的配置
+  const openaiWhisperConfig = computed(() => asrConfig.value?.openaiWhisper ?? null)
+  const deepgramConfig = computed(() => asrConfig.value?.deepgram ?? null)
 
   /**
    * 更新 ASR 配置
@@ -224,9 +243,61 @@ export function useAsrConfig() {
     })
   }
 
+  /**
+   * 切换 ASR Provider
+   */
+  async function setAsrProvider(provider: AsrProviderType): Promise<void> {
+    await updateAsrConfig({ provider })
+  }
+
+  /**
+   * 更新 OpenAI Whisper 配置
+   */
+  async function updateOpenAiWhisperConfig(
+    updates: Partial<OpenAiWhisperConfig>,
+  ): Promise<void> {
+    const current = openaiWhisperConfig.value ?? {
+      apiKey: '',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'whisper-1',
+      language: '',
+    }
+    await updateAsrConfig({
+      openaiWhisper: { ...current, ...updates },
+    })
+  }
+
+  /**
+   * 更新 Deepgram 配置
+   */
+  async function updateDeepgramConfig(updates: Partial<DeepgramConfig>): Promise<void> {
+    const current = deepgramConfig.value ?? {
+      apiKey: '',
+      baseUrl: 'wss://api.deepgram.com/v1/listen',
+      model: 'nova-2',
+      language: '',
+      smartFormat: true,
+      punctuate: true,
+      interimResults: true,
+    }
+    await updateAsrConfig({
+      deepgram: { ...current, ...updates },
+    })
+  }
+
   return {
     asrConfig,
+    // Provider 相关
+    asrProvider,
+    isLocalProvider,
+    isRemoteProvider,
+    openaiWhisperConfig,
+    deepgramConfig,
+    // 方法
     updateAsrConfig,
+    setAsrProvider,
+    updateOpenAiWhisperConfig,
+    updateDeepgramConfig,
   }
 }
 

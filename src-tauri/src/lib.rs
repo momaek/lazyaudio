@@ -140,6 +140,21 @@ async fn session_start(
         .start(&session_id)
         .map_err(|e| e.to_string())?;
 
+    // 确定 ASR Provider：Session 级覆盖 > 全局配置
+    let asr_provider = session_config
+        .asr_provider
+        .unwrap_or(app_config.asr.provider);
+
+    // 记录 ASR Provider 信息到 SessionMeta
+    let asr_model = if asr_provider.is_local() {
+        Some(app_config.asr.model_id.clone())
+    } else {
+        None // 远端 Provider 的 model 名称后续由具体 Provider 设置
+    };
+    let _ = state
+        .session_manager
+        .set_asr_info(&session_id, asr_provider, asr_model);
+
     // 启动音频运行时
     state
         .session_runtime
@@ -152,6 +167,8 @@ async fn session_start(
             None,  // mic_id - 使用默认
             None,  // system_source_id - 目前使用默认
             Some(app),
+            Some(asr_provider),
+            Some(app_config.asr.clone()),
         )
         .map_err(|e| e.to_string())
 }
@@ -872,6 +889,8 @@ fn build_specta_builder() -> Builder {
             commands::asr::get_model_info,
             commands::asr::has_any_model_downloaded,
             commands::asr::download_model,
+            commands::asr::is_asr_ready,
+            commands::asr::test_asr_provider,
         ])
         .events(tauri_specta::collect_events![
             AudioLevelEvent,

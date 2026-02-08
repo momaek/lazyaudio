@@ -3,6 +3,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
 import { EventNames, useAppEvents } from '@/composables/useEvents'
+import { useAsrConfig } from '@/composables/useConfig'
+import { getProviderDisplayName } from '@/composables/useAsrProvider'
+
+const { asrProvider } = useAsrConfig()
 
 // 状态
 const isListening = ref(true)
@@ -99,6 +103,10 @@ onUnmounted(() => {
           :style="{ color: isListening ? 'var(--la-accent)' : 'var(--la-text-muted)' }"
         >
           {{ isListening ? 'Listening...' : 'Idle' }}
+        </span>
+        <span class="text-[10px]" style="color: var(--la-text-muted)">&middot;</span>
+        <span class="text-[10px]" style="color: var(--la-text-muted)">
+          {{ getProviderDisplayName(asrProvider) }}
         </span>
       </div>
 

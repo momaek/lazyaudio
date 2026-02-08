@@ -12,9 +12,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAudioSources } from '@/composables/useAudio'
+import { useAsrConfig } from '@/composables/useConfig'
+import { ASR_PROVIDERS, getProviderDisplayName } from '@/composables/useAsrProvider'
 import { useSessionHistory } from '@/composables/useSession'
 import { BUILTIN_MODE_IDS } from '@/modes/types'
 import { formatRelativeTime, formatDurationFromMs } from '@/lib/formatters'
+import type { AsrProviderType } from '@/types/bindings'
 
 const emit = defineEmits<{
   start: [audioSource: string, mergeForAsr: boolean]
@@ -27,6 +30,7 @@ defineProps<{
 
 const router = useRouter()
 
+const { asrProvider, setAsrProvider } = useAsrConfig()
 const {
   refreshSources,
   forceRefreshSystemSources,
@@ -147,6 +151,34 @@ onMounted(async () => {
           <span style="color: var(--la-text-secondary)">合并转录</span>
           <Switch v-model:checked="mergeForAsr" />
         </div>
+      </div>
+
+      <!-- 转录引擎选择 -->
+      <div
+        class="rounded-xl p-4 flex flex-col gap-3"
+        style="background-color: var(--la-bg-surface)"
+      >
+        <SectionLabel label="Transcription Engine" />
+        <Select :model-value="asrProvider" @update:model-value="(v: any) => setAsrProvider(v as AsrProviderType)">
+          <SelectTrigger
+            class="border-0"
+            style="background-color: var(--la-bg-inset); color: var(--la-text-primary)"
+          >
+            <SelectValue :placeholder="getProviderDisplayName(asrProvider)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="p in ASR_PROVIDERS"
+              :key="p.type"
+              :value="p.type"
+            >
+              <div class="flex items-center gap-2">
+                <MaterialIcon :name="p.icon" size="sm" />
+                {{ p.name }}
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <!-- 开始录制按钮 -->

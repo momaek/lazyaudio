@@ -14,7 +14,7 @@ use crate::audio::{AcquireResult, SharedMicrophoneManager};
 use crate::event::{
     AppEvent, SessionCreatedPayload, SessionErrorPayload, SessionIdPayload, SharedEventBus,
 };
-use crate::storage::{SessionMeta, SessionStorage, StorageEngine, TranscriptSegment};
+use crate::storage::{AsrProviderType, SessionMeta, SessionStorage, StorageEngine, TranscriptSegment};
 
 use super::state::{SessionState, SessionStateError};
 use super::types::{SessionConfig, SessionId, SessionInfo, SessionStatsUpdate};
@@ -406,6 +406,28 @@ impl SessionManager {
     }
 
     /// 标记 Session 为错误状态
+    /// 设置 Session 使用的 ASR Provider 信息
+    pub fn set_asr_info(
+        &self,
+        session_id: &SessionId,
+        provider: AsrProviderType,
+        model: Option<String>,
+    ) -> SessionResult<()> {
+        let mut sessions = self.active_sessions.write().expect("获取锁失败");
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| SessionError::NotFound(session_id.clone()))?;
+
+        session.meta.set_asr_info(provider, model);
+
+        // 保存元数据
+        if let Err(e) = session.storage.save_meta(&session.meta) {
+            warn!(error = %e, "保存 Session 元数据（ASR 信息）失败");
+        }
+
+        Ok(())
+    }
+
     pub fn set_error(&self, session_id: &SessionId, error: &str) -> SessionResult<()> {
         let mut sessions = self.active_sessions.write().expect("获取锁失败");
         let session = sessions

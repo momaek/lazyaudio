@@ -6,6 +6,8 @@ use std::thread::JoinHandle;
 use tracing::{info, warn};
 
 use crate::asr::AsrEngine;
+use crate::storage::AsrProviderType;
+use crate::storage::AsrConfig as AppAsrConfig;
 use crate::event::SharedEventBus;
 use crate::session::types::SessionId;
 
@@ -86,6 +88,10 @@ impl SessionRuntimeManager {
     }
 
     /// 启动 Session 运行时
+    ///
+    /// # Arguments
+    /// * `provider` - ASR Provider 类型，`None` 时使用 `AsrProviderType::Local` 默认值
+    /// * `app_asr_config` - 应用层 ASR 配置（包含远端 Provider 的连接信息）
     pub fn start(
         &self,
         session_id: SessionId,
@@ -96,6 +102,8 @@ impl SessionRuntimeManager {
         mic_id: Option<String>,
         system_source_id: Option<String>,
         app_handle: Option<tauri::AppHandle>,
+        provider: Option<AsrProviderType>,
+        app_asr_config: Option<AppAsrConfig>,
     ) -> Result<(), String> {
         // 检查是否已在运行
         {
@@ -113,22 +121,23 @@ impl SessionRuntimeManager {
         let session_id_clone = session_id.clone();
         let event_bus = self.event_bus.clone();
         let asr_engine_clone = self.asr_engine.clone();
+        let provider_type = provider.unwrap_or(AsrProviderType::Local);
 
         // 在独立线程中运行音频采集
-        // 注意：StreamingRecognizer 必须在同一线程中创建和使用（FFI 对象可能不支持跨线程移动）
+        // 注意：本地模式的 StreamingRecognizer 必须在同一线程中创建和使用（FFI 对象可能不支持跨线程移动）
         let thread_handle = std::thread::spawn(move || {
             // 在工作线程中创建识别器（避免跨线程移动 FFI 对象）
             let recognizer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let engine = asr_engine_clone.read().expect("获取 ASR 锁失败");
-                engine.create_recognizer().ok()
+                engine.create_recognizer_for_provider(provider_type, app_asr_config.as_ref()).ok()
             }))
             .ok()
             .flatten();
 
             if recognizer.is_some() {
-                info!("ASR 识别器创建成功");
+                info!(provider = ?provider_type, "ASR 识别器创建成功");
             } else {
-                warn!("ASR 识别器创建失败，转录功能将不可用（可能需要重新下载模型）");
+                warn!(provider = ?provider_type, "ASR 识别器创建失败，转录功能将不可用");
             }
 
             run_session_audio(
@@ -144,6 +153,7 @@ impl SessionRuntimeManager {
                 event_bus,
                 asr_engine_clone,
                 recognizer,
+                provider_type,
                 app_handle,
             );
         });

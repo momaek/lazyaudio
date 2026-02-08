@@ -4,6 +4,7 @@ import MaterialIcon from '@/components/common/MaterialIcon.vue'
 
 import AppearanceTab from './tabs/AppearanceTab.vue'
 import AudioTab from './tabs/AudioTab.vue'
+import AsrTab from './tabs/AsrTab.vue'
 import AiTab from './tabs/AiTab.vue'
 import InputMethodTab from './tabs/InputMethodTab.vue'
 import ShortcutsTab from './tabs/ShortcutsTab.vue'
@@ -24,6 +25,7 @@ const settingCategories: {
 }[] = [
   { id: 'appearance', name: '外观', iconName: 'palette', component: AppearanceTab },
   { id: 'audio', name: '音频', iconName: 'mic', component: AudioTab },
+  { id: 'asr', name: '转录', iconName: 'record_voice_over', component: AsrTab },
   { id: 'ai', name: 'AI', iconName: 'psychology', component: AiTab },
   { id: 'input-method', name: '输入法', iconName: 'keyboard_voice', component: InputMethodTab },
   { id: 'shortcuts', name: '快捷键', iconName: 'keyboard', component: ShortcutsTab },

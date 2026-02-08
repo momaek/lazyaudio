@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use tracing::{error, info, warn};
 
-use crate::asr::{AsrEngine, RecognitionResult, SileroVadWrapper, StreamingRecognizer, VadSegment, VAD_MODEL_ID};
+use crate::asr::{AsrEngine, AsrRecognizer, AsrProviderType, RecognitionResult, SileroVadWrapper, VadSegment, VAD_MODEL_ID};
 use crate::asr::multi_pass::{
     ResultMerger, SegmentBuffer, MultiPassScheduler, SchedulerConfig, Tier2Recognizer,
 };
@@ -22,8 +22,8 @@ use crate::audio::{
 #[cfg(target_os = "macos")]
 use crate::audio::MacOSSystemCapture;
 use crate::event::{
-    AppEvent, AudioLevelPayload, SharedEventBus, TranscriptFinalPayload, TranscriptPartialPayload,
-    TranscriptUpdatedPayload,
+    AppEvent, AsrFallbackPayload, AudioLevelPayload, SharedEventBus, TranscriptFinalPayload,
+    TranscriptPartialPayload, TranscriptUpdatedPayload,
 };
 use crate::session::types::SessionId;
 use crate::storage::{TranscriptSegment, TranscriptSource};
@@ -62,7 +62,8 @@ pub(crate) struct SessionAudioLoop {
     resampler: Option<Option<Resampler>>,
 
     // ===== ASR 组件 =====
-    recognizer: Option<StreamingRecognizer>,
+    provider_type: AsrProviderType,
+    recognizer: Option<Box<dyn AsrRecognizer>>,
     silero_vad: Option<SileroVadWrapper>,
     
     // ===== Multi-pass ASR 组件 =====
@@ -86,6 +87,12 @@ pub(crate) struct SessionAudioLoop {
     vad_audio_buffer: Vec<f32>,
     vad_buffer_start_time: f64,
 
+    // ===== 远端降级追踪 =====
+    /// 连续远端 ASR 失败次数
+    remote_error_count: u32,
+    /// 降级前的原始 Provider 类型名称
+    original_provider_name: Option<String>,
+
     // ===== 共享资源 =====
     event_bus: SharedEventBus,
     asr_engine: Arc<RwLock<AsrEngine>>,
@@ -107,7 +114,8 @@ impl SessionAudioLoop {
         system_source_id: Option<String>,
         event_bus: SharedEventBus,
         asr_engine: Arc<RwLock<AsrEngine>>,
-        recognizer: Option<StreamingRecognizer>,
+        recognizer: Option<Box<dyn AsrRecognizer>>,
+        provider_type: AsrProviderType,
         app_handle: Option<tauri::AppHandle>,
     ) -> Result<Self, String> {
         info!(
@@ -115,6 +123,7 @@ impl SessionAudioLoop {
             use_microphone,
             use_system_audio,
             has_recognizer = recognizer.is_some(),
+            provider = ?provider_type,
             "初始化 Session 音频循环"
         );
 
@@ -169,6 +178,7 @@ impl SessionAudioLoop {
                 knee: 0.5,
             }),
             resampler: None,
+            provider_type,
             recognizer,
             silero_vad: None,
             
@@ -189,6 +199,8 @@ impl SessionAudioLoop {
             temp_buffer_start_time: 0.0,
             vad_audio_buffer: Vec::new(),
             vad_buffer_start_time: 0.0,
+            remote_error_count: 0,
+            original_provider_name: None,
             event_bus,
             asr_engine,
             segment_sources: Arc::new(Mutex::new(HashMap::new())),
@@ -304,13 +316,18 @@ impl SessionAudioLoop {
         // 1. 设置 ResultMerger 回调
         self.setup_result_merger_callback();
 
-        // 2. 初始化并启动 MultiPassScheduler
-        self.scheduler = self.init_scheduler().await;
+        // 2. Multi-pass 组件（仅本地 Provider 启用）
+        if self.provider_type.is_local() {
+            // 2a. 初始化并启动 MultiPassScheduler
+            self.scheduler = self.init_scheduler().await;
 
-        // 3. 启动 MultiPassWorker（Worker 会自己创建 Tier1 识别器）
-        self.worker_sender = self.spawn_worker();
+            // 2b. 启动 MultiPassWorker（Worker 会自己创建 Tier1 识别器）
+            self.worker_sender = self.spawn_worker();
+        } else {
+            info!(provider = ?self.provider_type, "远端 Provider，跳过 multi-pass 初始化");
+        }
 
-        // 4. 初始化 Silero VAD
+        // 3. 初始化 Silero VAD
         self.silero_vad = self.init_silero_vad();
 
         // 5. 检查是否可以分路识别
@@ -471,6 +488,7 @@ impl SessionAudioLoop {
             self.asr_engine.clone(),
             tier2_recognizer,
             self.event_bus.clone(),
+            self.provider_type,
         )
     }
 
@@ -801,11 +819,23 @@ impl SessionAudioLoop {
         };
 
         // 流式 ASR（实时反馈）
+        let mut remote_err: Option<String> = None;
         if let Some(ref mut recognizer) = self.recognizer {
-            recognizer.accept_waveform(samples);
-            let result = recognizer.get_result();
+            if let Err(e) = recognizer.accept_waveform(samples) {
+                warn!("ASR accept_waveform 失败: {}", e);
+                if self.provider_type.is_remote() {
+                    remote_err = Some(e.to_string());
+                }
+            }
+            let result = recognizer.get_result().unwrap_or_else(|e| {
+                warn!("ASR get_result 失败: {}", e);
+                RecognitionResult::empty()
+            });
             let elapsed = self.start_time.elapsed().as_secs_f64();
             self.emit_partial_result(&result, self.vad_buffer_start_time, elapsed);
+        }
+        if let Some(err) = remote_err {
+            self.handle_remote_error(&err);
         }
 
         // 处理完整段落
@@ -829,14 +859,26 @@ impl SessionAudioLoop {
         self.temp_audio_buffer.extend_from_slice(samples);
 
         // 处理 ASR
+        let mut remote_err: Option<String> = None;
         let (result, is_endpoint) = if let Some(ref mut recognizer) = self.recognizer {
-            recognizer.accept_waveform(samples);
-                        let result = recognizer.get_result();
+            if let Err(e) = recognizer.accept_waveform(samples) {
+                warn!("ASR accept_waveform 失败: {}", e);
+                if self.provider_type.is_remote() {
+                    remote_err = Some(e.to_string());
+                }
+            }
+            let result = recognizer.get_result().unwrap_or_else(|e| {
+                warn!("ASR get_result 失败: {}", e);
+                RecognitionResult::empty()
+            });
             let is_endpoint = recognizer.is_endpoint();
             (Some(result), is_endpoint)
         } else {
             (None, false)
         };
+        if let Some(err) = remote_err {
+            self.handle_remote_error(&err);
+        }
 
         // 处理结果
         if let Some(result) = result {
@@ -905,8 +947,9 @@ impl SessionAudioLoop {
             map.insert(segment_id.clone(), source);
         }
 
-        // 3. 发送给 MultiPassWorker 立即处理（Tier1）
+        // 3. 处理识别
         if let Some(ref sender) = self.worker_sender {
+            // 本地 Provider：发送给 MultiPassWorker（支持 Tier1/2/3）
             let task = WorkerTask::Tier1 {
                 segment_id: segment_id.clone(),
                 buffer_id,
@@ -921,13 +964,155 @@ impl SessionAudioLoop {
                 "VAD 段落已存入 SegmentBuffer 并发送 Tier1 任务: buffer_id={}, segment={}",
                 buffer_id, segment_id
             );
+        } else if self.provider_type.is_remote() {
+            // 远端 Provider（如 Whisper）：直接使用 recognizer.finalize() 批量识别
+            self.process_vad_segment_remote(
+                &vad_segment,
+                &segment_id,
+                source,
+                self.vad_buffer_start_time,
+                elapsed,
+            );
         } else {
-            warn!("MultiPassWorker 未就绪，跳过段落处理");
+            warn!("MultiPassWorker 未就绪且非远端 Provider，跳过段落处理");
         }
 
         // 4. 清理
         self.vad_audio_buffer.clear();
         self.last_partial_text.clear();
+    }
+
+    /// 远端 Provider 处理 VAD 段落
+    ///
+    /// 对于流式 Provider（如 Deepgram），音频已经通过 accept_waveform 发送，
+    /// 这里只需调用 finalize 获取累积结果。
+    /// 对于批量 Provider（如 Whisper），音频也已在主循环 accept_waveform 中缓冲，
+    /// finalize 时一并发送。
+    ///
+    /// 注意：不再重复调用 accept_waveform，避免 double-send。
+    fn process_vad_segment_remote(
+        &mut self,
+        _vad_segment: &VadSegment,
+        segment_id: &str,
+        source: TranscriptSource,
+        start_time: f64,
+        end_time: f64,
+    ) {
+        let Some(ref mut recognizer) = self.recognizer else {
+            warn!("远端识别器未就绪，跳过段落处理");
+            return;
+        };
+
+        // 直接调用 finalize 获取结果（音频已在主循环中通过 accept_waveform 发送/缓冲）
+        let final_result = match recognizer.finalize() {
+            Ok(r) => {
+                // 远端成功：重置错误计数
+                self.remote_error_count = 0;
+                r
+            }
+            Err(e) => {
+                warn!("远端 ASR finalize 失败: {}", e);
+                recognizer.reset();
+                self.handle_remote_error(&e.to_string());
+                return;
+            }
+        };
+        recognizer.reset();
+
+        if final_result.text.is_empty() {
+            return;
+        }
+
+        info!(
+            provider = ?self.provider_type,
+            text_len = final_result.text.len(),
+            "远端 ASR 段落识别完成: segment={}",
+            segment_id
+        );
+
+        // 发送最终识别事件
+        self.emit_final_segment(
+            segment_id,
+            start_time,
+            end_time,
+            &final_result.text,
+            final_result.confidence,
+            source,
+            "tier1", // 远端 Provider 的结果视为 tier1
+        );
+    }
+
+    /// 连续失败阈值（达到此次数后自动降级到本地）
+    const REMOTE_FALLBACK_THRESHOLD: u32 = 3;
+
+    /// 处理远端 ASR 错误，达到阈值后自动降级
+    fn handle_remote_error(&mut self, error_msg: &str) {
+        self.remote_error_count += 1;
+        warn!(
+            provider = ?self.provider_type,
+            error_count = self.remote_error_count,
+            threshold = Self::REMOTE_FALLBACK_THRESHOLD,
+            "远端 ASR 错误: {}",
+            error_msg
+        );
+
+        if self.remote_error_count >= Self::REMOTE_FALLBACK_THRESHOLD {
+            self.fallback_to_local();
+        }
+    }
+
+    /// 自动降级到本地 ASR Provider
+    fn fallback_to_local(&mut self) {
+        let from_provider_name = self.provider_type.display_name().to_string();
+        info!(
+            from = %from_provider_name,
+            "远端 ASR 连续失败 {} 次，自动降级到本地 Provider",
+            Self::REMOTE_FALLBACK_THRESHOLD
+        );
+
+        // 保存原始 Provider 名称（仅首次降级时记录）
+        if self.original_provider_name.is_none() {
+            self.original_provider_name = Some(from_provider_name.clone());
+        }
+
+        // 释放旧的远端 recognizer
+        if let Some(ref mut rec) = self.recognizer {
+            rec.full_reset();
+        }
+        self.recognizer = None;
+
+        // 尝试创建本地 recognizer
+        let local_recognizer = match self.asr_engine.read() {
+            Ok(engine) => engine.create_recognizer_for_provider(AsrProviderType::Local, None),
+            Err(e) => {
+                error!("获取 ASR 引擎读锁失败: {}。无法降级", e);
+                return;
+            }
+        };
+
+        match local_recognizer {
+            Ok(recognizer) => {
+                self.recognizer = Some(recognizer);
+                self.provider_type = AsrProviderType::Local;
+                self.remote_error_count = 0;
+
+                info!("已成功降级到本地 ASR Provider");
+
+                // 发送降级事件通知前端
+                self.event_bus.publish(AppEvent::AsrFallback(AsrFallbackPayload {
+                    session_id: self.session_id.clone(),
+                    from_provider: from_provider_name,
+                    to_provider: AsrProviderType::Local.display_name().to_string(),
+                    reason: format!(
+                        "远端 ASR 连续失败 {} 次，已自动切换到本地识别",
+                        Self::REMOTE_FALLBACK_THRESHOLD
+                    ),
+                }));
+            }
+            Err(e) => {
+                error!("降级到本地 ASR 失败: {}。转录功能不可用", e);
+            }
+        }
     }
 
     /// 处理最终识别结果（内部实现）
@@ -946,8 +1131,11 @@ impl SessionAudioLoop {
     fn handle_endpoint_internal(&mut self, source: TranscriptSource) {
         // 获取最终识别结果
         let final_result = if let Some(ref mut recognizer) = self.recognizer {
-            recognizer.finalize()
-                    } else {
+            recognizer.finalize().unwrap_or_else(|e| {
+                warn!("ASR finalize 失败: {}", e);
+                RecognitionResult::empty()
+            })
+        } else {
             return;
         };
 
@@ -1042,8 +1230,37 @@ impl SessionAudioLoop {
         }
         
     /// 清理工作
-    async fn cleanup(&self) {
-        // 停止 MultiPassScheduler
+    async fn cleanup(&mut self) {
+        // 1. 处理远端 Provider 残留的音频 buffer
+        if self.provider_type.is_remote() {
+            if let Some(ref mut recognizer) = self.recognizer {
+                match recognizer.finalize() {
+                    Ok(result) if !result.is_empty() => {
+                        let elapsed = self.start_time.elapsed().as_secs_f64();
+                        self.segment_id_counter += 1;
+                        let segment_id = format!("{}_{}", self.session_id, self.segment_id_counter);
+                        info!(
+                            provider = ?self.provider_type,
+                            "Session 停止时处理残留音频: segment={}",
+                            segment_id
+                        );
+                        self.emit_final_segment(
+                            &segment_id,
+                            self.temp_buffer_start_time,
+                            elapsed,
+                            &result.text,
+                            result.confidence,
+                            self.default_source,
+                            "tier1",
+                        );
+                    }
+                    Ok(_) => {} // 空结果，无需处理
+                    Err(e) => warn!("Session 停止时 finalize 失败: {}", e),
+                }
+            }
+        }
+
+        // 2. 停止 MultiPassScheduler
         if let Some(ref scheduler) = self.scheduler {
             scheduler.stop().await;
             info!("MultiPassScheduler 已停止");
@@ -1066,7 +1283,8 @@ pub(crate) fn run_session_audio(
     system_source_id: Option<String>,
     event_bus: SharedEventBus,
     asr_engine: Arc<RwLock<AsrEngine>>,
-    recognizer: Option<StreamingRecognizer>,
+    recognizer: Option<Box<dyn AsrRecognizer>>,
+    provider_type: AsrProviderType,
     app_handle: Option<tauri::AppHandle>,
 ) {
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -1088,6 +1306,7 @@ pub(crate) fn run_session_audio(
             event_bus,
             asr_engine,
             recognizer,
+            provider_type,
             app_handle,
         ) {
             Ok(audio_loop) => audio_loop.run().await,

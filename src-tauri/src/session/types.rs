@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::audio::AudioSource;
-use crate::storage::{SessionAudioConfig, AudioSourceInfo, AudioSourceType};
+use crate::storage::{AsrProviderType, SessionAudioConfig, AudioSourceInfo, AudioSourceType};
 
 /// Session ID 类型
 pub type SessionId = String;
@@ -40,6 +40,9 @@ pub struct SessionConfig {
     /// 麦克风优先级
     #[serde(default = "default_priority")]
     pub microphone_priority: u8,
+    /// ASR Provider 覆盖（未指定时使用全局配置）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asr_provider: Option<AsrProviderType>,
 }
 
 fn default_true() -> bool {
@@ -61,6 +64,7 @@ impl Default for SessionConfig {
             use_system_audio: false,
             merge_for_asr: false,
             microphone_priority: crate::audio::PRIORITY_PRIMARY,
+            asr_provider: None,
         }
     }
 }

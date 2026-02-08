@@ -52,7 +52,7 @@ async function handleRequestPermission(type: PermissionType) {
 }
 
 function continueNext() {
-  router.push('/onboarding/model')
+  router.push('/onboarding/asr')
 }
 
 onMounted(async () => {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import MaterialIcon from '@/components/common/MaterialIcon.vue'
+import ProviderBadge from '@/components/common/ProviderBadge.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import TranscriptItem from '@/components/common/TranscriptItem.vue'
 import { useScrollAreaAutoScroll } from '@/composables/useAutoScroll'
+import { useAsrConfig } from '@/composables/useConfig'
 import type { SegmentWithMeta } from '@/composables/useTranscript'
 
 const props = defineProps<{
@@ -15,6 +17,8 @@ const props = defineProps<{
   recentlyRefinedIds: Set<string>
   isPaused: boolean
 }>()
+
+const { asrProvider } = useAsrConfig()
 
 const scrollAreaRef = ref<InstanceType<typeof ScrollArea> | null>(null)
 
@@ -93,6 +97,8 @@ watch(
     "
   >
     <div class="flex items-center gap-2">
+      <ProviderBadge :provider="asrProvider" variant="inline" size="sm" />
+      <span style="color: var(--la-divider)">&middot;</span>
       <span v-if="isProcessing" class="flex items-center gap-1">
         <MaterialIcon name="progress_activity" size="sm" class="animate-spin" />
         识别中...

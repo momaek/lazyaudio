@@ -47,10 +47,10 @@ export function setupGuards(router: Router) {
           return
         }
 
-        // 检查模型
-        const hasModel = await commands.hasAnyModelDownloaded()
-        if (hasModel.status === 'ok' && !hasModel.data) {
-          next('/onboarding/model')
+        // 检查 ASR 是否就绪（本地有模型 OR 云端已配置 API Key）
+        const asrReady = await commands.isAsrReady()
+        if (asrReady.status === 'ok' && !asrReady.data) {
+          next('/onboarding/asr')
           return
         }
 

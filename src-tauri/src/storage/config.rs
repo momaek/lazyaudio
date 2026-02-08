@@ -144,7 +144,10 @@ impl Default for AudioConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AsrConfig {
-    /// 模型 ID
+    /// ASR 提供商类型
+    #[serde(default)]
+    pub provider: AsrProviderType,
+    /// 模型 ID（本地模式使用）
     #[serde(default = "default_model_id")]
     pub model_id: String,
     /// 识别语言
@@ -156,15 +159,85 @@ pub struct AsrConfig {
     /// VAD 灵敏度
     #[serde(default = "default_vad_sensitivity")]
     pub vad_sensitivity: f32,
+    /// OpenAI Whisper 配置
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openai_whisper: Option<OpenAiWhisperConfig>,
+    /// Deepgram 配置
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deepgram: Option<DeepgramConfig>,
+    /// Azure Speech 配置
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub azure_speech: Option<AzureSpeechConfig>,
+    /// Google Speech 配置
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub google_speech: Option<GoogleSpeechConfig>,
 }
 
 impl Default for AsrConfig {
     fn default() -> Self {
         Self {
+            provider: AsrProviderType::Local,
             model_id: "sherpa-onnx-streaming-zh-en".to_string(),
             language: AsrLanguage::Auto,
             enable_punctuation: true,
             vad_sensitivity: 0.5,
+            openai_whisper: None,
+            deepgram: None,
+            azure_speech: None,
+            google_speech: None,
+        }
+    }
+}
+
+/// ASR 提供商类型（存储层）
+///
+/// 与 `asr::AsrProviderType` 保持同步，用于配置文件序列化
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AsrProviderType {
+    /// 本地 sherpa-onnx（默认）
+    #[default]
+    Local,
+    /// OpenAI Whisper API
+    OpenAiWhisper,
+    /// Deepgram
+    Deepgram,
+    /// Azure Speech
+    AzureSpeech,
+    /// Google Speech
+    GoogleSpeech,
+}
+
+impl AsrProviderType {
+    /// 获取 Provider 显示名称
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Local => "本地模型",
+            Self::OpenAiWhisper => "OpenAI Whisper",
+            Self::Deepgram => "Deepgram",
+            Self::AzureSpeech => "Azure Speech",
+            Self::GoogleSpeech => "Google Speech",
+        }
+    }
+
+    /// 是否为本地 Provider
+    pub fn is_local(&self) -> bool {
+        matches!(self, Self::Local)
+    }
+
+    /// 是否为远端 Provider
+    pub fn is_remote(&self) -> bool {
+        !self.is_local()
+    }
+
+    /// 是否支持流式识别（partial results）
+    pub fn supports_streaming(&self) -> bool {
+        match self {
+            Self::Local => true,
+            Self::Deepgram => true,
+            Self::AzureSpeech => true,
+            Self::GoogleSpeech => true,
+            Self::OpenAiWhisper => false, // 批量模式，无 partial
         }
     }
 }
@@ -177,6 +250,134 @@ pub enum AsrLanguage {
     Auto,
     Zh,
     En,
+}
+
+// ============================================================================
+// 远端 ASR Provider 配置
+// ============================================================================
+
+/// OpenAI Whisper API 配置
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAiWhisperConfig {
+    /// API Key
+    #[serde(default)]
+    pub api_key: String,
+    /// API 基础 URL（支持兼容接口如 Groq）
+    #[serde(default = "default_openai_whisper_base_url")]
+    pub base_url: String,
+    /// 模型名称
+    #[serde(default = "default_openai_whisper_model")]
+    pub model: String,
+    /// 识别语言（为空时自动检测）
+    #[serde(default)]
+    pub language: String,
+    /// 响应格式
+    #[serde(default = "default_whisper_response_format")]
+    pub response_format: String,
+}
+
+impl Default for OpenAiWhisperConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            base_url: "https://api.openai.com/v1".to_string(),
+            model: "whisper-1".to_string(),
+            language: String::new(),
+            response_format: "verbose_json".to_string(),
+        }
+    }
+}
+
+/// Deepgram 配置
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DeepgramConfig {
+    /// API Key
+    #[serde(default)]
+    pub api_key: String,
+    /// WebSocket URL
+    #[serde(default = "default_deepgram_base_url")]
+    pub base_url: String,
+    /// 模型名称
+    #[serde(default = "default_deepgram_model")]
+    pub model: String,
+    /// 识别语言
+    #[serde(default)]
+    pub language: String,
+    /// 智能格式化
+    #[serde(default = "default_true")]
+    pub smart_format: bool,
+    /// 启用标点
+    #[serde(default = "default_true")]
+    pub punctuate: bool,
+    /// 中间结果
+    #[serde(default = "default_true")]
+    pub interim_results: bool,
+}
+
+impl Default for DeepgramConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            base_url: "wss://api.deepgram.com/v1/listen".to_string(),
+            model: "nova-2".to_string(),
+            language: String::new(),
+            smart_format: true,
+            punctuate: true,
+            interim_results: true,
+        }
+    }
+}
+
+/// Azure Speech 配置
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AzureSpeechConfig {
+    /// 订阅 Key
+    #[serde(default)]
+    pub subscription_key: String,
+    /// 服务区域
+    #[serde(default)]
+    pub region: String,
+    /// 识别语言
+    #[serde(default)]
+    pub language: String,
+}
+
+impl Default for AzureSpeechConfig {
+    fn default() -> Self {
+        Self {
+            subscription_key: String::new(),
+            region: String::new(),
+            language: String::new(),
+        }
+    }
+}
+
+/// Google Speech 配置
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleSpeechConfig {
+    /// API Key 或 Service Account JSON 路径
+    #[serde(default)]
+    pub credentials: String,
+    /// 识别语言
+    #[serde(default)]
+    pub language: String,
+    /// 模型
+    #[serde(default = "default_google_speech_model")]
+    pub model: String,
+}
+
+impl Default for GoogleSpeechConfig {
+    fn default() -> Self {
+        Self {
+            credentials: String::new(),
+            language: String::new(),
+            model: "latest_long".to_string(),
+        }
+    }
 }
 
 /// AI 配置
@@ -386,6 +587,26 @@ fn default_model_id() -> String {
 fn default_vad_sensitivity() -> f32 {
     0.5
 }
+// --- 远端 ASR Provider 默认值 ---
+fn default_openai_whisper_base_url() -> String {
+    "https://api.openai.com/v1".to_string()
+}
+fn default_openai_whisper_model() -> String {
+    "whisper-1".to_string()
+}
+fn default_whisper_response_format() -> String {
+    "verbose_json".to_string()
+}
+fn default_deepgram_base_url() -> String {
+    "wss://api.deepgram.com/v1/listen".to_string()
+}
+fn default_deepgram_model() -> String {
+    "nova-2".to_string()
+}
+fn default_google_speech_model() -> String {
+    "latest_long".to_string()
+}
+// --- AI Provider 默认值 ---
 fn default_openai_base_url() -> String {
     "https://api.openai.com/v1".to_string()
 }

@@ -3,6 +3,7 @@
 use crate::asr::{ModelDownloader, ModelInfo};
 use crate::commands::model_events::{ModelDownloadComplete, ModelDownloadProgress};
 use crate::state::AppState;
+use crate::storage::AsrProviderType;
 use tauri::{AppHandle, Emitter, State};
 
 /// 列出所有可用的 ASR 模型
@@ -172,6 +173,136 @@ pub async fn download_model(
             );
             Err(error_msg)
         }
+    }
+}
+
+/// 检查 ASR 是否就绪（本地有模型 OR 云端已配置 API Key）
+///
+/// 用于 router guards 判断是否需要引导流程
+#[tauri::command]
+#[specta::specta]
+pub async fn is_asr_ready(state: State<'_, AppState>) -> Result<bool, String> {
+    let app_config = state.storage.get_config().await;
+    let asr_config = &app_config.asr;
+
+    match asr_config.provider {
+        AsrProviderType::Local => {
+            // 本地模式：检查是否有已下载的模型
+            let engine = state
+                .asr_engine
+                .read()
+                .map_err(|e| format!("无法获取 ASR 引擎: {}", e))?;
+            let models = engine.list_models();
+            Ok(models.iter().any(|m| m.is_downloaded))
+        }
+        AsrProviderType::OpenAiWhisper => {
+            // OpenAI Whisper：检查 API Key 是否已配置
+            Ok(asr_config
+                .openai_whisper
+                .as_ref()
+                .is_some_and(|c| !c.api_key.is_empty()))
+        }
+        AsrProviderType::Deepgram => {
+            // Deepgram：检查 API Key 是否已配置
+            Ok(asr_config
+                .deepgram
+                .as_ref()
+                .is_some_and(|c| !c.api_key.is_empty()))
+        }
+        _ => {
+            // 其他 Provider 暂未实现，视为未就绪
+            Ok(false)
+        }
+    }
+}
+
+/// 测试 ASR Provider 连接
+///
+/// 对远端 Provider 发送测试请求验证 API Key 有效性
+#[tauri::command]
+#[specta::specta]
+pub async fn test_asr_provider(
+    state: State<'_, AppState>,
+    provider: AsrProviderType,
+) -> Result<bool, String> {
+    let app_config = state.storage.get_config().await;
+    let asr_config = &app_config.asr;
+
+    match provider {
+        AsrProviderType::Local => {
+            // 本地模式：检查是否有已下载的模型
+            let engine = state
+                .asr_engine
+                .read()
+                .map_err(|e| format!("无法获取 ASR 引擎: {}", e))?;
+            let models = engine.list_models();
+            Ok(models.iter().any(|m| m.is_downloaded))
+        }
+        AsrProviderType::OpenAiWhisper => {
+            let config = asr_config
+                .openai_whisper
+                .clone()
+                .unwrap_or_default();
+            if config.api_key.is_empty() {
+                return Err("OpenAI Whisper API Key 未配置".to_string());
+            }
+            // 发送简单的 API 请求测试连接
+            let client = reqwest::Client::new();
+            let url = format!("{}/models", config.base_url.trim_end_matches('/'));
+            let resp = client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", config.api_key))
+                .timeout(std::time::Duration::from_secs(10))
+                .send()
+                .await
+                .map_err(|e| format!("连接失败: {}", e))?;
+            if resp.status().is_success() {
+                Ok(true)
+            } else {
+                Err(format!("API 返回错误状态: {}", resp.status()))
+            }
+        }
+        AsrProviderType::Deepgram => {
+            let config = asr_config
+                .deepgram
+                .clone()
+                .unwrap_or_default();
+            if config.api_key.is_empty() {
+                return Err("Deepgram API Key 未配置".to_string());
+            }
+            // 从 base_url 推导 HTTP 端点（wss:// → https://，ws:// → http://）
+            let http_base = config
+                .base_url
+                .replace("wss://", "https://")
+                .replace("ws://", "http://");
+            // 提取 host 部分，构造 projects API 端点
+            let test_url = match url::Url::parse(&http_base) {
+                Ok(parsed) => format!(
+                    "{}://{}/v1/projects",
+                    parsed.scheme(),
+                    parsed.host_str().unwrap_or("api.deepgram.com")
+                ),
+                Err(_) => "https://api.deepgram.com/v1/projects".to_string(),
+            };
+
+            let client = reqwest::Client::new();
+            let resp = client
+                .get(&test_url)
+                .header("Authorization", format!("Token {}", config.api_key))
+                .timeout(std::time::Duration::from_secs(10))
+                .send()
+                .await
+                .map_err(|e| format!("连接失败: {}", e))?;
+            if resp.status().is_success() {
+                Ok(true)
+            } else {
+                Err(format!("API 返回错误状态: {}", resp.status()))
+            }
+        }
+        _ => Err(format!(
+            "Provider '{}' 尚未支持测试",
+            provider.display_name()
+        )),
     }
 }
 

@@ -69,6 +69,10 @@ pub enum AppEvent {
     /// AI 任务失败
     AiTaskFailed(AiTaskFailedPayload),
 
+    // ======== ASR 事件 ========
+    /// ASR Provider 降级（远端失败，自动切换到本地）
+    AsrFallback(AsrFallbackPayload),
+
     // ======== 权限事件 ========
     /// 权限状态变更
     PermissionChanged(PermissionChangedPayload),
@@ -109,6 +113,7 @@ impl AppEvent {
             Self::AiTaskProgress(_) => "ai:task:progress",
             Self::AiTaskCompleted(_) => "ai:task:completed",
             Self::AiTaskFailed(_) => "ai:task:failed",
+            Self::AsrFallback(_) => "asr:fallback",
             Self::PermissionChanged(_) => "permission:changed",
             Self::InputMethodActivated(_) => "input-method:activated",
             Self::InputMethodTextChanged(_) => "input-method:text-changed",
@@ -135,6 +140,7 @@ impl AppEvent {
             Self::AudioLevel(p) => Some(&p.session_id),
             Self::VoiceActivity(p) => Some(&p.session_id),
             Self::MicrophonePreempted(p) => Some(&p.session_id),
+            Self::AsrFallback(p) => Some(&p.session_id),
             _ => None,
         }
     }
@@ -338,6 +344,24 @@ pub struct AiTaskFailedPayload {
     pub task_id: String,
     /// 错误信息
     pub error: String,
+}
+
+// ============================================================================
+// ASR Payloads
+// ============================================================================
+
+/// ASR Provider 降级 Payload
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AsrFallbackPayload {
+    /// Session ID
+    pub session_id: String,
+    /// 原始 Provider 名称
+    pub from_provider: String,
+    /// 降级后 Provider 名称
+    pub to_provider: String,
+    /// 降级原因
+    pub reason: String,
 }
 
 // ============================================================================

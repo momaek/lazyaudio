@@ -398,6 +398,28 @@ async downloadModel(modelId: string) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * 检查 ASR 是否就绪（本地有模型 OR 云端已配置 API Key）
+ */
+async isAsrReady() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_asr_ready") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * 测试 ASR Provider 连接
+ */
+async testAsrProvider(provider: AsrProviderType) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("test_asr_provider", { provider }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -501,6 +523,10 @@ storage: StorageConfig }
  */
 export type AsrConfig = { 
 /**
+ * ASR 提供商类型
+ */
+provider?: AsrProviderType;
+/**
  * 模型 ID
  */
 modelId?: string; 
@@ -515,7 +541,59 @@ enablePunctuation?: boolean;
 /**
  * VAD 灵敏度
  */
-vadSensitivity?: number }
+vadSensitivity?: number;
+/**
+ * OpenAI Whisper 配置
+ */
+openaiWhisper?: OpenAiWhisperConfig | null;
+/**
+ * Deepgram 配置
+ */
+deepgram?: DeepgramConfig | null;
+/**
+ * Azure Speech 配置
+ */
+azureSpeech?: AzureSpeechConfig | null;
+/**
+ * Google Speech 配置
+ */
+googleSpeech?: GoogleSpeechConfig | null }
+/**
+ * ASR 提供商类型
+ */
+export type AsrProviderType = "local" | "openai_whisper" | "deepgram" | "azure_speech" | "google_speech"
+/**
+ * OpenAI Whisper 配置
+ */
+export type OpenAiWhisperConfig = {
+apiKey: string;
+baseUrl: string;
+model: string;
+language: string }
+/**
+ * Deepgram 配置
+ */
+export type DeepgramConfig = {
+apiKey: string;
+baseUrl: string;
+model: string;
+language: string;
+smartFormat: boolean;
+punctuate: boolean;
+interimResults: boolean }
+/**
+ * Azure Speech 配置
+ */
+export type AzureSpeechConfig = {
+subscriptionKey: string;
+region: string;
+language: string }
+/**
+ * Google Speech 配置
+ */
+export type GoogleSpeechConfig = {
+apiKey: string;
+language: string }
 /**
  * ASR 语言
  */

@@ -182,6 +182,8 @@ impl InputMethodManager {
                 None,
                 None,
                 Some(app.clone()),
+                None,  // 输入法模式使用全局 ASR Provider
+                Some(app_config.asr.clone()),
             )
             .map_err(|e| e.to_string())?;
 

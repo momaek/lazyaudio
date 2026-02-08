@@ -6,7 +6,7 @@
 
 import { ref, onUnmounted, type Ref } from 'vue'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { TranscriptSegment } from '@/types/bindings'
+import type { AsrProviderType, TranscriptSegment } from '@/types/bindings'
 
 // ============================================================================
 // 事件类型定义
@@ -98,6 +98,17 @@ export interface AiTaskFailedPayload {
   error: string
 }
 
+/** ASR 降级 Payload */
+export interface AsrFallbackPayload {
+  sessionId: string
+  /** 原始 Provider */
+  fromProvider: AsrProviderType
+  /** 降级到的 Provider */
+  toProvider: AsrProviderType
+  /** 降级原因 */
+  reason: string
+}
+
 /** 文本 Payload */
 export interface TextPayload {
   text: string
@@ -141,6 +152,10 @@ export const EventNames = {
   AI_TASK_COMPLETED: 'ai:task:completed',
   AI_TASK_FAILED: 'ai:task:failed',
 
+  // ASR 事件
+  ASR_FALLBACK: 'asr:fallback',
+  ASR_ERROR: 'asr:error',
+
   // 输入法事件
   INPUT_METHOD_ACTIVATED: 'input-method:activated',
   INPUT_METHOD_TEXT_CHANGED: 'input-method:text-changed',
@@ -176,6 +191,8 @@ export interface EventPayloadMap {
   [EventNames.AI_TASK_PROGRESS]: AiTaskProgressPayload
   [EventNames.AI_TASK_COMPLETED]: AiTaskCompletedPayload
   [EventNames.AI_TASK_FAILED]: AiTaskFailedPayload
+  [EventNames.ASR_FALLBACK]: AsrFallbackPayload
+  [EventNames.ASR_ERROR]: { sessionId: string; error: string }
   [EventNames.INPUT_METHOD_ACTIVATED]: Record<string, never>
   [EventNames.INPUT_METHOD_TEXT_CHANGED]: TextPayload
   [EventNames.INPUT_METHOD_CONFIRMED]: TextPayload

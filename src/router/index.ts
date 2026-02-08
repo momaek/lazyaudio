@@ -38,10 +38,15 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '权限设置' },
       },
       {
+        path: 'asr',
+        name: 'onboarding-asr',
+        component: () => import('@/views/onboarding/OnboardingAsr.vue'),
+        meta: { title: '语音识别配置' },
+      },
+      {
+        // 保留旧路由兼容
         path: 'model',
-        name: 'onboarding-model',
-        component: () => import('@/views/onboarding/OnboardingModel.vue'),
-        meta: { title: '模型下载' },
+        redirect: '/onboarding/asr',
       },
     ],
   },

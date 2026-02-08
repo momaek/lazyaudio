@@ -50,7 +50,10 @@ cpal = "0.15"
 rubato = "1.0.0"
 
 # HTTP 客户端和下载
-reqwest = { version = "0.12", features = ["stream", "rustls-tls"], default-features = false }
+reqwest = { version = "0.12", features = ["stream", "rustls-tls", "multipart", "json"], default-features = false }
+# WebSocket（Deepgram 流式 ASR）
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
+url = "2"
 tokio-util = { version = "0.7", features = ["io"] }
 futures-util = "0.3"
 flate2 = "1.0"

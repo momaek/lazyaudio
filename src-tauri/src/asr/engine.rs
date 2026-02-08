@@ -6,8 +6,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use super::model::{ModelFiles, ModelManager};
+use super::providers::{DeepgramRecognizer, LocalAsrRecognizer, OpenAiWhisperRecognizer};
 use super::recognizer::StreamingRecognizer;
-use super::types::{AsrConfig, AsrError, AsrResult, ModelInfo};
+use super::types::{AsrConfig, AsrError, AsrProviderType, AsrRecognizer, AsrResult, ModelInfo};
 
 /// ASR 引擎
 ///
@@ -68,7 +69,9 @@ impl AsrEngine {
         Ok(())
     }
 
-    /// 创建流式识别器
+    /// 创建流式识别器（本地 sherpa-onnx）
+    ///
+    /// 返回原始的 `StreamingRecognizer`，供内部需要具体类型的场景使用
     pub fn create_recognizer(&self) -> AsrResult<StreamingRecognizer> {
         let model_files = self
             .current_model_files
@@ -76,6 +79,42 @@ impl AsrEngine {
             .ok_or_else(|| AsrError::ConfigError("未加载模型".to_string()))?;
 
         StreamingRecognizer::from_model_files(model_files, self.config.clone())
+    }
+
+    /// 根据 Provider 类型创建识别器（trait object）
+    ///
+    /// 返回 `Box<dyn AsrRecognizer>`，供 `SessionAudioLoop` 等通用场景使用。
+    ///
+    /// # Arguments
+    /// * `provider` - ASR Provider 类型
+    /// * `app_asr_config` - 应用层 ASR 配置（包含各远端 Provider 的连接信息），远端 Provider 必需
+    pub fn create_recognizer_for_provider(
+        &self,
+        provider: AsrProviderType,
+        app_asr_config: Option<&crate::storage::AsrConfig>,
+    ) -> AsrResult<Box<dyn AsrRecognizer>> {
+        match provider {
+            AsrProviderType::Local => {
+                let recognizer = self.create_recognizer()?;
+                Ok(Box::new(LocalAsrRecognizer::new(recognizer)))
+            }
+            AsrProviderType::OpenAiWhisper => {
+                let config = app_asr_config
+                    .and_then(|c| c.openai_whisper.clone())
+                    .unwrap_or_default();
+                Ok(Box::new(OpenAiWhisperRecognizer::new(config)?))
+            }
+            AsrProviderType::Deepgram => {
+                let config = app_asr_config
+                    .and_then(|c| c.deepgram.clone())
+                    .unwrap_or_default();
+                Ok(Box::new(DeepgramRecognizer::new(config)?))
+            }
+            other => Err(AsrError::ConfigError(format!(
+                "Provider '{}' 尚未实现",
+                other.display_name()
+            ))),
+        }
     }
 
     /// 获取当前配置

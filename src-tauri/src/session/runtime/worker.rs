@@ -10,9 +10,9 @@ use tracing::{error, info, warn};
 
 use crate::asr::multi_pass::{ResultMerger, SegmentBuffer, Tier2Recognizer};
 use crate::asr::RecognitionTier;
-use crate::asr::{AsrEngine, StreamingRecognizer};
+use crate::asr::{AsrEngine, AsrRecognizer};
 use crate::event::{AppEvent, SharedEventBus, TranscriptFinalPayload};
-use crate::storage::{TranscriptSegment, TranscriptSource};
+use crate::storage::{AsrProviderType, TranscriptSegment, TranscriptSource};
 
 use super::types::WorkerTask;
 
@@ -22,8 +22,8 @@ struct MultiPassWorker {
     segment_buffer: Arc<tokio::sync::RwLock<SegmentBuffer>>,
     /// ResultMerger（结果合并器）
     result_merger: Arc<ResultMerger>,
-    /// Tier1 流式识别器
-    tier1_recognizer: StreamingRecognizer,
+    /// Tier1 识别器（trait object，支持本地和远端）
+    tier1_recognizer: Box<dyn AsrRecognizer>,
     /// Tier2 离线识别器（可选）
     tier2_recognizer: Option<Tier2Recognizer>,
     /// 事件总线
@@ -35,7 +35,7 @@ impl MultiPassWorker {
     fn new(
         segment_buffer: Arc<tokio::sync::RwLock<SegmentBuffer>>,
         result_merger: Arc<ResultMerger>,
-        tier1_recognizer: StreamingRecognizer,
+        tier1_recognizer: Box<dyn AsrRecognizer>,
         tier2_recognizer: Option<Tier2Recognizer>,
         event_bus: SharedEventBus,
     ) -> Self {
@@ -71,8 +71,18 @@ impl MultiPassWorker {
         };
 
         // 2. 使用 Tier1 识别器识别
-        self.tier1_recognizer.accept_waveform(&audio_samples);
-        let final_result = self.tier1_recognizer.finalize();
+        if let Err(e) = self.tier1_recognizer.accept_waveform(&audio_samples) {
+            warn!("Tier1 accept_waveform 失败: {}", e);
+            return;
+        }
+        let final_result = match self.tier1_recognizer.finalize() {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Tier1 finalize 失败: {}", e);
+                self.tier1_recognizer.reset();
+                return;
+            }
+        };
         self.tier1_recognizer.reset();
 
         if final_result.text.is_empty() {
@@ -234,18 +244,19 @@ pub(crate) fn spawn_multipass_worker(
     asr_engine: Arc<std::sync::RwLock<AsrEngine>>,
     tier2_recognizer: Option<Tier2Recognizer>,
     event_bus: SharedEventBus,
+    provider: AsrProviderType,
 ) -> Option<mpsc::Sender<WorkerTask>> {
     let (tx, rx) = mpsc::channel::<WorkerTask>();
     let (ready_tx, ready_rx) = mpsc::channel::<bool>();
 
     std::thread::spawn(move || {
-        info!("MultiPassWorker 线程已启动，开始创建 Tier1 识别器");
+        info!(provider = ?provider, "MultiPassWorker 线程已启动，开始创建 Tier1 识别器");
         
-        // 创建 Tier1 识别器
+        // 创建 Tier1 识别器（使用 provider 类型）
         let tier1_recognizer = match asr_engine
             .read()
             .expect("获取 ASR 锁失败")
-            .create_recognizer()
+            .create_recognizer_for_provider(provider, None)
         {
             Ok(r) => {
                 info!("Tier1 识别器创建成功，发送就绪信号");
