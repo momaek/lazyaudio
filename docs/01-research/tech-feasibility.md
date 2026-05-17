@@ -381,3 +381,56 @@ spike-005-track-sync/
 - 浮窗**必须预创建常驻 hidden**(本测前提)。T11 实现按这个模式做。
 - AudioContext / AudioWorklet 首次加载有 ~60ms 额外开销,T12 可考虑在 app 启动后预加载一个空 AudioContext + worklet module,把首录延迟再砍掉(优化项,非必须)。
 - Intel Mac / Win i5 数据 ⏳ 等 spike-012 时补;如果任一平台破预算,触发 dev-plan §10.2 砍 scope(降级"录前预热"或调整 PRD §7.1 阈值)。
+
+---
+
+## spike-013 — hypothesis → confirmed 替换 UI 稳定性(2026-05-17)
+
+**状态**:✅ done(B 策略 segment id 稳定率 = 100%,远超 90% 退出条件)
+**POC 工作区**:[`scratch/spike-013/`](../../scratch/spike-013/)
+**dev-plan 对接**:[T35](../04-development/development-plan.md#43-m4--本地转录跑通t30-t40) "hypothesis → confirmed 视觉" + AC "录音中观察 → 不跳行 / 不闪烁"
+
+### 方法学
+
+把同一条 ASR mock 数据流并排喂两个 React panel,两个 panel 用不同的 segment key 策略,React 用 `key` 决定是否复用 DOM:
+
+- **A. content-hash key**:`key = djb2(seg.text)`。文本任意改写都让 key 变 → React 把这个 segment unmount + remount → DOM 重建 → 视觉闪烁 + 阅读光标跳行。
+- **B. timestamp-start key**:`key = seg.startMs`。VAD 切窗时 `startMs` 一次确定,后续 ASR 多轮改写 `text` 不影响 key → React 复用同一 DOM 节点,只更新内文。
+
+ASR mock 还原 Pass A 实际行为:每 250ms 推一帧,共 21 帧、4 个 segment(startMs 0/2000/4000/6000),
+途中 segment 在 hypothesis 状态被改写(`产品 → 项目`、`数据 → 指标`、`留存数据 → 留存率`、`留存率 → 留存率提升了百分之十二`),
+然后转 confirmed 定稿。React **关闭 StrictMode**(`scratch/spike-013/src/main.tsx`)避开 dev 双触发 effect,
+量真实 mount/unmount。
+
+### 测量数据(21/21 帧跑完)
+
+| 指标                         | A. content-hash key | B. timestamp-start key   |
+| ---------------------------- | ------------------- | ------------------------ |
+| 总 segment-update 次数(分母) | 59                  | 59                       |
+| 唯一 key 数                  | **22**              | **4**(= 真实 segment 数) |
+| mount 总数                   | 22                  | **4**                    |
+| **unmount 总数**             | **18**              | **0**                    |
+| 渲染次数(setState 触发)      | 59                  | 59                       |
+| **segment id 稳定率**        | —                   | **100.0%**               |
+
+### 关键观察
+
+1. **B 策略 segment id 稳定率 = 100%,远超 spike 退出条件 90%**:整段 21 帧期间,每个 segment 只 mount 一次、0 unmount,React DOM 完全复用 → hypothesis 反复改写时**只是 textContent 在变,节点本体不变** → 视觉上不闪烁、不跳行。
+2. **A 策略 unmount 数 = 18**:18 次 segment 文本改写各触发一次 unmount+mount。production 上等价于"每次 ASR 推新 hypothesis 都让对应 DOM 闪一下" → PRD F4.5 "hypothesis 阅读体验" 直接破。
+3. **唯一 key 数对比 22 vs 4**:A 策略下唯一 key 数 = 总 mount 数,说明 hash 把每一次内容变化当成"新 segment";B 策略稳定锁在 4 个 segment,**精确对应 VAD 切窗的真实 segment 数**。
+4. **Pass A 输出契约要求**:Pass A engine(Silero VAD + SenseVoice,见 spike-011 / ADR-0004)必须在 VAD 切窗一刻就发出稳定的 `startMs`,后续同段 ASR 改写不能换 `startMs`。这个契约在 [transcription-pipeline.md](../03-architecture/transcription-pipeline.md) 里要明写。
+
+### Caveats
+
+- **没量到 OS 合成器层的视觉闪烁**:本测靠 React mount/unmount 计数作"DOM 重建"的代理。production 实际视觉是否还能感知到"DOM 复用 + textContent 更新" 的过渡,要在 T35 实施时做真实视觉验证(配 framer-motion / view-transition,或 200ms accent 高亮过渡)。
+- **mock 数据是确定性脚本**,不是真 ASR 的概率性输出。production 中 Pass A 改写频率 / 段长 / 段数都不同,但 React key 稳定性是**纯结构性结论**,不依赖统计分布。
+- **B 策略要求 ASR engine 暴露稳定 `startMs` 字段**。如果某个 engine 只暴露段文本不暴露 startMs(早期 streaming-only 模型可能这样),要走 segment id allocator 给每段第一次见时分配本地稳定 id。spike-011 已拍 Silero VAD,VAD windowStart 是稳定的时间戳,契约满足。
+- **样本 = 单条 mock 脚本**(21 帧 / 4 段)。production 录音可能 100+ 段,key 数量级上来后 React 渲染本身的性能要看 T35 + T39(虚拟列表)如何处理 — 那是 M3-M4 优化的事,不在 spike-013 scope 内。
+
+### 决策
+
+**T35 / 详情区 hypothesis 渲染采用 B 策略 — `key = seg.startMs`**。
+
+- Pass A engine 输出契约新增硬性要求:每个 segment 在第一次发出时绑定 `startMs`,后续同段改写不变。
+- transcription-pipeline.md 要回写这条契约(本 PR 暂只在 tech-feasibility 写结论,03-architecture 改动留给 T35 实施 PR 一并做,避免现在引入 unused 字段)。
+- T35 AC 加一条:"hypothesis 反复改写期间,DOM mount 数 = 段数"(测试侧可用 mount counter 验)。

@@ -20,6 +20,13 @@
       "runtimeExecutable": "echo",
       "runtimeArgs": ["dev server already running via pnpm dev on :5173"],
       "port": 5173
+    },
+    {
+      "name": "spike-013",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 5173,
+      "cwd": "scratch/spike-013"
     }
   ]
 }
