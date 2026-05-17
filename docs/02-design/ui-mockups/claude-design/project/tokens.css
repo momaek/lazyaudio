@@ -1,0 +1,138 @@
+/* LazyAudio Design Tokens — strictly per brief §5 */
+
+:root {
+  /* ---- Gray scale (gray-0 → gray-1000, 12 levels per §5.1) ---- */
+  --gray-0:    #FFFFFF;
+  --gray-50:   #F6F7F8;
+  --gray-100:  #ECEEF0;
+  --gray-200:  #DFE2E5;
+  --gray-300:  #C7CBD0;
+  --gray-400:  #9CA3AB;
+  --gray-500:  #6E767F;
+  --gray-600:  #515961;
+  --gray-700:  #3A4148;
+  --gray-800:  #232932;
+  --gray-850:  #1A1F26;
+  --gray-900:  #11151A;
+  --gray-950:  #0D1014;
+  --gray-1000: #0A0C0F;
+
+  /* ---- Accent / status (§5.1) ---- */
+  --accent: #1F6FEB;
+  --accent-hover: #1A60CC;
+  --record: #E5484D;
+  --success: #3E9B4F;
+  --warning: #D97706;
+  --danger: #DC2626;
+
+  /* ---- Speaker colors (§5.1.2) ---- */
+  --speaker-1: #1F6FEB;
+  --speaker-2: #D97706;
+  --speaker-3: #3E9B4F;
+  --speaker-4: #B85C97;
+  --speaker-5: #6E767F;
+
+  /* ---- Session-type hues (§5.2) ---- */
+  --type-general: #6E767F;
+  --type-meeting: #1F6FEB;
+  --type-note: #D97706;
+  --type-interviewer: #7C3AED;
+  --type-candidate: #DB2777;
+  --type-lecture: #059669;
+  --type-podcast: #EA580C;
+
+  /* ---- Surface layers — LIGHT (§5.1.1) ---- */
+  --surface-canvas:   var(--gray-50);
+  --surface-panel:    var(--gray-0);
+  --surface-raised:   var(--gray-0);
+  --surface-sunken:   var(--gray-100);
+  --surface-hover:    var(--gray-100);
+  --surface-selected: rgba(31, 111, 235, 0.08); /* accent @ 8% */
+  --border-subtle:    var(--gray-200);
+  --border-strong:    var(--gray-300);
+
+  /* ---- Text ---- */
+  --text-base:    var(--gray-900);
+  --text-muted:   var(--gray-500);
+  --text-subtle:  var(--gray-400);
+  --text-strong:  var(--gray-1000);
+  --text-on-accent: #fff;
+
+  /* ---- Fonts (§5.3) ---- */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", Consolas, monospace;
+}
+
+/* Dark mode token overrides (§5.1.1, 5.1.2) */
+[data-theme="dark"] {
+  --surface-canvas:   var(--gray-950);
+  --surface-panel:    var(--gray-900);
+  --surface-raised:   var(--gray-850);
+  --surface-sunken:   var(--gray-1000);
+  --surface-hover:    var(--gray-850);
+  --surface-selected: rgba(68, 147, 248, 0.12); /* accent @ 12% */
+  --border-subtle:    var(--gray-800);
+  --border-strong:    var(--gray-700);
+
+  --accent: #4493F8;
+  --accent-hover: #5BA3FF;
+  --record: #FF6369;
+  --success: #46A758;
+  --warning: #F2A742;
+  --danger: #FF6369;
+
+  --speaker-1: #4493F8;
+  --speaker-2: #F2A742;
+  --speaker-3: #46A758;
+  --speaker-4: #DD7CC4;
+  --speaker-5: #6E767F;
+
+  --type-general: #9CA3AB;
+  --type-meeting: #4493F8;
+  --type-note: #F2A742;
+  --type-interviewer: #A78BFA;
+  --type-candidate: #F472B6;
+  --type-lecture: #34D399;
+  --type-podcast: #FB923C;
+
+  --text-base: #E6E9ED;
+  --text-muted: #8A929B;
+  --text-subtle: #6E767F;
+  --text-strong: #F4F6F8;
+  --text-on-accent: #fff;
+}
+
+/* ---- Control heights (§5.4.1) ---- */
+:root {
+  --h-primary: 32px;
+  --h-secondary: 32px;
+  --h-compact: 24px;
+  --h-input: 32px;
+  --h-input-lg: 36px;
+  --h-segmented: 28px;
+  --h-chip: 24px;
+  --h-list-item: 56px;
+  --h-detail-header: 56px;
+  --h-waveform: 64px;
+  --h-play-controls: 40px;
+  --h-summary-actions: 44px;
+}
+
+/* Reset for design surfaces */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-ui); color: var(--text-base); -webkit-font-smoothing: antialiased; }
+
+/* ===== Breathing record dot (§7.2) ===== */
+@keyframes record-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(0.92); }
+}
+.record-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--record);
+  animation: record-pulse 1.2s ease-in-out infinite;
+  flex: 0 0 8px;
+}
+
+/* Selection */
+::selection { background: rgba(31,111,235,0.18); }
