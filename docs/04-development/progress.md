@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：T03 PR [#6](https://github.com/momaek/lazyaudio/pull/6) CI 全绿,等 review;#1-#5 全已合
+> **当前焦点**：T04 PR [#7](https://github.com/momaek/lazyaudio/pull/7) CI 全绿,等 review;#1-#6 全已合
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 12(+T03)                                        |
+| ✅ done                   | 13(+T04)                                        |
 | 🔄 wip                    | 0                                               |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 49                                              |
+| 🔲 todo                   | 48                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,11 +94,10 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_目前没有 WIP 任务。T03 PR [#6](https://github.com/momaek/lazyaudio/pull/6) CI 全绿等 review。下一步候选见下。_
+_目前没有 WIP 任务。T04 PR [#7](https://github.com/momaek/lazyaudio/pull/7) CI 全绿等 review。下一步候选见下。_
 
-**下一步候选**(T03 合后):
+**下一步候选**(T04 合后):
 
-- `T04` IPC 框架(0.5d,T01 已合可起)
 - `T05` i18n / `T06` 日志(各 0.5d,独立)
 - `spike-010` 快捷键 → 第一帧 PCM(0.5d)
 - `spike-005` mic/system 漂移(0.5d,需 fixture)
@@ -144,7 +143,7 @@ _目前没有 WIP 任务。T03 PR [#6](https://github.com/momaek/lazyaudio/pull/
 | T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中    |
 | T02 | CI: lint + typecheck + test               | ✅ done | feat/T02-ci ([#5](https://github.com/momaek/lazyaudio/pull/5))       | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
 | T03 | Tailwind + design tokens（浅 + 深双模式） | ✅ done | feat/T03-tailwind ([#6](https://github.com/momaek/lazyaudio/pull/6)) | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
-| T04 | IPC 框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
+| T04 | IPC 框架                                  | ✅ done | feat/T04-ipc ([#7](https://github.com/momaek/lazyaudio/pull/7))      | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
 | T05 | i18n 框架                                 | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
 | T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
 
