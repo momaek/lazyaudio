@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：T01 仓库脚手架（🔄 WIP，起 2026-05-17）
+> **当前焦点**：T01 已闭环（PR [#1](https://github.com/momaek/lazyaudio/pull/1) 等 review）；下一步候选见 §1
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,8 +82,8 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 4（spike-001/002/003/004）                      |
-| 🔄 wip                    | 1（T01）                                        |
+| ✅ done                   | 5（spike-001/002/003/004 + T01）                |
+| 🔄 wip                    | 0                                               |
 | ⛔ blocked                | 0                                               |
 | 🔲 todo                   | 56                                              |
 | 本周燃尽                  | —                                               |
@@ -94,29 +94,14 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T01 — 仓库脚手架（🔄 起 2026-05-17,等用户授权 commit + 开 PR）
+_目前没有 WIP 任务。T01 等 PR [#1](https://github.com/momaek/lazyaudio/pull/1) review;按惯例 review 中不开新代码 T,可以并行推进 spike / ADR。_
 
-AC checklist（PR 合并前每条必勾 + 贴证据）：
+**下一步候选**（按 dev-plan §2.4 退出条件倒推）：
 
-- [x] `pnpm init + .nvmrc + .editorconfig + .gitignore` 落地
-  - `package.json`(pnpm 10.32.1 / Node ≥ 20) / `.nvmrc`(20.13.1) / `.editorconfig` / `.gitignore` / `.gitattributes` in tree
-- [x] `electron-vite` 模板初始化 + 删除示例代码
-  - `electron.vite.config.ts` 手写,未引入 electron-vite 官方模板的示例代码;`pnpm dev` 三段构建全过(main 1.29 kB / preload 0 kB / renderer dev server :5173)
-- [x] 三套 tsconfig（node / web / worker）+ path alias（`@shared` / `@`）
-  - `tsconfig.json`(根 strict + path alias) / `tsconfig.node.json` / `tsconfig.web.json` / `tsconfig.worker.json`;`pnpm typecheck` ✅ 通过
-- [x] ESLint 9 flat config + prettier + simple-git-hooks + lint-staged
-  - `eslint.config.js`(typescript-eslint + react + react-hooks + prettier compat) / `prettier.config.js` / `.prettierignore`;`pnpm lint` ✅ 通过;`pnpm install` 时 simple-git-hooks postinstall 已注册 `.git/hooks/pre-commit → pnpm lint-staged`
-- [x] 四窗口 HTML entry（main / prep / onboarding / settings）+ "Hello world" 页面
-  - `src/renderer/{main,prep,onboarding,settings}.html` + 对应 `.tsx` + `windows/<name>/App.tsx`;React 19 + `createRoot`
-- [x] `docs/04-development/adr/` 目录 + ADR-0001 / 0002 / 0003 占位文件（背景 + 决策一句话）
-  - `docs/04-development/adr/` 下 `README.md` + `ADR-0001-macos-minimum-version.md` + `ADR-0002-sherpa-onnx-loader-path.md` + `ADR-0003-asr-in-utility-process.md`
-- [x] **AC-1**：`pnpm dev` 起来主窗口能看到 "Hello world"
-  - 终端 log:`build the electron main process successfully` + `build the electron preload files successfully` + `dev server running for the electron renderer process at http://localhost:5173/` + `start electron app...`
-  - 进程检查:Electron(main) + GPU helper + Network utility + Renderer helper 全部起来,`--user-data-dir=/Users/wentx/xcodes/lazyaudio/.local-userdata`,证明 `src/main/env.ts` 的 dev 重定向生效
-  - 渲染窗口在 dev 模式由 `process.env.ELECTRON_RENDERER_URL` 加载 `/main.html` → `windows/main/App.tsx` 显示 "Hello world"
-- [x] **AC-2**：`docs/04-development/adr/` 下三份占位文件 in tree
-  - `ls docs/04-development/adr/` 输出:`ADR-0001-macos-minimum-version.md  ADR-0002-sherpa-onnx-loader-path.md  ADR-0003-asr-in-utility-process.md  README.md`
-  - PR 开后用 `git ls-files docs/04-development/adr/` 复跑作为 review 证据
+- `spike-011` Pass A 引擎选型（2d，**最阻塞**，影响 ADR-0004 + M4 模型清单）
+- `spike-010` 快捷键 → 第一帧 PCM 性能基线（0.5d，影响 PRD §7.1）
+- ADR-0001 / 0002 / 0003 占位 → 正文（候选 / 否决理由 / 完整影响补齐）
+- `T02` CI lint+typecheck+test（依赖 T01 merge 后再起）
 
 ---
 
@@ -151,14 +136,14 @@ AC checklist（PR 合并前每条必勾 + 贴证据）：
 
 ### 4.1 Pre-M3 — 脚手架（T01-T06）
 
-| ID  | 标题                                      | 状态    | 分支 / PR                   | 起         | 完  | 备注                                     |
-| --- | ----------------------------------------- | ------- | --------------------------- | ---------- | --- | ---------------------------------------- |
-| T01 | 仓库脚手架                                | 🔄 wip  | feat/T01-scaffold (PR 待开) | 2026-05-17 | —   | AC 全过,等用户授权 push + 开 PR 后 🔄→✅ |
-| T02 | CI: lint + typecheck + test               | 🔲 todo | —                           | —          | —   | 依赖 T01                                 |
-| T03 | Tailwind + design tokens（浅 + 深双模式） | 🔲 todo | —                           | —          | —   | 依赖 T01                                 |
-| T04 | IPC 框架                                  | 🔲 todo | —                           | —          | —   | 依赖 T01                                 |
-| T05 | i18n 框架                                 | 🔲 todo | —                           | —          | —   | 依赖 T01                                 |
-| T06 | 日志框架                                  | 🔲 todo | —                           | —          | —   | 依赖 T01                                 |
+| ID  | 标题                                      | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                 |
+| --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | -------------------- |
+| T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中 |
+| T02 | CI: lint + typecheck + test               | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
+| T03 | Tailwind + design tokens（浅 + 深双模式） | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
+| T04 | IPC 框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
+| T05 | i18n 框架                                 | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
+| T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
 
 **Pre-M3 退出条件**（dev-plan §2.4 复核）：
 
