@@ -1,0 +1,91 @@
+/*
+ * Design tokens — light 默认值。
+ * 全部来自 docs/02-design/design-system.md §2-4。
+ * 改这里需要同步改 design-system.md(单一信息源:design-system.md → 本文件 → Tailwind 工具类)。
+ *
+ * Tailwind 4 用 @theme 把 CSS 变量直接转成工具类:
+ *   --color-accent       → bg-accent / text-accent / border-accent ...
+ *   --radius-lg          → rounded-lg
+ *   --text-base          → text-base + leading
+ *   --shadow-md          → shadow-md
+ *
+ * 深色覆盖在 dark.css(class-based,通过 @custom-variant dark 接 Tailwind 工具类)。
+ */
+
+@theme {
+  /* ---- §2.1 gray 11 阶 ---- */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-900: #18181b;
+  --color-gray-950: #09090b;
+
+  /* ---- §2.2 brand + status(浅色值,深色见 dark.css) ---- */
+  --color-accent: #1f6feb;
+  --color-record: #e5484d;
+  --color-success: #3e9b4f;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-pending: #6b7280;
+
+  /* ---- §2.3 sessionType 7 色(浅色,深色见 dark.css) ---- */
+  --color-type-general: #71717a; /* gray-500 */
+  --color-type-meeting: #3b82f6;
+  --color-type-note: #eab308;
+  --color-type-interviewer: #a855f7;
+  --color-type-candidate: #ec4899;
+  --color-type-lecture: #10b981;
+  --color-type-podcast: #f97316;
+
+  /* ---- §2.4 背景层级(浅色,深色见 dark.css) ----
+     L0 chrome / L1 surface / L2 raised / L3 hover + 边框 */
+  --color-bg-l0: #fafafa; /* gray-50 */
+  --color-bg-l1: #ffffff; /* white */
+  --color-bg-l2: #f4f4f5; /* gray-100 */
+  --color-bg-l3: #e4e4e7; /* gray-200 */
+  --color-border: #e4e4e7; /* gray-200 */
+
+  /* ---- §3.1 字体栈 ---- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* ---- §3.2 字号 / 行高 ---- */
+  --text-xs: 11px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 18px;
+  --text-xl--line-height: 26px;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 30px;
+
+  /* ---- §4.1 spacing ----
+     Tailwind 4 默认 --spacing: 0.25rem 跟随 html font-size 漂移,
+     与 design-system 的"px 精确口径"(s-1=4 / s-2=8 / s-3=12 …)不符。
+     这里锚成 4px,h-7=28px / h-8=32px / h-10=40px 即 §5.7 按钮三档高度。 */
+  --spacing: 4px;
+
+  /* ---- §4.2 圆角 ---- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ---- §4.3 阴影(克制;深色模式覆盖见 dark.css) ---- */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.12);
+}
