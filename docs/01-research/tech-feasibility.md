@@ -334,3 +334,50 @@ spike-005-track-sync/
 - 主因:CER 显著优于 A 路,且本就是 Pass B 用的同一模型,架构 / 内存 / 模型分发都简化。
 - 次因:tail-latency 优势对 A 路并不构成翻盘理由,B 路 p95 < 110ms 已达"几秒内出文本"的用户预期。
 - 触发的下游影响见 ADR-0004 §后续影响 与本文档 §回写。
+
+---
+
+## spike-010 — 快捷键 → 第一帧 PCM 时延量化（2026-05-17）
+
+**状态**:✅ done(M2 arm64 单机数据;Intel/Win 待 spike-012 时补)
+**POC 工作区**:[`scratch/spike-010/`](../../scratch/spike-010/)
+**PRD 对接**:[§7.1](./prd.md#71-性能) "快捷键到开始录音 < 500ms(包含浮窗显示)"
+**dev-plan 对接**:[T11](../04-development/development-plan.md#3-m3--骨架可跑) "浮窗 100ms 内出现 + 第一帧 PCM"
+
+### 方法学
+
+把 "快捷键 → 第一帧 PCM" 拆两段独立量,避开 globalShortcut 注册（OS 调度延迟 < 10ms,可忽略）:
+
+- **A 段:浮窗显示**。预创建 prep window(`show: false`)常驻 hidden,模拟 production T11 设计;bench 每轮 main 端 `process.hrtime` 取 t0 → `win.show()` → 收到 `'show'` event 取 t1。15 轮 + warmup 一轮丢弃。每轮跑前先 `win.hide()` 并等 `'hide'` event 完整完成,排除 hide/show 同 tick race(Electron 33 在该 race 下 `'show'` 不 fire)。
+- **B 段:getUserMedia 第一帧 PCM**。renderer 内 `performance.now()` t0 → `navigator.mediaDevices.getUserMedia({audio:{sampleRate:48000,channelCount:1}})` → `AudioContext` + `AudioWorklet` 加 `pcm-emitter.worklet`(收到第一帧非空 input 立刻 postMessage) → 收到 message 取 t1。10 轮 + warmup,每轮完整 close 上一轮 stream + AudioContext。
+
+### 测量数据(M2 arm64 / macOS 14.x / Electron 33.4.11 / Node 20.18.3)
+
+| 段                                        | n   | min       | p50       | p95        | max       | mean      |
+| ----------------------------------------- | --- | --------- | --------- | ---------- | --------- | --------- |
+| **A. 快捷键回调 → 浮窗 show event**       | 15  | 12.28 ms  | 31.81 ms  | 46.40 ms   | 46.40 ms  | 34.27 ms  |
+| **B. record:start → AudioWorklet 第一帧** | 10  | 166.80 ms | 174.90 ms | 235.00 ms  | 235.00 ms | 181.42 ms |
+| **A + B(同分位相加,保守上限)**            | —   | 179.08    | 206.71    | **281.40** | —         | —         |
+
+### 关键观察
+
+1. **PRD §7.1 总预算 500ms 满足**:A + B p95 = 281.40ms,**< 500ms**,留 218ms 余量给 OS compositor 一帧(~16ms @ 60Hz)+ globalShortcut 触发延迟 + production 真实路径(IPC 调度 + 设备未热)。
+2. **dev-plan T11 子预算 100ms / 400ms 双双满足**:浮窗 p95 46.4ms < 100ms;第一帧 PCM p95 235ms < 400ms。**浮窗预创建常驻 hidden 是必须的**(本测就是这个模式)— 如果改成"按下快捷键再创建窗口",`new BrowserWindow` + `loadFile` 通常 200-400ms,直接破 100ms。
+3. **B 段首轮 235ms 是异常值**:第 2-10 轮 mean 175ms,首轮把 mean 拉到 181。首轮慢于后续 ≈ 60ms,推测是 AudioContext 首次创建 + AudioWorklet 首次 addModule 的解析开销。production 首次录音会命中这条慢路径,p95 应取 235ms 作上限。
+4. **B 段没量到 macOS mic 权限对话框阻塞时间**:本机已授权 Electron 访问 mic,首次跑会被对话框阻塞(用户操作时间不可控);PRD §7.1 隐含前提是"权限已授"。Onboarding 流程要保证录音前权限已就位(见 dev-plan T20)。
+
+### Caveats
+
+- **单机型数据**:M2 arm64 / macOS 14.x。Intel Mac / Win i5 未测(无机器)。spike-012 三档压测时同步补这两个平台的快捷键 → PCM 数据。Windows WASAPI loopback 路径下 B 段可能更慢(没 AudioWorklet 直通,要走 desktopCapturer)。
+- **A 段量的是 main 进程 `'show'` event**,**不是用户视觉感知**:OS compositor 还要一帧才把窗口合成到屏幕。但 16ms 是固定 OS 开销,加上去仍 < 100ms。
+- **A 段第一次和后续耗时差不大**(warmup 57ms vs round mean 34ms),说明 NSWindow show 路径没有大的冷启动开销。production 浮窗常驻 hidden 后,真实第一次快捷键 show 应在 50ms 内。
+- **B 段每轮都重新 getUserMedia + AudioContext**,模拟"按一次录一次"的最差路径。production 实际场景可能复用 AudioContext + 长期持有 stream(尤其录制中状态),那时第一帧延迟应更低。
+- **样本小**(A=15 / B=10),p95 实际等于 max,统计上限不严谨。但中位数稳定 + 没有长尾,主结论不依赖样本量。
+
+### 决策
+
+**T11 浮窗 100ms / 第一帧 PCM 400ms / PRD §7.1 总预算 500ms 在 M2 上有充足余量,可走 T11/T12 实施**。
+
+- 浮窗**必须预创建常驻 hidden**(本测前提)。T11 实现按这个模式做。
+- AudioContext / AudioWorklet 首次加载有 ~60ms 额外开销,T12 可考虑在 app 启动后预加载一个空 AudioContext + worklet module,把首录延迟再砍掉(优化项,非必须)。
+- Intel Mac / Win i5 数据 ⏳ 等 spike-012 时补;如果任一平台破预算,触发 dev-plan §10.2 砍 scope(降级"录前预热"或调整 PRD §7.1 阈值)。
