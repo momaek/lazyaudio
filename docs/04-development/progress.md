@@ -98,7 +98,7 @@ _目前没有 WIP 任务。T05 PR [#8](https://github.com/momaek/lazyaudio/pull/
 
 **下一步候选**(T05 合后):
 
-- `T05` i18n / `T06` 日志(各 0.5d,独立)
+- `T06` 日志框架(0.5d,T05 i18n 已闭环)
 - `spike-010` 快捷键 → 第一帧 PCM(0.5d)
 - `spike-005` mic/system 漂移(0.5d,需 fixture)
 - `spike-013` hypothesis UI(0.5d,需设计协作)
