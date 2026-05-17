@@ -8,5 +8,10 @@
     "outDir": "./out/types/web",
     "tsBuildInfoFile": "./out/types/web.tsbuildinfo"
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "shared/**/*.ts"]
+  "include": [
+    "src/renderer/**/*.ts",
+    "src/renderer/**/*.tsx",
+    "src/renderer/**/*.json",
+    "shared/**/*.ts"
+  ]
 }

@@ -1,0 +1,37 @@
+{
+  "appName": "LazyAudio",
+  "start": "开始录音",
+  "stop": "停止录音",
+  "pause": "暂停",
+  "resume": "继续",
+  "cancel": "取消",
+  "confirm": "确认",
+  "delete": "删除",
+  "disabled": "禁用",
+  "more": "更多",
+  "save": "保存",
+  "settings": "设置",
+  "showcase": {
+    "title": "LazyAudio · Design Tokens Showcase",
+    "modeAuto": "auto",
+    "modeLight": "light",
+    "modeDark": "dark"
+  },
+  "session": {
+    "general": "通用",
+    "meeting": "会议",
+    "note": "笔记",
+    "interviewAsInterviewer": "面试官",
+    "interviewAsCandidate": "面试者",
+    "lecture": "课程",
+    "podcast": "播客"
+  },
+  "ping": {
+    "loading": "调用 system:ping …",
+    "fieldTsMs": "tsMs",
+    "fieldTime": "主进程时间",
+    "fieldNode": "node",
+    "fieldElectron": "electron",
+    "subtitle": "main window · T04 IPC sanity"
+  }
+}

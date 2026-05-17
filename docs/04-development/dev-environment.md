@@ -425,6 +425,17 @@ pnpm install -D @vitejs/plugin-react
 
 **修复**：把内部模块的 import 改成相对路径（`./foo`）或 alias（`@shared/...`），避免被外部化。
 
+### 8.8 `pnpm dev` 起来 `window.lazyaudio` 在 renderer 里 undefined
+
+两个坑叠加(T05 实测踩过):
+
+1. **sandbox: true 下 Electron 不支持 ESM preload**:electron-vite 默认把 preload 输出成 `.mjs`,Electron 静默拒绝加载,**preload 完全不跑,没任何报错**。
+   修法:`electron.vite.config.ts` 的 preload 段设 `output: { format: 'cjs', entryFileNames: '[name].js' }`,主进程 `webPreferences.preload` 用 `.js`。
+2. **sandbox preload 不能引第三方运行时**(zod / 第三方 npm 包等);上游模块通过 import 链拽进来也算。
+   修法:把 channel 名常量拆到 `shared/ipc/channels.ts`(纯字符串,无 zod),preload 只引那个;含 zod schema 的 `shared/ipc/{system,record,settings}.ts` 仅给 main / renderer 业务层引。
+
+**排查路径**:在 preload/index.ts 临时加 `console.info('[preload] hi')`,看主进程终端有没有这行 — 没有 → preload 没跑(坑 1);有但 `exposeInMainWorld` 报错 → 沙箱拒绝(坑 2)。
+
 ---
 
 ## 9. 推荐的 daily workflow

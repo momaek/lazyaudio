@@ -1,11 +1,9 @@
 import { z } from 'zod'
+export { SYSTEM as CHANNEL } from './channels'
 
 // system domain:平台 / 健康检查 / 通知 / 路径 reveal 等。
 // 本 PR 仅落地 ping(端到端 sanity);其余通道(permission / notify / reveal)留 M3+ 后续 T。
-
-export const CHANNEL = {
-  ping: 'system:ping',
-} as const
+// 通道名在 channels.ts(无 zod 依赖,preload 可在 sandbox 下安全 import)。
 
 // ---- ping ------------------------------------------------------------------
 export const PingArgs = z.object({}).optional()
