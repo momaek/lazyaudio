@@ -1,0 +1,19 @@
+{
+  "name": "spike-010",
+  "version": "0.0.0",
+  "private": true,
+  "description": "spike-010 快捷键 → 第一帧 PCM 时延量化",
+  "main": "src/main.js",
+  "scripts": {
+    "bench": "electron .",
+    "report": "node src/report.mjs"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}

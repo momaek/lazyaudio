@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>spike-010 bench</title>
+    <style>
+      body {
+        font:
+          13px -apple-system,
+          system-ui,
+          sans-serif;
+        padding: 12px;
+        margin: 0;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 8px;
+        max-height: 260px;
+        overflow: auto;
+        font-size: 11px;
+        margin: 4px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>spike-010 bench(自动跑)</h2>
+    <p style="margin: 0 0 6px; color: #666">
+      弹 mic 权限对话框时点"允许",然后等。结果写 results/ 后自动退。
+    </p>
+    <pre id="log"></pre>
+    <script>
+      const log = (s) => {
+        const el = document.getElementById('log')
+        el.textContent += s + '\n'
+        el.scrollTop = el.scrollHeight
+        console.log(s)
+      }
+
+      const WORKLET_SRC = `
+    class PCMEmitter extends AudioWorkletProcessor {
+      constructor() { super(); this.fired = false; }
+      process(inputs) {
+        if (!this.fired && inputs[0] && inputs[0][0] && inputs[0][0].length > 0) {
+          this.fired = true
+          this.port.postMessage('first-frame')
+        }
+        return true
+      }
+    }
+    registerProcessor('pcm-emitter', PCMEmitter)
+  `
+      const WORKLET_URL = URL.createObjectURL(
+        new Blob([WORKLET_SRC], { type: 'application/javascript' }),
+      )
+
+      async function pcmOneRound() {
+        const t0 = performance.now()
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 48000,
+            channelCount: 1,
+            echoCancellation: false,
+            noiseSuppression: false,
+          },
+        })
+        const ctx = new AudioContext({ sampleRate: 48000 })
+        await ctx.audioWorklet.addModule(WORKLET_URL)
+        const node = new AudioWorkletNode(ctx, 'pcm-emitter')
+        const source = ctx.createMediaStreamSource(stream)
+        source.connect(node)
+        return new Promise((resolve) => {
+          node.port.onmessage = () => {
+            const delta = performance.now() - t0
+            stream.getTracks().forEach((t) => t.stop())
+            ctx.close()
+            resolve(delta)
+          }
+        })
+      }
+
+      async function main() {
+        log('1. show bench 启动(15 轮 + warmup,主进程会反复 hide/show)...')
+        const samples = await window.spike.runShowBench()
+        log('   show samples: ' + samples.map((n) => n.toFixed(1)).join(', ') + ' ms')
+
+        log('2. 触发 mic 权限...')
+        let micOk = false
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ audio: true })
+          s.getTracks().forEach((t) => t.stop())
+          log('   mic ok')
+          micOk = true
+        } catch (e) {
+          log('   mic 失败: ' + e.name + ' / ' + e.message + ' — 跳过 PCM 段')
+        }
+
+        if (micOk) {
+          log('3. pcm bench 启动(10 轮 + warmup)...')
+          await pcmOneRound()
+          for (let i = 0; i < 10; i++) {
+            const ms = await pcmOneRound()
+            log('   pcm ' + (i + 1) + ': ' + ms.toFixed(1) + ' ms')
+            window.spike.reportPcm(ms)
+            await new Promise((r) => setTimeout(r, 200))
+          }
+        }
+
+        log('done, 主进程聚合 + 写文件 + 退出')
+        window.spike.allDone()
+      }
+
+      // main 进程通过 IPC 触发 bench(避免 hidden window 的 setTimeout throttling)
+      window.spike.onStartBench(main)
+    </script>
+  </body>
+</html>
