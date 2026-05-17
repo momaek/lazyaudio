@@ -1,0 +1,6 @@
+{
+  "unknown": "未知错误({{code}})",
+  "pingFailed": "ping 失败:{{message}}",
+  "permissionDenied": "权限被拒绝,请到系统设置中授予权限",
+  "sherpaDylibMissing": "本地转录引擎初始化失败:缺少必要的运行时文件"
+}
