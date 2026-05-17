@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：ADR-0001/0002/0003 已闭环(分支 docs/adr-0001-0003-fillout,等开 PR);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) 等 review;T01 已合(#1)
+> **当前焦点**：ADR-0001/0002/0003 PR [#3](https://github.com/momaek/lazyaudio/pull/3) 等 review (base = spike/011);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) 等 review;T01 已合(#1)
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -94,7 +94,7 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_目前没有 WIP 任务。ADR-0001/0002/0003 已闭环(分支 docs/adr-0001-0003-fillout,等开 PR);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) review 中。下一步候选见下。_
+_目前没有 WIP 任务。ADR-0001/0002/0003 PR [#3](https://github.com/momaek/lazyaudio/pull/3) review 中(base = spike/011);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) review 中。下一步候选见下。_
 
 **下一步候选**(Pre-M3 退出条件倒推):
 
@@ -126,9 +126,9 @@ _目前没有 WIP 任务。ADR-0001/0002/0003 已闭环(分支 docs/adr-0001-000
 
 | ID       | 主题                                                      | 状态    | 完         | 备注                                                |
 | -------- | --------------------------------------------------------- | ------- | ---------- | --------------------------------------------------- |
-| ADR-0001 | macOS 最低版本 14.2+（CoreAudio Tap vs ScreenCaptureKit） | ✅ done | 2026-05-17 | 分支 docs/adr-0001-0003-fillout,等 PR               |
-| ADR-0002 | sherpa-onnx + macOS @loader_path 加载链                   | ✅ done | 2026-05-17 | 分支 docs/adr-0001-0003-fillout,等 PR               |
-| ADR-0003 | ASR 跑 utility process                                    | ✅ done | 2026-05-17 | 分支 docs/adr-0001-0003-fillout,等 PR               |
+| ADR-0001 | macOS 最低版本 14.2+（CoreAudio Tap vs ScreenCaptureKit） | ✅ done | 2026-05-17 | PR [#3](https://github.com/momaek/lazyaudio/pull/3) |
+| ADR-0002 | sherpa-onnx + macOS @loader_path 加载链                   | ✅ done | 2026-05-17 | PR [#3](https://github.com/momaek/lazyaudio/pull/3) |
+| ADR-0003 | ASR 跑 utility process                                    | ✅ done | 2026-05-17 | PR [#3](https://github.com/momaek/lazyaudio/pull/3) |
 | ADR-0004 | Pass A 引擎选型 → vad-shortwin SenseVoice                 | ✅ done | 2026-05-17 | PR [#2](https://github.com/momaek/lazyaudio/pull/2) |
 
 ---
