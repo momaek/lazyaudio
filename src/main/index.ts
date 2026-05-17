@@ -3,11 +3,16 @@ import './env'
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { registerIpc } from './ipc/register'
+import { initLogger, logger } from './logger'
+
+app.setName('LazyAudio')
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 }
+
+initLogger()
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -40,6 +45,7 @@ function createMainWindow(): BrowserWindow {
 app.whenReady().then(() => {
   registerIpc()
   createMainWindow()
+  logger.info('app ready')
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
