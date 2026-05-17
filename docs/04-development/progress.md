@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：T03 Tailwind + design tokens(🔄 起 2026-05-17,分支 feat/T03-tailwind);#1-#5 全已合
+> **当前焦点**：T03 PR [#6](https://github.com/momaek/lazyaudio/pull/6) CI 全绿,等 review;#1-#5 全已合
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,8 +82,8 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 11(+T02)                                        |
-| 🔄 wip                    | 1(T03)                                          |
+| ✅ done                   | 12(+T03)                                        |
+| 🔄 wip                    | 0                                               |
 | ⛔ blocked                | 0                                               |
 | 🔲 todo                   | 49                                              |
 | 本周燃尽                  | —                                               |
@@ -94,21 +94,7 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T03 — Tailwind + design tokens(🔄 起 2026-05-17,分支 feat/T03-tailwind)
-
-AC checklist:
-
-- [ ] 装 `tailwindcss@^4` + `@tailwindcss/vite` + 必要 plugin
-- [ ] `tailwind.config.ts`(或 Tailwind 4 CSS `@theme`)录入 design-system §2-4 所有 token:
-  - §2.1 gray 11 阶 / §2.2 brand+status 6 色双套 / §2.3 sessionType 7 色双套 / §2.4 背景层级 L0-L3 + 边框
-  - §3 字体栈(UI + monospace)+ 6 text size token
-  - §4.1 spacing s-0~s-12 / §4.2 radius sm/md/lg/xl/full / §4.3 shadow sm/md/lg
-- [ ] `styles/globals.css` + `styles/tokens.css` + `styles/dark.css`(浅/深双套)
-- [ ] 类基模式深色(`darkMode: 'class'` / `@variant dark (.dark &)`),T58 接 toggle
-- [ ] 3 个示例组件(`Button` / `RecordingDot` / `TypeBadge`)即时按 `dark:` 双套
-- [ ] showcase 页(dev-only entry)演示所有 token + 3 组件 + 浅/深切换
-- [ ] **AC**:`pnpm dev` 起 showcase,OS 模拟 / 手动 toggle 切深色,**所有 token 视觉无回退**(截图)
-- [ ] `pnpm lint && pnpm typecheck && pnpm test` 全过
+_目前没有 WIP 任务。T03 PR [#6](https://github.com/momaek/lazyaudio/pull/6) CI 全绿等 review。下一步候选见下。_
 
 **下一步候选**(T03 合后):
 
@@ -157,7 +143,7 @@ AC checklist:
 | --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | ----------------------- |
 | T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中    |
 | T02 | CI: lint + typecheck + test               | ✅ done | feat/T02-ci ([#5](https://github.com/momaek/lazyaudio/pull/5))       | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
-| T03 | Tailwind + design tokens（浅 + 深双模式） | 🔄 wip  | feat/T03-tailwind                                                    | 2026-05-17 | —          | AC 跑过等 PR            |
+| T03 | Tailwind + design tokens（浅 + 深双模式） | ✅ done | feat/T03-tailwind ([#6](https://github.com/momaek/lazyaudio/pull/6)) | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
 | T04 | IPC 框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
 | T05 | i18n 框架                                 | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
 | T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
