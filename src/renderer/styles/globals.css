@@ -1,0 +1,45 @@
+/*
+ * LazyAudio renderer 全局样式入口。
+ * 每个窗口的 *.tsx 顶部 import './styles/globals.css' 即可生效。
+ */
+
+@import 'tailwindcss';
+
+/* class-based 深色模式:加 .dark 到 <html> 即生效。
+ * T58 设置页的「跟随系统 / 强制浅 / 强制深」就是切这个 class。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@import './tokens.css';
+@import './dark.css';
+
+/* ---- 基础 reset / 字体栈 ---- */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  color: var(--color-gray-900);
+  background: var(--color-bg-l1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  color: var(--color-gray-50);
+  background: var(--color-bg-l1);
+}
+
+/* ---- 呼吸红点动画(design-system §5.2) ---- */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.92);
+  }
+}
