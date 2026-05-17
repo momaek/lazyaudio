@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：T02 CI lint+typecheck+test(🔄 起 2026-05-17,分支 feat/T02-ci);Pre-M3 前 3 个 PR (#1/#2/#3/#4) 已合
+> **当前焦点**：T02 PR [#5](https://github.com/momaek/lazyaudio/pull/5) CI 全绿,等 review;Pre-M3 前 4 个 PR (#1/#2/#3/#4) 已合
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -79,14 +79,14 @@
 
 ## 速查面板
 
-| 维度                      | 数字                                                                  |
-| ------------------------- | --------------------------------------------------------------------- |
-| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**                       |
-| ✅ done                   | 10(spike-001/002/003/004 + T01 + spike-011 + ADR-0001/0002/0003/0004) |
-| 🔄 wip                    | 1(T02)                                                                |
-| ⛔ blocked                | 0                                                                     |
-| 🔲 todo                   | 50                                                                    |
-| 本周燃尽                  | —                                                                     |
+| 维度                      | 数字                                            |
+| ------------------------- | ----------------------------------------------- |
+| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
+| ✅ done                   | 11(+T02)                                        |
+| 🔄 wip                    | 0                                               |
+| ⛔ blocked                | 0                                               |
+| 🔲 todo                   | 50                                              |
+| 本周燃尽                  | —                                               |
 
 ---
 
@@ -94,17 +94,9 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T02 — CI: lint + typecheck + test(🔄 起 2026-05-17,分支 feat/T02-ci)
+_目前没有 WIP 任务。T02 PR [#5](https://github.com/momaek/lazyaudio/pull/5) CI 全绿等 review。下一步候选见下。_
 
-AC checklist(本 PR 合前必勾):
-
-- [ ] `.github/workflows/ci.yml` 落地,3 个 job:lint / typecheck / test
-- [ ] PR 自动触发 CI(`on: pull_request`),merge 前可以靠 branch protection block 不绿的 PR
-- [ ] 顺手装 vitest + vitest.config.ts + 1-2 sanity test(T01 没装,test job 否则空跑)
-- [ ] **AC**:本 PR 自身就是 dummy PR,push 后 CI 3 job 全绿(贴 CI run 链接)
-- [ ] 本地 `pnpm lint && pnpm typecheck && pnpm test` 全过
-
-**下一步候选**(T02 合后 Pre-M3 退出条件倒推):
+**下一步候选**(Pre-M3 退出条件倒推):
 
 - `T03` Tailwind + design tokens(0.5d,依赖 T01,UI 任务前置)
 - `T04` IPC 框架(0.5d,依赖 T01,跨进程胶水)
@@ -113,6 +105,7 @@ AC checklist(本 PR 合前必勾):
 - `spike-005` mic/system 漂移量化(0.5d,需 fixture)
 - `spike-013` hypothesis UI 稳定性(0.5d,需设计协作)
 - `spike-012` Pass A 并发 1h 压测(1d,依赖 spike-011 ✅)
+- 02-design 屏 0(macOS 版本检查)文案 + LLM 模板 meeting/note prompt 各 v0.1(非代码,需用户拍)
 
 ---
 
@@ -147,14 +140,14 @@ AC checklist(本 PR 合前必勾):
 
 ### 4.1 Pre-M3 — 脚手架（T01-T06）
 
-| ID  | 标题                                      | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                 |
-| --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | -------------------- |
-| T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中 |
-| T02 | CI: lint + typecheck + test               | 🔄 wip  | feat/T02-ci                                                          | 2026-05-17 | —          | AC 跑过等 PR         |
-| T03 | Tailwind + design tokens（浅 + 深双模式） | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
-| T04 | IPC 框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
-| T05 | i18n 框架                                 | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
-| T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
+| ID  | 标题                                      | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                    |
+| --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | ----------------------- |
+| T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中    |
+| T02 | CI: lint + typecheck + test               | ✅ done | feat/T02-ci ([#5](https://github.com/momaek/lazyaudio/pull/5))       | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
+| T03 | Tailwind + design tokens（浅 + 深双模式） | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
+| T04 | IPC 框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
+| T05 | i18n 框架                                 | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
+| T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
 
 **Pre-M3 退出条件**（dev-plan §2.4 复核）：
 
