@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：T05 i18n 框架(🔄 起 2026-05-17,分支 feat/T05-i18n);#1-#7 全已合
+> **当前焦点**：T05 PR [#8](https://github.com/momaek/lazyaudio/pull/8) CI 全绿(2 轮),等 review;#1-#7 全已合
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,8 +82,8 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 13(+T04)                                        |
-| 🔄 wip                    | 1(T05)                                          |
+| ✅ done                   | 14(+T05)                                        |
+| 🔄 wip                    | 0                                               |
 | ⛔ blocked                | 0                                               |
 | 🔲 todo                   | 47                                              |
 | 本周燃尽                  | —                                               |
@@ -94,17 +94,7 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T05 — i18n 框架(🔄 起 2026-05-17,分支 feat/T05-i18n)
-
-AC checklist:
-
-- [ ] 装 `i18next` + `react-i18next` + `eslint-plugin-i18next`
-- [ ] `src/renderer/i18n/{index,format}.ts` + `locales/zh-CN/{common,errors}.json`
-- [ ] ESLint flat config 加 `i18next/no-literal-string`:**warn 不 error**(CI 不 block);提供 `// i18n-allow` 行内豁免;关掉 `aria-label` / `console.*` / Zod error message 等场景
-- [ ] 每个 renderer entry(main / prep / onboarding / settings / showcase)在 mount 前 `initI18n()`
-- [ ] **AC1**:showcase / 主窗口 Button 文案 "开始录音" 走 `t('common.start')`
-- [ ] **AC2**:`pnpm lint` 报 i18n warn 数 < 20(允许少量未迁的占位字符串)
-- [ ] `pnpm lint && pnpm typecheck && pnpm test` 全过(no-literal-string 是 warn 不 error)
+_目前没有 WIP 任务。T05 PR [#8](https://github.com/momaek/lazyaudio/pull/8) CI 全绿等 review。下一步候选见下。_
 
 **下一步候选**(T05 合后):
 
@@ -148,14 +138,14 @@ AC checklist:
 
 ### 4.1 Pre-M3 — 脚手架（T01-T06）
 
-| ID  | 标题                                      | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                    |
-| --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | ----------------------- |
-| T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中    |
-| T02 | CI: lint + typecheck + test               | ✅ done | feat/T02-ci ([#5](https://github.com/momaek/lazyaudio/pull/5))       | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
-| T03 | Tailwind + design tokens（浅 + 深双模式） | ✅ done | feat/T03-tailwind ([#6](https://github.com/momaek/lazyaudio/pull/6)) | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
-| T04 | IPC 框架                                  | ✅ done | feat/T04-ipc ([#7](https://github.com/momaek/lazyaudio/pull/7))      | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中 |
-| T05 | i18n 框架                                 | 🔄 wip  | feat/T05-i18n                                                        | 2026-05-17 | —          | AC 跑过等 PR            |
-| T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                |
+| ID  | 标题                                      | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                                |
+| --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | ----------------------------------- |
+| T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中                |
+| T02 | CI: lint + typecheck + test               | ✅ done | feat/T02-ci ([#5](https://github.com/momaek/lazyaudio/pull/5))       | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中             |
+| T03 | Tailwind + design tokens（浅 + 深双模式） | ✅ done | feat/T03-tailwind ([#6](https://github.com/momaek/lazyaudio/pull/6)) | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中             |
+| T04 | IPC 框架                                  | ✅ done | feat/T04-ipc ([#7](https://github.com/momaek/lazyaudio/pull/7))      | 2026-05-17 | 2026-05-17 | 3 job CI 全绿,review 中             |
+| T05 | i18n 框架                                 | ✅ done | feat/T05-i18n ([#8](https://github.com/momaek/lazyaudio/pull/8))     | 2026-05-17 | 2026-05-17 | CI 全绿,Electron 截图验过,review 中 |
+| T06 | 日志框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01                            |
 
 **Pre-M3 退出条件**（dev-plan §2.4 复核）：
 
