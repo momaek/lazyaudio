@@ -269,3 +269,68 @@ spike-005-track-sync/
 任何一个 spike 失败 → 回到本文档的 Plan B 重新评估，必要时回到 product-spec.md 调整需求。
 
 **spike-011 失败的退路**（streaming Zipformer 中文 CER 太差 + VAD 短窗延迟太长）：Pass A 默认禁用，UI 显示"实时转录因模型限制暂不可用，请期待 v0.2"，仅保留 Pass B 走通流程——Multi Pass 架构骨架保留，model selection 推迟。
+
+---
+
+## spike-011 — Pass A 引擎选型结果（2026-05-17）
+
+**状态**：✅ done（拍板 → 走 **B 路 VAD 短窗 SenseVoice 伪流式**）
+**POC 工作区**：[`scratch/spike-011/`](../../scratch/spike-011/)（代码 in tree，模型 / fixture / results 不进 git）
+**决策记录**：[`docs/04-development/adr/ADR-0004-pass-a-engine.md`](../04-development/adr/ADR-0004-pass-a-engine.md)
+
+### 方法学
+
+- **两个候选**：
+  - **A. streaming Zipformer**（`sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20`，~190 MB，`OnlineRecognizer`）
+  - **B. VAD 短窗 SenseVoice**（`silero-vad-v5` ~0.6 MB + `sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09` ~158 MB，`Vad` + `OfflineRecognizer`）
+- **Gold reference**：SenseVoice int8 离线一把推（== Pass B 真实行为）。两路 POC 都用 CER 与 Gold 对照。
+- **音频 fixture**：5 段中文音频，来源：
+  1. `sense-voice-zh.wav`（SenseVoice tarball 自带）：清晰朗读"开放时间..."5.6s
+  2. `streaming-0.wav`：中英混编对话 10.0s
+  3. `streaming-1.wav`：英文字母拼读混中文 5.1s
+  4. `streaming-2.wav`：含"FREQUENT"等英文单词 4.7s
+  5. `streaming-3.wav`：含"YES"等夹杂 8.8s
+- **指标**：
+  - **CER(POC vs Gold)** = Levenshtein 字符距离 / Gold 字符数（中文按字符、英文按字母统一计）
+  - **A 路 tail-latency** = 最后一帧 PCM 推入 → 最终 hypothesis 出现的 wall-clock
+  - **B 路 per-segment latency p50 / p95** = VAD endpoint → 该段 ASR 出结果
+  - **A 路 hypothesis volatility** = 改写次数 / transition 总数（"改写"指当前 text 不是上一次的纯前缀扩展）
+  - **rss 内存峰值** = `process.memoryUsage().rss` 跑分期间峰值
+- **节拍**：A 路按 100 ms chunk 喂,B 路按 VAD windowSize（512 samples）喂,均 `await setTimeout` 到下一个实时边界以模拟"边录边推"。
+- **硬件**：本机 Apple Silicon（darwin25.3.0 arm64），Node v20.13.1。Intel Mac / Windows 留给 spike-012 复测。
+
+### 测量数据（5 段 fixture 聚合）
+
+| 指标                               | A. streaming Zipformer          | B. VAD 短窗 SenseVoice            |
+| ---------------------------------- | ------------------------------- | --------------------------------- |
+| 平均 CER vs Gold                   | **26.0%**                       | **9.8%**                          |
+| 最差 fixture CER                   | 57.9%（streaming-1）            | 15.8%（streaming-1）              |
+| 最好 fixture CER                   | 0.0%（sense-voice-zh）          | 0.0%（sense-voice-zh）            |
+| Tail / 段 ASR 延迟                 | 24 ms（avg）                    | p50 64 ms / p95 56 ms（avg）      |
+| hypothesis 改写率                  | 0%（只 append,从不改前缀）      | N/A（每段定稿）                   |
+| 模型加载后 rss                     | 加载 SZ 后 +332 MB（共 785 MB） | 加载 VAD 后 +0 MB（共 455 MB）    |
+| 默认 SenseVoice RTF（M2 CPU int8） | —                               | **0.016**（远超 0.05 的研究预期） |
+
+**关键观察**：
+
+1. **A 路 CER 是 B 的 2.66×**，远超 dev-plan 退出条件里的 < 1.2× 阈值 → **走 B**。
+2. A 路 rewrite-rate = 0% — `OnlineRecognizer` 在内部 endpointing 控制下不改写前缀，对视觉稳定性其实有利,但 CER 短板压倒一切。
+3. B 路 p95 段延迟 < 110 ms,A 路 tail-latency < 30 ms,**两路都远低于 PRD §7.1 实时字幕 < 3s 的预算** — 延迟不是决策因素。
+4. **Pass A 复用 SenseVoice = Pass B 复用 SenseVoice** → M4 默认下载模型清单从原 sherpa-onnx-research §5.4 的 ~270 MB 收缩到 SenseVoice 158 MB + Silero VAD 0.6 MB ≈ **159 MB**;Pass A → Pass B 切换不需要 unload + reload 模型,只是窗口大小改变（短窗 → 全文）。
+5. SenseVoice 在 M 系列 CPU 上 RTF = 0.016,**比 sherpa-onnx-research §6.2 的 0.03-0.05 估算还快 2-3×** — Pass B 1h 录音离线全文跑约 1 分钟,Pass A 短窗推理几乎不会成为瓶颈。
+
+### Caveats（写在前面,免得后续误读）
+
+- **Sample size 仅 5 段**,统计置信度弱;但 CER 差距 2.66× 远超阈值,边际不影响结论。spike-012 用真实会议长音频在多机型复测时,数据点会扩到 ≥ 30 段。
+- **Fixture 偏教学语料**:streaming-1/2/3 含较多英文字母拼读 + 中英切换,正是 streaming Zipformer 的短板（训练数据偏标准朗读),会议 / 笔记场景实际差距可能略小。但 sherpa-onnx-research §6.2 已指出 streaming Zipformer 整体精度本就低于 SenseVoice offline,定性结论不会翻转。
+- **Gold 不是绝对正确**:SenseVoice 把 "OS S" 识别成 "OOS"、"FREQUENT" 识别成 "FREQUNTL" — 影响 CER 绝对值,但因两路 POC 对同一 Gold 比较,**相对差距仍然可信**。
+- **B 路 segments 数偏少**:fixture 1/3/4/5 都只切出 1 段 — VAD threshold 0.5 + minSilenceDuration 0.5s 对短音频不敏感。实际录音中分段会更多,p95 段延迟可能轻微上升,但仍远低于 3s 上限。
+- **POC 跑在主线程**,T34 实现时 Pass A 跑在 utility process,需重新量化进程间通信开销;spike-012 覆盖。
+
+### 决策
+
+**走 B 路（Silero VAD + SenseVoice 短窗伪流式)**。
+
+- 主因:CER 显著优于 A 路,且本就是 Pass B 用的同一模型,架构 / 内存 / 模型分发都简化。
+- 次因:tail-latency 优势对 A 路并不构成翻盘理由,B 路 p95 < 110ms 已达"几秒内出文本"的用户预期。
+- 触发的下游影响见 ADR-0004 §后续影响 与本文档 §回写。
