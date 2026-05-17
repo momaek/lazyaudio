@@ -14,6 +14,12 @@
       "runtimeArgs": ["-m", "http.server", "8766"],
       "port": 8766,
       "cwd": "out/renderer"
+    },
+    {
+      "name": "renderer-dev-vite",
+      "runtimeExecutable": "echo",
+      "runtimeArgs": ["dev server already running via pnpm dev on :5173"],
+      "port": 5173
     }
   ]
 }

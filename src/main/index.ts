@@ -2,6 +2,7 @@ import './env'
 
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { registerIpc } from './ipc/register'
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
@@ -36,6 +37,7 @@ function createMainWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  registerIpc()
   createMainWindow()
 
   app.on('activate', () => {
