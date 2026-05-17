@@ -8,7 +8,16 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['out/**', 'dist/**', 'node_modules/**', '.local-userdata/**', '.vite/**'] },
+  {
+    ignores: [
+      'out/**',
+      'dist/**',
+      'node_modules/**',
+      '.local-userdata/**',
+      '.vite/**',
+      'scratch/**', // spike POC 代码,不走 lint(scratch/README 已声明非生产)
+    ],
+  },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
