@@ -3,6 +3,7 @@
 **完成日期**：2026-05-16
 **状态**：v0.1-draft 阶段文档齐备 + 三轮 review 修订完成 + Multi Pass scope 纳入 v0.1 P0；进入 `04-development` 前需跑 spike-011/012/013 拍板 Pass A 引擎
 **修订**：
+
 - 2026-05-16 r2 — 应用了 review r1 的 A/B/C/D 类修订
 - 2026-05-17 r3 — 应用了 review r2 的 17 条遗留 / 新引入问题修订
 - 2026-05-17 r4 — 应用了 review r3 的 9 条遗留（A1-A5 + B1-B4）
@@ -13,19 +14,20 @@
 
 ## 已交付文档
 
-| 文档 | 说明 |
-|---|---|
-| [`overview.md`](./overview.md) | 进程拓扑、模块划分、关键数据流、i18n 选型、dev vs packaged 差异表、待写 ADR |
-| [`audio-capture.md`](./audio-capture.md) | 系统音 / 麦克风采集、AudioWorklet PCM、MessagePort IPC、WAV 流式落盘 + 周期 header flush、外部事件状态机、混音 |
-| [`data-model.md`](./data-model.md) | 目录布局、meta / transcript / settings / templates / models 字段、安装 ID、safeStorage、Schema 版本化 |
+| 文档                                                       | 说明                                                                                                             |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [`overview.md`](./overview.md)                             | 进程拓扑、模块划分、关键数据流、i18n 选型、dev vs packaged 差异表、待写 ADR                                      |
+| [`audio-capture.md`](./audio-capture.md)                   | 系统音 / 麦克风采集、AudioWorklet PCM、MessagePort IPC、WAV 流式落盘 + 周期 header flush、外部事件状态机、混音   |
+| [`data-model.md`](./data-model.md)                         | 目录布局、meta / transcript / settings / templates / models 字段、安装 ID、safeStorage、Schema 版本化            |
 | [`transcription-pipeline.md`](./transcription-pipeline.md) | TranscribeEngine + SummarizerFacade 抽象、sherpa-onnx in utility 自带 loader 守卫、模型镜像 fallback、持久化队列 |
-| [`ipc-contract.md`](./ipc-contract.md) | 全 IPC 通道、命令 / 事件 / MessagePort、错误编码、preload 暴露、host 白名单算法 |
+| [`ipc-contract.md`](./ipc-contract.md)                     | 全 IPC 通道、命令 / 事件 / MessagePort、错误编码、preload 暴露、host 白名单算法                                  |
 
 ---
 
 ## 已应用修订（review r1 → r2）
 
 **A 类（8 条必须修）**：全部已应用
+
 - A1 utility process 自己做 loader 检查 → transcription-pipeline §3.2.1
 - A2 `record:tick` 移除 levels 字段 → ipc-contract §2.2
 - A3 快捷键延迟预算拆两段 → audio-capture §1.1 / §10
@@ -36,6 +38,7 @@
 - A8 `record:open-prep` 拆 → `record:get-prep-defaults` + 内部 `showPrepWindow()` → ipc-contract §2.1 / §10
 
 **B 类（14 条应该修）**：12 条应用，2 条修订
+
 - B1 重采样器拍板 sherpa-onnx-node Resampler 优先 → transcription-pipeline §3.4
 - B2 ffmpeg-static 仅云端用 + macOS 签名清单 → transcription-pipeline §4.2
 - B3 mixStatus 独立子状态、status=done 不等 mixing → audio-capture §6.0
@@ -52,6 +55,7 @@
 - B14 系统 Sleep / 屏保唤醒入状态机 → audio-capture §8.0
 
 **C 类（9 条 v0.x 演进）**：6 条应用 + 2 条修订接受 + 1 条删除
+
 - C1 `SummarizerFacade` 抽象 → transcription-pipeline §6.0
 - C2 `TranscribeEvent` 加 `partial-segment` 类型 → transcription-pipeline §2.1 + ipc-contract §3.2
 - C3 `manifest.nativeBundles` GPU 预留 → data-model §7.1
@@ -63,6 +67,7 @@
 - C9 `audioFiles.codec` 字段（压缩预留）→ data-model §2.1
 
 **D 类（12 条小问题）**：11 条应用，1 条不做
+
 - D1 路径统一 `electron/main/workers/asr/` → overview §5.2 / transcription-pipeline §3.3
 - D2 IPC 日志 channel 黑名单 → data-model §8.3
 - D3 `secrets:test` ping 方法 → ipc-contract §7.2
@@ -77,6 +82,7 @@
 - D12 `record:tick` debounce → throttle → ipc-contract §12
 
 **新增章节**：
+
 - overview §6.4 国际化（i18n）选型
 - overview §7 Dev vs Packaged 差异集中表（A1 / B6 / B14 / D6 同根因的统一收纳）
 
@@ -85,29 +91,36 @@
 ## r3 修订（2026-05-17，应用 review r2）
 
 **字段交叉引用断裂**：
+
 - #4 Settings.recording.`templatePerSessionType` 字段补齐 → data-model §3.1
 - #5 Settings.cloudLLM.`contextWindow` 字段补齐 → data-model §3.1
 - #6 Settings.`onboarding` 段（`completedAt` + `step`）补齐 → data-model §3.1
 
 **A1 / B8 修复落地的二次问题**：
+
 - #7 utility loader 改为主进程通过 init 消息显式传 `platformDir`，不再靠 `__dirname` 反推 → transcription-pipeline §3.2.1
 - #8 install_name_tool afterPack 脚本完整化——同时改 `-id` 和 LC_LOAD_DYLIB（otool -L 扫依赖 + `-change`），避免主 dylib 加载成功但运行时找不到 libonnxruntime → transcription-pipeline §3.2.1
 
 **B8 索引一致性逻辑错**：
+
 - #9 LibraryEntry 新增 `syncedAtMtime` 字段；reconcile 时按 per-entry mtime 比较，`lastBuiltAt` 仅诊断用 → data-model §5.2 / §5.4
 
 **跨文档同步未完成**：
+
 - #1 overview §1 / §6.3 同步两阶段延迟预算（< 100 ms / < 400 ms） → overview
 - #2 overview §4.1 时序图改 `ipc: show(prefs)` 为 main 内部 `showPrepWindow()` + renderer 自调 `get-prep-defaults` → overview
 - #3 overview §10 删掉 4 条已落地的"开放问题"，加划线注释指向解决位置 → overview
 
 **实操点不清**：
+
 - #10 prep window renderer 实例只创建一次——补"组件 mount 拉默认 + 订阅 `settings:changed` 跟随更新"约定 → ipc-contract §2.1
 
 **文案 / 准确性**：
+
 - #11 safeStorage 文案修正：macOS Keychain.app 会显示 `LazyAudio Safe Storage` 保护密钥条目，但用户看不到实际 API key；Windows DPAPI 无 keychain entry → data-model §3.2
 
 **typo / 一致性**：
+
 - #12 `onProgress` → `onEvent` 统一 → transcription-pipeline §4.1 / §3.4
 - #13 audio-capture §9 行"列为 §12 开放问题" → "见 §8.0 状态机表" → audio-capture §9
 - #14 spike-010 拆为两阶段 < 100 / < 400 ms → audio-capture §13
@@ -120,6 +133,7 @@
 ## r4 修订（2026-05-17，应用 review r3）
 
 **编码时会卡的问题**：
+
 - A1 `record:warning` 方向冲突 → 新增 `record:report-warning` invoke 通道（renderer → main），main 汇总后再广播 `record:warning` 事件（main → renderer），两份文档同步 → ipc-contract §2.1 / audio-capture §4.3
 - A2 `get-prep-defaults` 返回去掉 `title` 字段，renderer 本地拼（依赖当前时刻，main 提前返回会过期） → ipc-contract §2.1
 - A3 utility fork 后 `await child.once('spawn')` 再 postMessage——避免 init 消息被丢弃导致 utility 卡死 → transcription-pipeline §3.2.1
@@ -127,6 +141,7 @@
 - A5 `skipPrepPopover=true` 入口路径补：globalShortcut 直接调 `orchestrator.start()`，不走 `record:start` IPC；与 prep renderer 路径复用同一个 entry → ipc-contract §2.1
 
 **小问题**：
+
 - B1 ipc-contract §2.1 表格被 blockquote 切断 → blockquote 移到表格下方
 - B2 `Settings.onboarding.step` 从 `string` 改为 `OnboardingStep` union（9 个值） → data-model §3.1
 - B3 utility 入口注明 CommonJS（与 sherpa-onnx-node CJS 兼容，避免 dual-package 陷阱） → transcription-pipeline §3.2.1
@@ -139,6 +154,7 @@
 **触发**：MVP 必须有实时转录；离线高精度转录覆盖（PRD F4.6–F4.9）
 
 **关键决策**（双轨：doc 骨架现在写 + spike 并行跑）：
+
 - **Pass A**（streaming，录音中）+ **Pass B**（offline，录音 stop 后）双引擎，独立 facade
 - **两个 utility process** 不长期共存——Pass A unload 后 Pass B 才 fork；中途增量 Pass B 仅当内存 > 6GB 允许
 - **transcript 双文件**：`transcript.live.json` + `transcript.json` 共存（live 保留供调试，UI 默认读 offline）
@@ -148,21 +164,22 @@
 
 **doc 骨架同步范围**：
 
-| 层 | 文档 | 改动 |
-|---|---|---|
-| 01 | prd.md §1.3 / §4.1 / §4.3 / §7.1 / §11 / 变更记录 | 增 F4.6–F4.9；§4.3 删除"实时流式"；内存上限 2.5GB；新增 4 条风险 |
-| 01 | tech-feasibility.md | 新增 spike-011（Pass A 引擎选型）/ spike-012（资源压测）/ spike-013（hypothesis 替换稳定性）|
-| 02 | design-brief.md §6.3.5 | 转录区从"录音结束后转录"占位 → 实时段落 + hypothesis/confirmed 视觉 + 10 分钟离线 banner |
-| 02 | design-system.md §5.5.1（新增） | Multi Pass 段落稳定性视觉规范（hypothesis 灰斜体 → confirmed 正文 + 200ms accent 高亮过渡）|
-| 02 | information-architecture.md §3.5 | 转录状态行扩展为 7 态（含 Pass A 跑中 / Pass A 关闭 / Pass B 排队 / Pass B 跑中 / Pass B 完成 / Pass B 失败 但 Pass A 保底）|
-| 02 | user-flows.md §2 | 录音主路径加 Pass A / 中途增量 Pass B / Pass B 覆盖 分支 |
-| 03 | overview.md §1 / §2 / §4.1 | 设计驱动力加 Multi Pass；进程拓扑改 ASR_LIVE / ASR_OFF；时序图重画 |
-| 03 | transcription-pipeline.md §2 | EngineFacade 拆 StreamingEngine + OfflineEngine；新 §2.3 Orchestrator Multi Pass 状态机；§2.4 工厂改名 |
-| 03 | data-model.md §1 / §2.1 / §4.1 | 录音目录加 transcript.live.json；meta 加 liveTranscribe 子状态 + transcribe.mode/timeRangesProcessed；TranscriptSegment 加 segmentId + stability；Transcript 加 pass / partial / timeRangesCovered |
-| 03 | audio-capture.md §1.1 / §4.4（新增） | 设计目标加 PCM fork 条；新章节描述 PCM fork 到 Pass A utility 的 downmix + transferable 机制 |
-| 03 | ipc-contract.md §3.1 / §3.2 / §3.3 | 命令加 transcribe:run-partial-offline / dismiss-partial-suggest / toggle-live / engine-test 改 which；事件加 transcribe:live-progress / live-segment / partial-offline-suggest / offline-overwrite；utility 协议拆 OfflineAsrTask + StreamingAsrTask |
+| 层  | 文档                                              | 改动                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | prd.md §1.3 / §4.1 / §4.3 / §7.1 / §11 / 变更记录 | 增 F4.6–F4.9；§4.3 删除"实时流式"；内存上限 2.5GB；新增 4 条风险                                                                                                                                                                                     |
+| 01  | tech-feasibility.md                               | 新增 spike-011（Pass A 引擎选型）/ spike-012（资源压测）/ spike-013（hypothesis 替换稳定性）                                                                                                                                                         |
+| 02  | design-brief.md §6.3.5                            | 转录区从"录音结束后转录"占位 → 实时段落 + hypothesis/confirmed 视觉 + 10 分钟离线 banner                                                                                                                                                             |
+| 02  | design-system.md §5.5.1（新增）                   | Multi Pass 段落稳定性视觉规范（hypothesis 灰斜体 → confirmed 正文 + 200ms accent 高亮过渡）                                                                                                                                                          |
+| 02  | information-architecture.md §3.5                  | 转录状态行扩展为 7 态（含 Pass A 跑中 / Pass A 关闭 / Pass B 排队 / Pass B 跑中 / Pass B 完成 / Pass B 失败 但 Pass A 保底）                                                                                                                         |
+| 02  | user-flows.md §2                                  | 录音主路径加 Pass A / 中途增量 Pass B / Pass B 覆盖 分支                                                                                                                                                                                             |
+| 03  | overview.md §1 / §2 / §4.1                        | 设计驱动力加 Multi Pass；进程拓扑改 ASR_LIVE / ASR_OFF；时序图重画                                                                                                                                                                                   |
+| 03  | transcription-pipeline.md §2                      | EngineFacade 拆 StreamingEngine + OfflineEngine；新 §2.3 Orchestrator Multi Pass 状态机；§2.4 工厂改名                                                                                                                                               |
+| 03  | data-model.md §1 / §2.1 / §4.1                    | 录音目录加 transcript.live.json；meta 加 liveTranscribe 子状态 + transcribe.mode/timeRangesProcessed；TranscriptSegment 加 segmentId + stability；Transcript 加 pass / partial / timeRangesCovered                                                   |
+| 03  | audio-capture.md §1.1 / §4.4（新增）              | 设计目标加 PCM fork 条；新章节描述 PCM fork 到 Pass A utility 的 downmix + transferable 机制                                                                                                                                                         |
+| 03  | ipc-contract.md §3.1 / §3.2 / §3.3                | 命令加 transcribe:run-partial-offline / dismiss-partial-suggest / toggle-live / engine-test 改 which；事件加 transcribe:live-progress / live-segment / partial-offline-suggest / offline-overwrite；utility 协议拆 OfflineAsrTask + StreamingAsrTask |
 
 **未做**（spike 后再补）：
+
 - Pass A 引擎具体选型（streaming Zipformer 或 VAD 短窗 SenseVoice）——spike-011 拍板
 - 默认下载模型清单——选 streaming Zipformer 则多加 ~150 MB
 - 性能预算具体数字（Pass A CPU 占用、延迟实测）——spike-012 量化后回灌 PRD §7.1

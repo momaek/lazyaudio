@@ -12,6 +12,7 @@ _Started 2026-05-16 10:17 UTC_
 应该长啥样"。
 
 【硬性约束】
+
 1. 严格遵守 §3 禁止项——尤其不要装饰性渐变、玻璃拟态卡片、
    营销感 banner、卡通插画。macOS 浮窗的 vibrancy 是唯一例外
    （仅限 onboarding / dropdown / 录音前浮窗）。
@@ -24,6 +25,7 @@ _Started 2026-05-16 10:17 UTC_
    不要留大片空白。
 
 【交付范围】优先级按 §9 必交付物，从上到下推进：
+
 1. 主窗口 — 有数据态（§6.1）— macOS 浅色
 2. 主窗口 — 录音中状态（§6.3.5）
 3. 主窗口 — 空状态（§6.2）+ 转录中 / 失败态（§6.3）
@@ -35,6 +37,7 @@ _Started 2026-05-16 10:17 UTC_
 9. Windows 风格版本：主窗口（有数据态）
 
 【工作方式】
+
 - 一屏一屏画，每画完一屏先停下来给我看，我确认 OK 再继续下一屏
 - 不要批量出十几张稿才停
 - 每屏标注：用到的 token 名、关键尺寸（间距、字号、组件高度）、
@@ -58,7 +61,7 @@ Verifier agent check completed
 
 ## User
 
-title 太长了，需要隐藏起来... 
+title 太长了，需要隐藏起来...
 然后可以继续后面的了，不需要再问行不行了。
 
 ## Assistant
@@ -102,6 +105,7 @@ _[tool: str_replace_edit]_
 继续第 3 项 — **主窗口 · 空状态 + 转录中 + 失败态**。
 
 我的设计决策：
+
 - **空状态**：左侧库栏完全空（只保留搜索 + chip 行）；右侧详情区彻底为空，居中一个克制的"还没有录音"+ 键帽 + primary 按钮。**不画任何插画**——按 §3 禁止项严格执行。
 - **转录中**：列表项徽章替换为 `⟳ 34%` 进度色；详情区展示骨架屏 + 顶部进度条（不是浮窗）；摘要面板灰化。
 - **失败态**：列表项徽章 `⚠ 转录失败`；详情区显示错误信息 + [重试] + [查看日志] 链接。
@@ -182,19 +186,19 @@ _[tool: fork_verifier_agent]_
 
 ## 交付清单
 
-| # | 章节 | Artboard | 备注 |
-|---|---|---|---|
-| 1 | §6.1 | 主窗口 · macOS 浅色 · 有数据 | 面试评估摘要模板 |
-| 2 | §6.3.5 | 主窗口 · macOS 浅色 · 录音中 | 顶部 28px 状态条 + 实时波形 + 暂停/停止按钮 |
-| 3 | §6.2 | 主窗口 · macOS 浅色 · 空状态 | 列表 + 详情都为空，键帽提示 ⌘⇧R |
-| 4 | §6.3 | 主窗口 · macOS 浅色 · 转录中 | 列表 ⟳ 34% 徽章 + 详情骨架屏 + 摘要灰化 |
-| 5 | §6.3 | 主窗口 · macOS 浅色 · 转录失败 | 错误堆栈 + [重试][改用本地] |
-| 6 | §6.4 | 录音前浮窗（360×220）| macOS vibrancy 磨砂 |
-| 7 | §6.5 | 菜单栏 dropdown · 空闲 + 录音中 | 含「最近录音」子菜单展开 |
-| 8 | §6.6 | Onboarding 1 / 2 / 4a / 5 / 7 | 全部 720×520，底部 64px 操作条 |
-| 9 | §6.9 | 设置 · 转录引擎 · 本地 + 云端 | 880×640，左 200px nav + 右 content |
-| 10 | 深色 | 主窗口（数据 + 录音中）· 浮窗 · OB 屏 7 | 4 屏 |
-| 11 | Win | 主窗口 · 浅色 · 有数据 | 只换外壳：右侧 — □ ×，Segoe UI，hover 1px accent 描边，10px 滚动条 |
+| #   | 章节   | Artboard                                | 备注                                                               |
+| --- | ------ | --------------------------------------- | ------------------------------------------------------------------ |
+| 1   | §6.1   | 主窗口 · macOS 浅色 · 有数据            | 面试评估摘要模板                                                   |
+| 2   | §6.3.5 | 主窗口 · macOS 浅色 · 录音中            | 顶部 28px 状态条 + 实时波形 + 暂停/停止按钮                        |
+| 3   | §6.2   | 主窗口 · macOS 浅色 · 空状态            | 列表 + 详情都为空，键帽提示 ⌘⇧R                                    |
+| 4   | §6.3   | 主窗口 · macOS 浅色 · 转录中            | 列表 ⟳ 34% 徽章 + 详情骨架屏 + 摘要灰化                            |
+| 5   | §6.3   | 主窗口 · macOS 浅色 · 转录失败          | 错误堆栈 + [重试][改用本地]                                        |
+| 6   | §6.4   | 录音前浮窗（360×220）                   | macOS vibrancy 磨砂                                                |
+| 7   | §6.5   | 菜单栏 dropdown · 空闲 + 录音中         | 含「最近录音」子菜单展开                                           |
+| 8   | §6.6   | Onboarding 1 / 2 / 4a / 5 / 7           | 全部 720×520，底部 64px 操作条                                     |
+| 9   | §6.9   | 设置 · 转录引擎 · 本地 + 云端           | 880×640，左 200px nav + 右 content                                 |
+| 10  | 深色   | 主窗口（数据 + 录音中）· 浮窗 · OB 屏 7 | 4 屏                                                               |
+| 11  | Win    | 主窗口 · 浅色 · 有数据                  | 只换外壳：右侧 — □ ×，Segoe UI，hover 1px accent 描边，10px 滚动条 |
 
 ## 几处需要你确认的判断
 
@@ -315,15 +319,15 @@ content padding 32，控件高度按 §5.4.1。每个 tab 画一张高保真。
    - 链接：使用文档 / 反馈问题 / 开源协议 / 致谢
    - 底部 11px gray 版权行
 
-【App Icon】
-6. App Icon — 1024×1024 master
-   - 调性参考 §3：工具感、克制、Linear / Logic Pro / macOS
-     系统设置那种感觉
-   - 主元素：能联想到"录音 + 转录文字"的图形（不要话筒+音符
-     这种烂大街组合）
-   - macOS 圆角方形（按 macOS 11+ 模板）+ Windows 方形
-   - 给浅色 + 深色背景预览
-   - 不要渐变、不要拟物质感
+【App Icon】6. App Icon — 1024×1024 master
+
+- 调性参考 §3：工具感、克制、Linear / Logic Pro / macOS
+  系统设置那种感觉
+- 主元素：能联想到"录音 + 转录文字"的图形（不要话筒+音符
+  这种烂大街组合）
+- macOS 圆角方形（按 macOS 11+ 模板）+ Windows 方形
+- 给浅色 + 深色背景预览
+- 不要渐变、不要拟物质感
 
 工作方式同前：一张一张画，画完停下来给我看，标注 token 名 +
 对应章节号。从"通用 tab"开始。
@@ -353,28 +357,31 @@ _[tool: done]_
 ## 通用 tab 设计说明
 
 **布局结构（§6.9）**
+
 - 880×640 窗口外壳复用 §6.9 设置框架
 - 左侧 nav 200px，「通用」高亮（accent 色 + 2px 左 indicator）
 - 右侧 content padding 32，内容竖排两组卡片
 
 **控件清单**
 
-| 设置项 | 控件类型 | 高度 | Token |
-|---|---|---|---|
-| 启动时打开 LazyAudio | Toggle 开关 | 18px | `--gray-300` (off) / `--accent` (on) |
-| 关闭主窗口时 | 垂直 Radio 组 × 2 | 22px/行 | `--accent` (selected) |
-| 语言 | Select 下拉 | 28px | `--surface-raised` + `--border-strong` |
-| 主题 | Segmented control 3 段 | 28px | `--surface-sunken` (track) + `--surface-raised` (active) |
-| 转录完成后提醒 | Toggle | 18px | 同上 |
-| 错误发生时提醒 | Toggle | 18px | 同上 |
+| 设置项               | 控件类型               | 高度    | Token                                                    |
+| -------------------- | ---------------------- | ------- | -------------------------------------------------------- |
+| 启动时打开 LazyAudio | Toggle 开关            | 18px    | `--gray-300` (off) / `--accent` (on)                     |
+| 关闭主窗口时         | 垂直 Radio 组 × 2      | 22px/行 | `--accent` (selected)                                    |
+| 语言                 | Select 下拉            | 28px    | `--surface-raised` + `--border-strong`                   |
+| 主题                 | Segmented control 3 段 | 28px    | `--surface-sunken` (track) + `--surface-raised` (active) |
+| 转录完成后提醒       | Toggle                 | 18px    | 同上                                                     |
+| 错误发生时提醒       | Toggle                 | 18px    | 同上                                                     |
 
 **视觉规则**
+
 - 每组用 `.setting-rows` 卡片包裹（`--surface-raised` 背景 + `--border-subtle` 边框）
 - 行间 1px 分隔线（`--border-subtle`）
 - 行左列固定 180px label，右列右对齐控件
 - 二级分组标题用 11px uppercase + 0.05em letter-spacing（`--text-subtle`），参考 macOS 系统设置那种节奏
 
 **和 brief 的偏差**
+
 - 「关闭主窗口时」brief 写的是 radio，我也用 radio；为了让选项说明更清楚，括号里加了一句 helper text（"保持后台快捷键可用"）。如果觉得多余，去掉即可。
 
 确认 OK 我就继续画**录音 tab**。
@@ -397,13 +404,13 @@ _[tool: done]_
 
 **控件清单**
 
-| 设置项 | 控件 | 高度 | Token |
-|---|---|---|---|
-| 默认音源 | 2 个 Checkbox（麦克风 / 系统音） | 22px | `--accent` (checked) |
-| 默认会话类型 | Select + 类型色点 | 28px | `--type-note` 等 |
-| 音质 | Segmented 2 段（标准 64kbps / 高 128kbps）| 28px | `--surface-sunken` track |
-| 录音文件保存到 | path-input + 2 按钮 | 28px | `--font-mono`, `--surface-raised` |
-| 自动删除旧录音 | "超过 [N] 天" + Toggle | 28px / 18px | — |
+| 设置项         | 控件                                       | 高度        | Token                             |
+| -------------- | ------------------------------------------ | ----------- | --------------------------------- |
+| 默认音源       | 2 个 Checkbox（麦克风 / 系统音）           | 22px        | `--accent` (checked)              |
+| 默认会话类型   | Select + 类型色点                          | 28px        | `--type-note` 等                  |
+| 音质           | Segmented 2 段（标准 64kbps / 高 128kbps） | 28px        | `--surface-sunken` track          |
+| 录音文件保存到 | path-input + 2 按钮                        | 28px        | `--font-mono`, `--surface-raised` |
+| 自动删除旧录音 | "超过 [N] 天" + Toggle                     | 28px / 18px | —                                 |
 
 **两个判断**
 
@@ -411,6 +418,7 @@ _[tool: done]_
 2. **音质段**：brief 只写「标准 / 高」，我补了码率（64 / 128 kbps）让用户能预期占用大小，配合 helper text "高音质占用空间约 2×"。
 
 **和「通用 tab」共享**
+
 - `.setting-rows` 卡片 + 1px 分隔
 - 二级分组标题（"存储"）
 
@@ -448,20 +456,20 @@ P2 全部 6 张交付完成。
 
 ### §6.9 设置窗口 5 个 tab
 
-| Tab | Artboard | 关键控件 |
-|---|---|---|
-| **通用** | set-general | Toggle / Radio / Select / Segmented |
-| **录音** | set-recording | Checkbox + Select + Segmented + path-input + 数字输入 + Toggle |
-| **快捷键** | set-shortcut | 4 行列表，第 2 行展示捕获中状态（accent 描边 + "按下新的快捷键…"） |
-| **隐私** | set-privacy + set-privacy-modal | 数据 / 诊断 / 危险操作分组 · 含二次确认 modal（要求输入 `DELETE`） |
-| **关于** | set-about | App icon 80px + 版本 + 检查更新 + 4 链接 + 版权 |
+| Tab        | Artboard                        | 关键控件                                                           |
+| ---------- | ------------------------------- | ------------------------------------------------------------------ |
+| **通用**   | set-general                     | Toggle / Radio / Select / Segmented                                |
+| **录音**   | set-recording                   | Checkbox + Select + Segmented + path-input + 数字输入 + Toggle     |
+| **快捷键** | set-shortcut                    | 4 行列表，第 2 行展示捕获中状态（accent 描边 + "按下新的快捷键…"） |
+| **隐私**   | set-privacy + set-privacy-modal | 数据 / 诊断 / 危险操作分组 · 含二次确认 modal（要求输入 `DELETE`） |
+| **关于**   | set-about                       | App icon 80px + 版本 + 检查更新 + 4 链接 + 版权                    |
 
 ### P8 · App Icon
 
-| Artboard | 内容 |
-|---|---|
+| Artboard     | 内容                                                             |
+| ------------ | ---------------------------------------------------------------- |
 | **icon-mac** | macOS squircle 220px master + 64/28/16px 缩略，浅色/深色背景对照 |
-| **icon-win** | Windows 方形 220px master + 缩略，浅色/深色对照 |
+| **icon-win** | Windows 方形 220px master + 缩略，浅色/深色对照                  |
 
 **Icon 概念**：避开"话筒 + 音符"组合。用**带文字行的文档卡片** + 右下角**音波小球**（accent 色），表达"音频 → 文字"的转换关系。纯几何，无渐变，无拟物。文档边框 4px 白线、音波 5 根白柱，体量克制。两侧背景一浅一深用来对比 contrast。
 
@@ -476,13 +484,15 @@ P2 全部 6 张交付完成。
 
 LazyAudio 设计返工指令：所有已交付的窗口 / 浮窗都要重做顶部
 chrome。问题：你之前画了独立的标题栏行（"LazyAudio" 居中文字
-+ 控件横带），太 old-school macOS。现代 macOS app（Linear /
-Arc / Notion / Cursor / Things 3 / macOS 14 Settings）已经
-全部抛弃这种模式。
+
+- 控件横带），太 old-school macOS。现代 macOS app（Linear /
+  Arc / Notion / Cursor / Things 3 / macOS 14 Settings）已经
+  全部抛弃这种模式。
 
 【全局 chrome 规则，所有窗口一律遵守】
 
 硬性要求：
+
 1. macOS：整窗用 fullSizeContentView，标题栏与内容融合
 2. Windows：自绘无 chrome 标题栏，整窗 client area 占满
 3. macOS traffic light：浮在窗口左上角，距上 18px、距左 16px，
@@ -496,6 +506,7 @@ Arc / Notion / Cursor / Things 3 / macOS 14 Settings）已经
    traffic light 占位
 
 严禁：
+
 - ❌ 独立标题栏行（"LazyAudio" 居中 + window controls 占满一行
   那种 2015 风）
 - ❌ ┌─ XX ──┐ 把标题烤进上边框的画法
@@ -505,6 +516,7 @@ Arc / Notion / Cursor / Things 3 / macOS 14 Settings）已经
 【浮窗 / modal 题头规则】
 
 录音前浮窗、二次确认 modal 等：
+
 - 标题作为内容第一行（不是边框的一部分）：17px semi-bold
 - 右上角 24px compact × 关闭按钮
 - 标题距上 16 / 距左 20 / 距 × 12
@@ -513,6 +525,7 @@ Arc / Notion / Cursor / Things 3 / macOS 14 Settings）已经
 【录音中顶部状态条】
 
 主窗口录音中状态的 "● 正在录音 — 03:24" 条：
+
 - 改为 record 色 @ 8% 胶囊条，浮在 traffic light 右侧的拖拽区内
 - 高 24px，左缘距 traffic light 12px，宽度自适应文字
 - 不要顶出额外一行
@@ -520,6 +533,7 @@ Arc / Notion / Cursor / Things 3 / macOS 14 Settings）已经
 【需要重做的稿】
 
 P0：
+
 1. 主窗口 — 有数据态（macOS 浅色）
 2. 主窗口 — 录音中状态
 3. 主窗口 — 空状态
@@ -528,12 +542,9 @@ P0：
 6. Onboarding P0 五屏（720×520，屏 1 / 2 / 4a / 5 / 7）
 7. 设置 — 转录引擎 tab（880×640，本地 + 云端）
 
-P1（已交付的也要回炉）：
-8. Onboarding 屏 3 权限、屏 4b API、屏 6 会话类型
-9. 设置 — LLM 模板 tab
+P1（已交付的也要回炉）：8. Onboarding 屏 3 权限、屏 4b API、屏 6 会话类型 9. 设置 — LLM 模板 tab
 
-P2（已交付的也要回炉）：
-10. 设置其他 5 个 tab + App Icon
+P2（已交付的也要回炉）：10. 设置其他 5 个 tab + App Icon
 
 【工作方式】
 
@@ -570,22 +581,26 @@ _[tool: done]_
 ## 修改点（只动 chrome）
 
 **移除的**
+
 - ❌ `.mac-titlebar` 整行（"LazyAudio" 居中 + 控件横带）
 - ❌ `.win-titlebar` 整行（图标 + app 名 + 控件横带）
 - ❌ `.rec-bar` 28px 录音状态条（独占一行那个）
 - ❌ 窗口内任何 "LazyAudio" 文字
 
 **新加的**
+
 - ✅ `.mac-traffic-overlay`：traffic light 绝对定位 `top:18 left:16`，浮在侧边栏区域内
 - ✅ `.win-controls-overlay`：— □ × 绝对定位 `top:8 right:8`
 - ✅ `.drag-region`：顶部 36px 透明拖拽区，无任何视觉
 - ✅ `.floating-tool-btn`：齿轮按钮浮在 `top:12 right:12`（28×28 ghost），没有任何 chrome 行包它
 
 **布局调整**
+
 - `.lib-search-row` 左 padding `12 → 84`（让出 traffic light 三个点 + 16px 间隙），顶部 padding `12 → 14`，让搜索框 28px 高与 traffic 12px 圆点垂直居中对齐到同一条基线（中心都在 y=24）
 - `.mw-body` 直接顶到窗口最顶部，不再有分隔线
 
 **录音中状态条 → 改成胶囊**
+
 - `.rec-pill`：浮在拖拽区里，`top:14 left:84`（traffic 右侧 16px），高 24px，宽自适应内容
 - 背景 `var(--record) @ 8%`，里面是 `● 03:24 · 笔记 · 麦克风 + 系统音`
 - 不再顶出额外一行高度，整个主窗口少了 28px
@@ -624,6 +639,7 @@ _[tool: done]_
 - 详情头 56px 高、垂直居中，title baseline ≈ y:28，和 traffic 中心 y:24 视觉上对齐
 
 布局节奏现在和你给的参考一致：
+
 ```
 [● ● ●]   ····    [⚙]   |   面试官 2026-05-16 14:30   [⟳][导出 ▾][⋯]
 [  ⌕ 搜索…       ]      |   01:12:34 · 已完成 · 2 人
@@ -695,6 +711,7 @@ _[tool: done]_
 - 右侧 content 直接顶到顶，h2「通用 / 录音 / 快捷键…」就是该屏的第一行视觉锚点，等同于内容标题
 
 剩下还有：
+
 - 录音前浮窗（按 §"浮窗 / modal 题头规则"加 17px 标题 + 右上 × 关闭）
 - 二次确认 modal（同样规则）
 
@@ -721,12 +738,14 @@ _[tool: done]_
 录音前浮窗 + 二次确认 modal 都按 brief 的「浮窗 / modal 题头规则」改完。
 
 **两个浮窗的统一规则**
+
 - 标题 `<h3>`：17px semibold，是内容第一行（不在边框上）
 - 标题距上 16 / 距左 20 / 距右侧 × 28px（让出 24px 关闭按钮 + 4px 间隙）
 - 标题下方 16px gap 开始表单
 - 右上角 × 关闭按钮：24×24 ghost，top:14 right:12（视觉上居中对齐到标题 baseline）
 
 至此 brief 的 chrome 返工任务全部完成：
+
 1. ✅ 主窗口（5 个状态）— traffic 浮窗 + 齿轮归侧边栏
 2. ✅ Onboarding 8 屏 — 去掉灰色标题栏
 3. ✅ 设置 6 个 tab — 去掉标题栏 + nav 让位
@@ -781,4 +800,3 @@ _[tool: done]_
 修复：Windows 下 detail header 右侧加 140px padding 让出空间。修了 Windows 下 detail header 和窗口控件的冲突 — `.win-window .dh { padding-right: 140px }`，让「重新转录 / 导出 / 更多」三个 icon 让出 — □ × 的 138px 占位。
 
 你看一下，如果还有其他 Windows 下的问题（比如某个 modal、setting 窗口在 win 下也要做相同处理），告诉我位置。
-

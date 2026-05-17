@@ -25,7 +25,7 @@ PRD (01-research/prd.md)
    ↓ 拍板"要做什么"
 information-architecture.md  ←→  user-flows.md  ←→  design-system.md
    骨架 / 页面清单                 流程 / 状态机        视觉 token / 组件
-   ↓ 三者交叉                      
+   ↓ 三者交叉
 screen-specs/*.md  ←  本目录
    每屏的 mockup-ready 细节
    ↓

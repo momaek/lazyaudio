@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2022"],
+    "types": ["node", "electron"],
+    "outDir": "./out/types/worker",
+    "tsBuildInfoFile": "./out/types/worker.tsbuildinfo"
+  },
+  "include": ["src/main/workers/**/*.cts", "src/main/workers/**/*.ts", "shared/**/*.ts"]
+}

@@ -18,63 +18,63 @@ docs/02-design/ui-mockups/local-pencil/lazyaudio.pen
 
 ### 主窗口（5 个状态变体）
 
-| 屏幕 | 节点 ID | 尺寸 | spec 参考 |
-|---|---|---|---|
-| 主窗口 — 有数据 | `F7IAj` | 1280×800 | IA §3 |
-| 主窗口 — 空状态 | `tJ8X9` | 1280×800 | screen-specs/main-window-states.md |
-| 主窗口 — 录音中 | `9NNLZ` | 1280×800 | main-window-states.md §状态 3 |
-| 主窗口 — 转录中 | `x654X` | 1280×800 | main-window-states.md §状态 4 |
-| 主窗口 — 转录失败 | `RR9ca` | 1280×800 | main-window-states.md §状态 5 |
+| 屏幕              | 节点 ID | 尺寸     | spec 参考                          |
+| ----------------- | ------- | -------- | ---------------------------------- |
+| 主窗口 — 有数据   | `F7IAj` | 1280×800 | IA §3                              |
+| 主窗口 — 空状态   | `tJ8X9` | 1280×800 | screen-specs/main-window-states.md |
+| 主窗口 — 录音中   | `9NNLZ` | 1280×800 | main-window-states.md §状态 3      |
+| 主窗口 — 转录中   | `x654X` | 1280×800 | main-window-states.md §状态 4      |
+| 主窗口 — 转录失败 | `RR9ca` | 1280×800 | main-window-states.md §状态 5      |
 
 ### Onboarding（7 屏完整流程）
 
-| 屏幕 | 节点 ID | 尺寸 | spec 参考 |
-|---|---|---|---|
-| 1. 欢迎 | `bDV6O` | 880×640 | onboarding.md §屏 1 |
-| 2. 隐私模式 | `ykeQn` | 880×640 | onboarding.md §屏 2 |
-| 3. 权限引导 | `RaY8X` | 880×640 | onboarding.md §屏 3 |
+| 屏幕         | 节点 ID | 尺寸    | spec 参考            |
+| ------------ | ------- | ------- | -------------------- |
+| 1. 欢迎      | `bDV6O` | 880×640 | onboarding.md §屏 1  |
+| 2. 隐私模式  | `ykeQn` | 880×640 | onboarding.md §屏 2  |
+| 3. 权限引导  | `RaY8X` | 880×640 | onboarding.md §屏 3  |
 | 4a. 模型下载 | `4w0SN` | 880×640 | onboarding.md §屏 4a |
 | 4b. API 配置 | `8WIOY` | 880×640 | onboarding.md §屏 4b |
-| 5. 快捷键 | `HsnXG` | 880×640 | onboarding.md §屏 5 |
-| 6. 合规提示 | `B5toZ` | 880×640 | onboarding.md §屏 6 |
-| 7. 完成 | `0cnY7` | 880×640 | onboarding.md §屏 7 |
+| 5. 快捷键    | `HsnXG` | 880×640 | onboarding.md §屏 5  |
+| 6. 合规提示  | `B5toZ` | 880×640 | onboarding.md §屏 6  |
+| 7. 完成      | `0cnY7` | 880×640 | onboarding.md §屏 7  |
 
 ### 设置窗口（7 个 tab）
 
-| Tab | 节点 ID | 尺寸 | spec 参考 |
-|---|---|---|---|
-| 通用 | `nub4y` | 960×680 | settings.md §Tab 1 |
-| 录音 | `3XJRF` | 960×680 | settings.md §Tab 2 |
+| Tab             | 节点 ID | 尺寸    | spec 参考                 |
+| --------------- | ------- | ------- | ------------------------- |
+| 通用            | `nub4y` | 960×680 | settings.md §Tab 1        |
+| 录音            | `3XJRF` | 960×680 | settings.md §Tab 2        |
 | 转录引擎 — 本地 | `rpMbb` | 960×680 | settings.md §Tab 3 模式 A |
 | 转录引擎 — 云端 | `tk7m7` | 960×680 | settings.md §Tab 3 模式 B |
-| LLM 模板 | `ARyC3` | 960×680 | settings.md §Tab 4 |
-| 快捷键 | `juK8h` | 960×680 | settings.md §Tab 5 |
-| 关于 | `HR01V` | 960×680 | settings.md §Tab 7 |
+| LLM 模板        | `ARyC3` | 960×680 | settings.md §Tab 4        |
+| 快捷键          | `juK8h` | 960×680 | settings.md §Tab 5        |
+| 关于            | `HR01V` | 960×680 | settings.md §Tab 7        |
 
 > 隐私 tab（Tab 6）暂未出图 — 与"通用"/"录音"结构相同，按 spec 即可补。
 
 ### 浮窗 / 菜单（3 个）
 
-| 屏幕 | 节点 ID | 尺寸 | spec 参考 |
-|---|---|---|---|
-| 录音前确认浮窗 | `2R2Ve` | 360×240 | IA §4 |
-| 菜单栏 dropdown — 空闲 | `UK55d` | 300×340 | IA §2 |
-| 菜单栏 dropdown — 录音中 | `oC6tH` | 300×380 | IA §2 |
-| 列表项右键菜单 | `NufON` | 240×280 | dialogs-notifications.md §3.2 |
+| 屏幕                     | 节点 ID | 尺寸    | spec 参考                     |
+| ------------------------ | ------- | ------- | ----------------------------- |
+| 录音前确认浮窗           | `2R2Ve` | 360×240 | IA §4                         |
+| 菜单栏 dropdown — 空闲   | `UK55d` | 300×340 | IA §2                         |
+| 菜单栏 dropdown — 录音中 | `oC6tH` | 300×380 | IA §2                         |
+| 列表项右键菜单           | `NufON` | 240×280 | dialogs-notifications.md §3.2 |
 
 ### 对话框（2 个核心）
 
-| 屏幕 | 节点 ID | 尺寸 | spec 参考 |
-|---|---|---|---|
-| 删除确认 | `cPk9p` | 440×220 | dialogs-notifications.md §D1 |
+| 屏幕       | 节点 ID | 尺寸    | spec 参考                    |
+| ---------- | ------- | ------- | ---------------------------- |
+| 删除确认   | `cPk9p` | 440×220 | dialogs-notifications.md §D1 |
 | 录音中退出 | `WXTiK` | 440×220 | dialogs-notifications.md §D2 |
 
 > 其他 4 个对话框（D3 Onboarding 关闭 / D4 双重确认 / D5 麦克风缺失 / D6 磁盘不足）共用 D1/D2 的视觉模板，仅文案不同，未单独出图。
 
 ### 系统通知（2 个）
 
-| 屏幕 | 节点 ID | 尺寸 | spec 参考 |
-|---|---|---|---|
+| 屏幕     | 节点 ID | 尺寸   | spec 参考                    |
+| -------- | ------- | ------ | ---------------------------- |
 | 转录完成 | `Ga6Vc` | 360×88 | dialogs-notifications.md §N1 |
 | 转录失败 | `FDrk8` | 360×88 | dialogs-notifications.md §N2 |
 
@@ -103,6 +103,7 @@ y = 6120    Dialog 删除 / 退出 + 右键菜单 + 2 通知 — x: 0 / 520 / 10
 ## 重要规范：Chrome-less 窗口
 
 所有 5 个主窗口屏幕（有数据 / 空 / 录音中 / 转录中 / 失败）**已重构为 chrome-less**：
+
 - 删掉了 old-school 的 44px 标题栏 chrome 行
 - Traffic light（macOS 三圆点）嵌入 sidebar 顶部 36px 高的 row 中
 - 设置 ⚙ 图标在同一 row 右侧
@@ -124,6 +125,7 @@ y = 6120    Dialog 删除 / 退出 + 右键菜单 + 2 通知 — x: 0 / 520 / 10
 ## 视觉一致性 checklist（review 时对照）
 
 每屏都遵守：
+
 - ✓ Surface 层级：canvas (gray-50) / panel (white) / raised + shadow / sunken (gray-100)
 - ✓ Accent #1F6FEB（按钮、链接、选中、当前段）
 - ✓ Record #E5484D（仅录制态）

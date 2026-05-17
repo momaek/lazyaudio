@@ -65,15 +65,15 @@ directories:
 files:
   - out/**/*
   - package.json
-  - "!**/.{eslintrc,prettierrc,editorconfig,gitignore,gitattributes}"
-  - "!**/*.{md,markdown,map,ts,tsx}"      # 排除源码地图、文档
-  - "!**/__tests__/**"
-  - "!**/*.test.*"
+  - '!**/.{eslintrc,prettierrc,editorconfig,gitignore,gitattributes}'
+  - '!**/*.{md,markdown,map,ts,tsx}' # 排除源码地图、文档
+  - '!**/__tests__/**'
+  - '!**/*.test.*'
 
 extraResources:
   - from: native/templates
     to: native/templates
-    filter: ["**/*"]
+    filter: ['**/*']
   - from: native/models/registry.json
     to: native/models/registry.json
 
@@ -96,21 +96,21 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  notarize: false                          # 我们走 afterSign 自定义 notarytool，不用 builder 内置
+  notarize: false # 我们走 afterSign 自定义 notarytool，不用 builder 内置
   target:
     - target: dmg
       arch: [arm64, x64]
-    - target: zip                          # electron-updater 需要 .zip
+    - target: zip # electron-updater 需要 .zip
       arch: [arm64, x64]
   extendInfo:
     # Info.plist 字段（extendInfo），不是 entitlement
-    NSMicrophoneUsageDescription: "LazyAudio 需要麦克风权限录制您的语音。"
+    NSMicrophoneUsageDescription: 'LazyAudio 需要麦克风权限录制您的语音。'
     # 不要加 NSScreenCaptureUsageDescription：CoreAudio Tap（macOS 14.2+）不需要它，
     # 加了反而会触发 macOS 在 Info.plist 暴露"为什么要屏幕录制"——对录音工具是奇怪体验
-    LSMinimumSystemVersion: "14.2"        # PRD §7.4
+    LSMinimumSystemVersion: '14.2' # PRD §7.4
 
 dmg:
-  sign: false                              # dmg 本身不需要签（内部 .app 已签）；公证走 .app
+  sign: false # dmg 本身不需要签（内部 .app 已签）；公证走 .app
   contents:
     - x: 130
       y: 220
@@ -130,23 +130,23 @@ win:
 
 nsis:
   oneClick: false
-  perMachine: false                        # per-user 安装；不需要管理员权限
+  perMachine: false # per-user 安装；不需要管理员权限
   allowToChangeInstallationDirectory: true
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   shortcutName: LazyAudio
-  deleteAppDataOnUninstall: false          # 重装能复用模型 / 录音
+  deleteAppDataOnUninstall: false # 重装能复用模型 / 录音
 
 # ===== Hooks =====
-afterPack: scripts/after-pack.cjs          # macOS install_name_tool + 重签 sherpa dylibs
-afterSign: scripts/after-sign.cjs          # macOS notarytool 公证 + staple
+afterPack: scripts/after-pack.cjs # macOS install_name_tool + 重签 sherpa dylibs
+afterSign: scripts/after-sign.cjs # macOS notarytool 公证 + staple
 
 # ===== 自动更新 =====
 publish:
   provider: github
   owner: <github-owner>
   repo: lazyaudio
-  releaseType: release                     # draft → release → prerelease
+  releaseType: release # draft → release → prerelease
 ```
 
 ### 2.1 `build/entitlements.mac.plist`
@@ -196,13 +196,18 @@ publish:
 
 ```js
 // scripts/after-pack.cjs（codesign 步节选）
-const identity = process.env.APPLE_IDENTITY ?? '-'   // '-' = ad-hoc 签名
+const identity = process.env.APPLE_IDENTITY ?? '-' // '-' = ad-hoc 签名
 if (identity === '-') {
-  console.warn('[after-pack] APPLE_IDENTITY 未设，使用 ad-hoc 签名；仅 dev 测试可用，不能公证、不能分发')
+  console.warn(
+    '[after-pack] APPLE_IDENTITY 未设，使用 ad-hoc 签名；仅 dev 测试可用，不能公证、不能分发',
+  )
 }
 execFileSync('codesign', [
-  '--force', '--sign', identity,
-  '--options', 'runtime',
+  '--force',
+  '--sign',
+  identity,
+  '--options',
+  'runtime',
   ...(identity !== '-' ? ['--entitlements', entitlementsPath, '--timestamp'] : []),
   filePath,
 ])
@@ -233,22 +238,22 @@ codesign -dvv dist/mac-arm64/LazyAudio.app/Contents/Resources/app.asar.unpacked/
 
 1. **Apple Developer 账号 + Team ID**（[`dev-environment.md`](./dev-environment.md) §2.2）
 2. **Developer ID Application 证书**：
-    - Apple Developer 网站 → Certificates, IDs & Profiles → 新建 "Developer ID Application"
-    - 下载 `.cer` → 双击导入 Keychain
-    - `security find-identity -v -p codesigning` 应能看到 `Developer ID Application: Your Name (TEAM_ID)`
+   - Apple Developer 网站 → Certificates, IDs & Profiles → 新建 "Developer ID Application"
+   - 下载 `.cer` → 双击导入 Keychain
+   - `security find-identity -v -p codesigning` 应能看到 `Developer ID Application: Your Name (TEAM_ID)`
 3. **App Store Connect API Key**：
-    - 创建后下载 `.p8`，**只能下一次**，丢了重建
-    - 记下 Key ID + Issuer ID
+   - 创建后下载 `.p8`，**只能下一次**，丢了重建
+   - 记下 Key ID + Issuer ID
 4. **环境变量**（本地 + CI 都需要）：
 
-    ```bash
-    export APPLE_ID="me@example.com"
-    export APPLE_TEAM_ID="ABCDE12345"
-    export APPLE_API_KEY="/Users/wentx/.keys/AuthKey_XXX.p8"
-    export APPLE_API_KEY_ID="XXX"
-    export APPLE_API_ISSUER="..."
-    export APPLE_IDENTITY="Developer ID Application: Your Name (ABCDE12345)"
-    ```
+   ```bash
+   export APPLE_ID="me@example.com"
+   export APPLE_TEAM_ID="ABCDE12345"
+   export APPLE_API_KEY="/Users/wentx/.keys/AuthKey_XXX.p8"
+   export APPLE_API_KEY_ID="XXX"
+   export APPLE_API_ISSUER="..."
+   export APPLE_IDENTITY="Developer ID Application: Your Name (ABCDE12345)"
+   ```
 
 ### 4.2 `scripts/after-sign.cjs`
 
@@ -264,7 +269,7 @@ exports.default = async function (context) {
 
   console.log(`Notarizing ${appPath}...`)
   await notarize({
-    tool: 'notarytool',                              // 推荐；老的 altool 已弃用
+    tool: 'notarytool', // 推荐；老的 altool 已弃用
     appPath,
     appleApiKey: process.env.APPLE_API_KEY,
     appleApiKeyId: process.env.APPLE_API_KEY_ID,
@@ -305,14 +310,14 @@ open dist/mac-arm64/LazyAudio.app
 
 ### 4.4 公证失败的常见原因
 
-| 报错 | 根因 | 修复 |
-|---|---|---|
-| `code object is not signed at all` | install_name_tool 改完没重签 | after-pack 检查 §3 第 3 步 |
-| `The signature of the binary is invalid` | 签名后又被改了（如复制时丢权限）| 不要 `cp -p`，用 ditto |
-| `The executable does not have the hardened runtime enabled` | `hardenedRuntime: true` 漏配 | electron-builder.yml |
-| `The binary uses an SDK older than the 10.9 SDK` | Electron 太老 | 升级 Electron ≥ 35 |
-| `entitlement com.apple.security.cs.allow-jit not present` | entitlements 文件漏配 | §2.1 模板 |
-| 公证 status = "In Progress" 超过 30 min | Apple 服务慢 | 等；通常 10-15 min；> 1h 联系 DTS |
+| 报错                                                        | 根因                             | 修复                              |
+| ----------------------------------------------------------- | -------------------------------- | --------------------------------- |
+| `code object is not signed at all`                          | install_name_tool 改完没重签     | after-pack 检查 §3 第 3 步        |
+| `The signature of the binary is invalid`                    | 签名后又被改了（如复制时丢权限） | 不要 `cp -p`，用 ditto            |
+| `The executable does not have the hardened runtime enabled` | `hardenedRuntime: true` 漏配     | electron-builder.yml              |
+| `The binary uses an SDK older than the 10.9 SDK`            | Electron 太老                    | 升级 Electron ≥ 35                |
+| `entitlement com.apple.security.cs.allow-jit not present`   | entitlements 文件漏配            | §2.1 模板                         |
+| 公证 status = "In Progress" 超过 30 min                     | Apple 服务慢                     | 等；通常 10-15 min；> 1h 联系 DTS |
 
 ---
 
@@ -377,10 +382,10 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-14         # Apple Silicon runner
+            runner: macos-14 # Apple Silicon runner
             smoke: true
           - arch: x64
-            runner: macos-13         # 最后一代 Intel runner；GitHub 仍在维护
+            runner: macos-13 # 最后一代 Intel runner；GitHub 仍在维护
             smoke: true
     runs-on: ${{ matrix.runner }}
     needs: lint-test
@@ -407,7 +412,7 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
-        run: pnpm pack:mac --${{ matrix.arch }}     # pnpm 9+ 不需要 -- 分隔符
+        run: pnpm pack:mac --${{ matrix.arch }} # pnpm 9+ 不需要 -- 分隔符
 
       # smoke test：真实 packaged 包，验证 sherpa 加载 + 录 1 帧
       # 必须在 native arch runner 上跑（matrix 已强制对齐）；跨架构 launch 会炸
@@ -489,9 +494,9 @@ jobs:
 import { autoUpdater } from 'electron-updater'
 
 export function initAutoUpdate(): void {
-  if (!app.isPackaged) return                     // dev 模式不跑
+  if (!app.isPackaged) return // dev 模式不跑
 
-  autoUpdater.autoDownload = false                // 用户主动确认才下
+  autoUpdater.autoDownload = false // 用户主动确认才下
   autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on('update-available', (info) => {
@@ -549,7 +554,7 @@ git push --follow-tags
 ```yaml
 jobs:
   release:
-    if: github.event.base_ref == 'refs/heads/main'    # tag 必须从 main 分出
+    if: github.event.base_ref == 'refs/heads/main' # tag 必须从 main 分出
     runs-on: ...
 ```
 
@@ -559,11 +564,17 @@ jobs:
 
 ```markdown
 ## v0.1.0 — 2026-08-xx
+
 ### 新增
+
 - ...
+
 ### 修复
+
 - ...
+
 ### 已知问题
+
 - ...
 ```
 
@@ -648,14 +659,14 @@ dogfood 监控
 
 ## 10. 常见 release 翻车
 
-| 症状 | 排查 |
-|---|---|
-| 公证 stuck "In Progress" > 30 min | Apple 服务慢；继续等；> 2h `xcrun notarytool log` 看具体错 |
-| 公证成功但 staple 失败 | App 路径错误（hook 拿 productFilename 没拿到）→ 改 after-sign 路径 |
-| dmg 装到新机能启动，但拖到 Applications 不能启动 | 签名是 ad-hoc 不是 Developer ID → APPLE_IDENTITY 没配 |
-| Win SmartScreen 报 "未知发布者" | OV cert 没积累 / EV cert 没生效 → 等几天 / 换 EV |
-| 自动更新拉到 .yml 但下载失败 | publish 配的 owner/repo 错；或 GitHub Releases 限速（罕见）|
-| 升级后第一次启动崩 | electron-updater 替换 app 时 sherpa-onnx-* 平台包丢了 → asarUnpack 配置漏一项 |
+| 症状                                             | 排查                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 公证 stuck "In Progress" > 30 min                | Apple 服务慢；继续等；> 2h `xcrun notarytool log` 看具体错                     |
+| 公证成功但 staple 失败                           | App 路径错误（hook 拿 productFilename 没拿到）→ 改 after-sign 路径             |
+| dmg 装到新机能启动，但拖到 Applications 不能启动 | 签名是 ad-hoc 不是 Developer ID → APPLE_IDENTITY 没配                          |
+| Win SmartScreen 报 "未知发布者"                  | OV cert 没积累 / EV cert 没生效 → 等几天 / 换 EV                               |
+| 自动更新拉到 .yml 但下载失败                     | publish 配的 owner/repo 错；或 GitHub Releases 限速（罕见）                    |
+| 升级后第一次启动崩                               | electron-updater 替换 app 时 sherpa-onnx-\* 平台包丢了 → asarUnpack 配置漏一项 |
 
 ---
 

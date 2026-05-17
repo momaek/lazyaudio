@@ -63,10 +63,10 @@ Secrets（API key 等）**不在文件系统**——见 §3.2。
 
 ### 1.1 路径解析
 
-| 标识 | macOS | Windows |
-|---|---|---|
-| `{userData}` | `~/Library/Application Support/` | `%APPDATA%\` |
-| `{logs}` | `~/Library/Logs/LazyAudio/` | `{userData}\LazyAudio\logs\` |
+| 标识         | macOS                            | Windows                      |
+| ------------ | -------------------------------- | ---------------------------- |
+| `{userData}` | `~/Library/Application Support/` | `%APPDATA%\`                 |
+| `{logs}`     | `~/Library/Logs/LazyAudio/`      | `{userData}\LazyAudio\logs\` |
 
 主进程通过 `app.getPath('userData')` 拿基址；renderer 只通过 IPC 访问，**不直接拿到绝对路径**（避免泄露用户主目录到 console / 日志）。
 
@@ -96,67 +96,89 @@ recordings/{recordingId}/
 // recordings/{recordingId}/meta.json
 type RecordingMeta = {
   // —— 版本与身份 ——
-  schemaVersion: 1                            // 数字，破坏性改动时 +1
-  id: string                                  // ULID，与目录名一致
-  appVersion: string                          // 创建时的 app 版本，"0.1.0"
+  schemaVersion: 1 // 数字，破坏性改动时 +1
+  id: string // ULID，与目录名一致
+  appVersion: string // 创建时的 app 版本，"0.1.0"
 
   // —— 用户字段 ——
-  title: string                               // 默认 "{sessionType 中文名} {YYYY-MM-DD HH:mm}"
+  title: string // 默认 "{sessionType 中文名} {YYYY-MM-DD HH:mm}"
   sessionType: SessionType
 
   // —— 设备身份（v0.x sync 用） ——
-  createdBy: string                           // installId，写入时填，永不改
+  createdBy: string // installId，写入时填，永不改
 
   // —— 录音事实 ——
-  startedAt: number                           // unix ms，墙钟时间
-  endedAt?: number                            // unix ms，stop 之后写
-  durationMs: number                          // 实际有效录音时长（不含 pause）
-  wallClockMs?: number                        // endedAt - startedAt（含 pause）
+  startedAt: number // unix ms，墙钟时间
+  endedAt?: number // unix ms，stop 之后写
+  durationMs: number // 实际有效录音时长（不含 pause）
+  wallClockMs?: number // endedAt - startedAt（含 pause）
   sources: {
     mic: boolean
     system: boolean
   }
-  pauseSegments?: Array<{ startMs: number, endMs: number }>  // 见 audio-capture §8.1
+  pauseSegments?: Array<{ startMs: number; endMs: number }> // 见 audio-capture §8.1
 
   // —— 文件 ——
   audioFiles: {
-    mic?:    { path: 'mic.wav',    codec: 'wav-pcm-s16le', sampleRate: 48000, channels: 1, bitDepth: 16, bytes: number }
-    system?: { path: 'system.wav', codec: 'wav-pcm-s16le', sampleRate: 48000, channels: 2, bitDepth: 16, bytes: number }
-    mixed?:  { path: 'mixed.wav',  codec: 'wav-pcm-s16le', sampleRate: 48000, channels: 2, bitDepth: 16, bytes: number }
-  }                                           // codec 字段 v0.1 唯一取值 'wav-pcm-s16le'；预留 v0.2 'opus'/'aac' 压缩
+    mic?: {
+      path: 'mic.wav'
+      codec: 'wav-pcm-s16le'
+      sampleRate: 48000
+      channels: 1
+      bitDepth: 16
+      bytes: number
+    }
+    system?: {
+      path: 'system.wav'
+      codec: 'wav-pcm-s16le'
+      sampleRate: 48000
+      channels: 2
+      bitDepth: 16
+      bytes: number
+    }
+    mixed?: {
+      path: 'mixed.wav'
+      codec: 'wav-pcm-s16le'
+      sampleRate: 48000
+      channels: 2
+      bitDepth: 16
+      bytes: number
+    }
+  } // codec 字段 v0.1 唯一取值 'wav-pcm-s16le'；预留 v0.2 'opus'/'aac' 压缩
 
   // —— 状态机（录音 / 混音 / 转录 / 摘要 四套子状态） ——
   status: 'recording' | 'stopping' | 'done' | 'failed' | 'recovered'
-  failedReason?: string                       // status=failed 时填
+  failedReason?: string // status=failed 时填
   mixStatus: 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 
   // Multi Pass：Pass A（实时）与 Pass B（离线）独立状态
   liveTranscribe: {
-    status: 'idle' | 'running' | 'done' | 'failed' | 'disabled'   // disabled = 用户在设置关 Pass A
+    status: 'idle' | 'running' | 'done' | 'failed' | 'disabled' // disabled = 用户在设置关 Pass A
     engine?: 'local-streaming-zipformer' | 'local-vad-shortwin' | 'cloud-openai-stream'
     modelKey?: string
     startedAt?: number
-    endedAt?: number                          // 录音 stop 时
-    lastSegmentAt?: number                    // 最后一个 confirmed 段写入时间，崩溃恢复参考
+    endedAt?: number // 录音 stop 时
+    lastSegmentAt?: number // 最后一个 confirmed 段写入时间，崩溃恢复参考
     segmentCount?: number
     error?: string
   }
-  transcribe: {                               // 仍指 Pass B（离线）
+  transcribe: {
+    // 仍指 Pass B（离线）
     status: 'idle' | 'pending' | 'running' | 'done' | 'failed'
-    mode?: 'full' | 'partial'                 // partial = F4.8 中途增量
+    mode?: 'full' | 'partial' // partial = F4.8 中途增量
     engine?: 'local-sense-voice' | 'openai-compatible'
-    modelKey?: string                         // 本地模式：'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8'
-    apiBaseUrl?: string                       // 云端模式：脱敏存（host only）
+    modelKey?: string // 本地模式：'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8'
+    apiBaseUrl?: string // 云端模式：脱敏存（host only）
     startedAt?: number
     endedAt?: number
-    timeRangesProcessed?: Array<{ startSec, endSec }>   // 增量模式累积；full 模式只一条 [0, durationSec]
+    timeRangesProcessed?: Array<{ startSec; endSec }> // 增量模式累积；full 模式只一条 [0, durationSec]
     error?: string
   }
   summary: {
     status: 'idle' | 'pending' | 'running' | 'done' | 'failed'
-    template?: string                         // 用了哪个模板的 id
-    model?: string                            // 'gpt-4o-mini' 等
-    apiBaseUrl?: string                       // 脱敏 host only
+    template?: string // 用了哪个模板的 id
+    model?: string // 'gpt-4o-mini' 等
+    apiBaseUrl?: string // 脱敏 host only
     startedAt?: number
     endedAt?: number
     error?: string
@@ -165,8 +187,8 @@ type RecordingMeta = {
   // —— 警告与诊断（非致命，不阻塞流程） ——
   warnings?: Array<{
     code: 'pcm-dropouts' | 'mix-failed' | 'permission-revoked-mid' | 'disk-slow' | string
-    at: number                                // unix ms
-    detail?: unknown                          // consumer 负责 narrow
+    at: number // unix ms
+    detail?: unknown // consumer 负责 narrow
   }>
 }
 
@@ -182,16 +204,16 @@ type SessionType =
 
 ### 2.2 字段决定
 
-| 字段 | 为什么这么定 |
-|---|---|
-| `schemaVersion` 数字而非字符串 | 比较 `< 2` 比 semver 解析简单；JSON 文件没必要走 semver |
-| `id` 与目录名重复 | 防止目录改名导致 id 丢失；扫盘时只读 `id` 不读目录名 |
-| `appVersion` | 字段缺失 / 异常时方便定位是哪个版本写的 |
-| `durationMs` vs `wallClockMs` 分开 | UI 列表显示有效录音时长（PRD §4 F2.2 / F5.3），调试用墙钟 |
-| `audioFiles.bytes` 冗余存 | 库扫描时不用 stat 每个文件，索引快很多 |
-| 4 套子状态分开（录音 / 混音 / 转录 / 摘要） | 任一失败不阻塞其它；UI 上能分别显示进度（PRD §5.2 时序图就是这么走的） |
+| 字段                                                   | 为什么这么定                                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `schemaVersion` 数字而非字符串                         | 比较 `< 2` 比 semver 解析简单；JSON 文件没必要走 semver                                                 |
+| `id` 与目录名重复                                      | 防止目录改名导致 id 丢失；扫盘时只读 `id` 不读目录名                                                    |
+| `appVersion`                                           | 字段缺失 / 异常时方便定位是哪个版本写的                                                                 |
+| `durationMs` vs `wallClockMs` 分开                     | UI 列表显示有效录音时长（PRD §4 F2.2 / F5.3），调试用墙钟                                               |
+| `audioFiles.bytes` 冗余存                              | 库扫描时不用 stat 每个文件，索引快很多                                                                  |
+| 4 套子状态分开（录音 / 混音 / 转录 / 摘要）            | 任一失败不阻塞其它；UI 上能分别显示进度（PRD §5.2 时序图就是这么走的）                                  |
 | `apiBaseUrl` 存完整 host（含 port），不存 path / query | 完整 URL 可能带 token query 参数；meta 里仅 `https://host:port` 已够追溯；日志再做 hash 脱敏（见 §8.3） |
-| `warnings` 数组而非 single field | 一次录音可能多个轻警告（如 pcm dropouts + mix failed） |
+| `warnings` 数组而非 single field                       | 一次录音可能多个轻警告（如 pcm dropouts + mix failed）                                                  |
 
 ### 2.3 写入时机
 
@@ -215,7 +237,7 @@ meta.json 频繁更新，不允许"写到一半进程崩溃留下半截 JSON":
 async function atomicWriteJSON(path: string, obj: any) {
   const tmp = path + '.tmp'
   await fs.writeFile(tmp, JSON.stringify(obj, null, 2))
-  await fs.rename(tmp, path)        // POSIX 原子；Windows NTFS 也原子
+  await fs.rename(tmp, path) // POSIX 原子；Windows NTFS 也原子
 }
 ```
 
@@ -241,57 +263,57 @@ type Settings = {
   schemaVersion: 1
 
   // —— 设备身份 ——
-  installId: string                         // 首次启动时生成的 UUID，永不改；v0.x sync 用作冲突解决基础
+  installId: string // 首次启动时生成的 UUID，永不改；v0.x sync 用作冲突解决基础
 
   // —— 隐私模式 & 转录 ——
   privacyMode: 'local' | 'cloud'
   localModel: {
-    modelKey: string                          // 默认 'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8'
-    autoDownload: boolean                     // onboarding 后允许后台自动补漏
+    modelKey: string // 默认 'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8'
+    autoDownload: boolean // onboarding 后允许后台自动补漏
   }
   cloudTranscribe?: {
     enabled: boolean
-    apiBaseUrl: string                        // 完整 URL（除 key 之外）
-    model: string                             // 用户填的 model 名
+    apiBaseUrl: string // 完整 URL（除 key 之外）
+    model: string // 用户填的 model 名
     // apiKey 不在这里，见 §3.2
   }
   cloudLLM?: {
     apiBaseUrl: string
     model: string
-    contextWindow?: number                    // tokens 上限，默认 128_000；MapReduce 切片判据（transcription-pipeline §6.4）
+    contextWindow?: number // tokens 上限，默认 128_000；MapReduce 切片判据（transcription-pipeline §6.4）
     // apiKey 见 §3.2
   }
 
   // —— 录音 ——
   recording: {
-    saveDir: string                           // 默认 {userData}/LazyAudio/recordings
-    keepTracks: boolean                       // F3.1 分轨是否保留，默认 true
-    defaultSessionType: SessionType           // 兜底默认（用户从未录过）：'general'
-    lastSessionType?: SessionType             // F1.1 "上次选择"——浮窗默认 = lastSessionType ?? defaultSessionType
-    lastSourcesPerType: Partial<Record<SessionType, { mic: boolean, system: boolean }>>
-    autoTranscribe: boolean                   // F4.1 默认 true
-    autoSummaryAfterTranscribe: boolean       // 默认 true（若 LLM 配置完整）
-    skipPrepPopover: boolean                  // PRD §5.2 选项：跳过录前浮窗
-    complianceTipDismissed: boolean           // F6.5
-    templatePerSessionType?: Partial<Record<SessionType, string>>  // sessionType → templateId 用户偏好；缺失则走内置默认（transcription-pipeline §6.2）
+    saveDir: string // 默认 {userData}/LazyAudio/recordings
+    keepTracks: boolean // F3.1 分轨是否保留，默认 true
+    defaultSessionType: SessionType // 兜底默认（用户从未录过）：'general'
+    lastSessionType?: SessionType // F1.1 "上次选择"——浮窗默认 = lastSessionType ?? defaultSessionType
+    lastSourcesPerType: Partial<Record<SessionType, { mic: boolean; system: boolean }>>
+    autoTranscribe: boolean // F4.1 默认 true
+    autoSummaryAfterTranscribe: boolean // 默认 true（若 LLM 配置完整）
+    skipPrepPopover: boolean // PRD §5.2 选项：跳过录前浮窗
+    complianceTipDismissed: boolean // F6.5
+    templatePerSessionType?: Partial<Record<SessionType, string>> // sessionType → templateId 用户偏好；缺失则走内置默认（transcription-pipeline §6.2）
   }
 
   // —— Onboarding 状态 ——
   onboarding: {
-    completedAt?: number                      // 完成时间戳；缺失即未完成
-    step?: OnboardingStep                     // 中途退出时停留的步骤 id，重启后续从此恢复
+    completedAt?: number // 完成时间戳；缺失即未完成
+    step?: OnboardingStep // 中途退出时停留的步骤 id，重启后续从此恢复
   }
 
   // —— 快捷键 ——
   shortcuts: {
-    recordToggle: string                      // 'CommandOrControl+Shift+R'
+    recordToggle: string // 'CommandOrControl+Shift+R'
   }
 
   // —— UI ——
   ui: {
     theme: 'system' | 'light' | 'dark'
-    language: 'zh-CN' | 'en'                  // v0.1 仅 zh-CN，预留字段
-    mainWindowBounds?: { x, y, width, height }
+    language: 'zh-CN' | 'en' // v0.1 仅 zh-CN，预留字段
+    mainWindowBounds?: { x; y; width; height }
   }
 
   // —— 模型下载源（PRD §11） ——
@@ -302,19 +324,19 @@ type Settings = {
   // —— 诊断 ——
   diagnostics: {
     logLevel: 'info' | 'debug'
-    crashReport: boolean                      // v0.1 始终 false
+    crashReport: boolean // v0.1 始终 false
   }
 }
 
 type OnboardingStep =
-  | 'version-check'                           // 屏 0：macOS 版本兼容性
+  | 'version-check' // 屏 0：macOS 版本兼容性
   | 'welcome'
-  | 'privacy'                                 // 隐私模式选择
-  | 'permission'                              // 权限引导（麦克风 / Accessibility）
-  | 'model-download'                          // 本地模式：模型下载
-  | 'api-config'                              // 云端模式：API key 配置
-  | 'shortcut'                                // 快捷键确认
-  | 'compliance'                              // 录音合规提示
+  | 'privacy' // 隐私模式选择
+  | 'permission' // 权限引导（麦克风 / Accessibility）
+  | 'model-download' // 本地模式：模型下载
+  | 'api-config' // 云端模式：API key 配置
+  | 'shortcut' // 快捷键确认
+  | 'compliance' // 录音合规提示
   | 'done'
 ```
 
@@ -322,13 +344,14 @@ type OnboardingStep =
 
 **选型**：用 Electron 内置 `safeStorage`（≥ Electron 15），不引 `keytar`：
 
-| 选项 | 决定 | 理由 |
-|---|---|---|
-| `keytar` | ❌ | Atom 退役后无人维护；带 native 依赖增加签名复杂度 |
-| `safeStorage` | ✅ | 内置、零 native 依赖；macOS 走 Keychain encryption key、Windows 走 DPAPI |
-| 自己 AES + 盘内 keyfile | ❌ | 重复造轮子，密钥保护强度低于 `safeStorage` |
+| 选项                    | 决定 | 理由                                                                     |
+| ----------------------- | ---- | ------------------------------------------------------------------------ |
+| `keytar`                | ❌   | Atom 退役后无人维护；带 native 依赖增加签名复杂度                        |
+| `safeStorage`           | ✅   | 内置、零 native 依赖；macOS 走 Keychain encryption key、Windows 走 DPAPI |
+| 自己 AES + 盘内 keyfile | ❌   | 重复造轮子，密钥保护强度低于 `safeStorage`                               |
 
 **非保证项 / 用户可见性**：
+
 - macOS：`safeStorage` 会在 Keychain.app 里创建一个 `LazyAudio Safe Storage` 条目——这是保护**对称加密 key** 的，**不**是实际的 API key
 - 用户能从系统钥匙串看到这个保护密钥的条目，但**无法**直接拷贝实际 API key（API key 是用该密钥加密后存在 `secrets.dat` 文件里的 blob）
 - 用户要修改 / 撤销 API key 只能从 LazyAudio 设置页操作；这一约束需要在"关于"页 / 设置帮助文案明说
@@ -341,8 +364,8 @@ type OnboardingStep =
 type SecretsBundle = {
   schemaVersion: 1
   cloudTranscribe?: { apiKey: string }
-  cloudLLM?:        { apiKey: string }
-  modelMirror?:     { hfToken?: string }    // 企业镜像可能要
+  cloudLLM?: { apiKey: string }
+  modelMirror?: { hfToken?: string } // 企业镜像可能要
 }
 ```
 
@@ -383,70 +406,70 @@ v0.1 还没有历史包袱，写好 migrate 入口即可，第一次破坏性改
 // recordings/{recordingId}/transcript.json
 type Transcript = {
   schemaVersion: 1
-  recordingId: string                         // 与目录名一致；防止 transcript 移走后无法关联
-  pass: 'live' | 'offline'                    // Multi Pass 区分；transcript.live.json='live'，transcript.json='offline'
+  recordingId: string // 与目录名一致；防止 transcript 移走后无法关联
+  pass: 'live' | 'offline' // Multi Pass 区分；transcript.live.json='live'，transcript.json='offline'
 
-  engine: string                              // 'local-streaming-zipformer' | 'local-vad-shortwin' | 'cloud-openai-stream'（live）
-                                              // 'local-sense-voice' | 'openai-compatible'（offline）
-  modelKey?: string                           // 本地
-  modelName?: string                          // 云端 api 返回的 model
-  language: string                            // 'zh' | 'en' | 'auto' | ISO 语言码
+  engine: string // 'local-streaming-zipformer' | 'local-vad-shortwin' | 'cloud-openai-stream'（live）
+  // 'local-sense-voice' | 'openai-compatible'（offline）
+  modelKey?: string // 本地
+  modelName?: string // 云端 api 返回的 model
+  language: string // 'zh' | 'en' | 'auto' | ISO 语言码
 
-  generatedAt: number                         // unix ms（live: 最后写入时刻；offline: 全部完成时刻）
-  durationMs: number                          // 转录耗时（offline: 一次性总耗时；live: 累计实时 ASR 占用时长）
+  generatedAt: number // unix ms（live: 最后写入时刻；offline: 全部完成时刻）
+  durationMs: number // 转录耗时（offline: 一次性总耗时；live: 累计实时 ASR 占用时长）
 
-  segments: TranscriptSegment[]               // live: stability 字段混合；offline: 全部 'confirmed'
-  partial?: boolean                           // live: 录音中持续写入时 true，录音 stop 时刷为 false
-                                              // offline: 增量模式（F4.8）时 true 且 timeRangesCovered 标记覆盖范围
-  timeRangesCovered?: Array<{ startSec, endSec }>   // partial=true 时必填；UI 据此判断哪些段落是 Pass B 已覆盖
+  segments: TranscriptSegment[] // live: stability 字段混合；offline: 全部 'confirmed'
+  partial?: boolean // live: 录音中持续写入时 true，录音 stop 时刷为 false
+  // offline: 增量模式（F4.8）时 true 且 timeRangesCovered 标记覆盖范围
+  timeRangesCovered?: Array<{ startSec; endSec }> // partial=true 时必填；UI 据此判断哪些段落是 Pass B 已覆盖
 }
 
 type TranscriptSegment = {
   // —— 身份（Multi Pass 必备） ——
-  segmentId: string                           // 稳定 id，hypothesis → confirmed 同 id；UI 原地替换依赖此
-                                              // Pass A 生成（streaming engine 内部分配）；Pass B segment 也带 id（独立分配，与 Pass A 不必关联）
+  segmentId: string // 稳定 id，hypothesis → confirmed 同 id；UI 原地替换依赖此
+  // Pass A 生成（streaming engine 内部分配）；Pass B segment 也带 id（独立分配，与 Pass A 不必关联）
 
   // 时间
-  start: number                               // 秒，相对于录音起点（不算 pause）
+  start: number // 秒，相对于录音起点（不算 pause）
   end: number
 
   // 内容
   text: string
-  speaker: string                             // v0.1 取值：'mic' / 'system' / 'mixed'
-                                              // v0.2 diarization 取值：'mic-1' / 'mic-2' / 'system-1' 等
-                                              // UI 调色映射见 design-system §5.1.2（speaker-1..5+）；
-                                              //   v0.1 渲染：'mic' → speaker-1，'system' → speaker-2，'mixed' → speaker-3
-                                              //   未知 speaker → speaker-5+（灰色），保证 v0.2 加入新值时 UI 不崩
+  speaker: string // v0.1 取值：'mic' / 'system' / 'mixed'
+  // v0.2 diarization 取值：'mic-1' / 'mic-2' / 'system-1' 等
+  // UI 调色映射见 design-system §5.1.2（speaker-1..5+）；
+  //   v0.1 渲染：'mic' → speaker-1，'system' → speaker-2，'mixed' → speaker-3
+  //   未知 speaker → speaker-5+（灰色），保证 v0.2 加入新值时 UI 不崩
 
   // —— Multi Pass 稳定性 ——
-  stability: 'hypothesis' | 'confirmed'       // 仅 transcript.live.json 用；transcript.json（Pass B）全部 'confirmed'
-                                              // UI 视觉区分见 design-system §5.5.1
+  stability: 'hypothesis' | 'confirmed' // 仅 transcript.live.json 用；transcript.json（Pass B）全部 'confirmed'
+  // UI 视觉区分见 design-system §5.5.1
 
   // VAD / ASR 元数据（可选，UI 用不到，调试用）
-  confidence?: number                         // 0~1
-  tokens?: Array<{ text: string, start: number, end: number }>   // ASR 原始字级时间戳，**只读**
-                                              // v0.2 引入 transcript edit 时：tokens 保持原值不变；编辑结果走新增的 displayText 派生字段
+  confidence?: number // 0~1
+  tokens?: Array<{ text: string; start: number; end: number }> // ASR 原始字级时间戳，**只读**
+  // v0.2 引入 transcript edit 时：tokens 保持原值不变；编辑结果走新增的 displayText 派生字段
 }
 ```
 
 ### 4.2 决定
 
-| 字段 | 决定 |
-|---|---|
-| 段落时间用**秒** | 与 sherpa-onnx 输出一致；UI 显示 mm:ss 由 renderer 格式化 |
+| 字段                             | 决定                                                                                                            |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 段落时间用**秒**                 | 与 sherpa-onnx 输出一致；UI 显示 mm:ss 由 renderer 格式化                                                       |
 | `speaker` 用 `string` 而非 union | v0.1 实际取 'mic'/'system'/'mixed'，但 v0.2 diarization 会引入 'mic-1' 等，提前用 string 避免破坏性 schema 变更 |
-| `tokens` 可选 + 标注只读 | 字级时间戳数据量大（一小时 ~几 MB），仅在用户开"精确点击"设置时存（默认开）；v0.2 transcript edit 不动 tokens |
-| 不存原始 logits / 隐状态 | 用不到，且体积爆炸 |
+| `tokens` 可选 + 标注只读         | 字级时间戳数据量大（一小时 ~几 MB），仅在用户开"精确点击"设置时存（默认开）；v0.2 transcript edit 不动 tokens   |
+| 不存原始 logits / 隐状态         | 用不到，且体积爆炸                                                                                              |
 
 ### 4.3 大小估算
 
 1 小时会议中文转录 ~5 万字 + 时间戳：
 
-| 字段 | 估算 |
-|---|---|
-| segments[] 文本 + start/end | ~150 KB |
-| 含 tokens[]（字级） | ~3 MB |
-| pretty-print 还是 minified | minified；diff 友好但 JSON 不是人读的就别 pretty |
+| 字段                        | 估算                                             |
+| --------------------------- | ------------------------------------------------ |
+| segments[] 文本 + start/end | ~150 KB                                          |
+| 含 tokens[]（字级）         | ~3 MB                                            |
+| pretty-print 还是 minified  | minified；diff 友好但 JSON 不是人读的就别 pretty |
 
 ### 4.4 与 audio 的对齐
 
@@ -468,6 +491,7 @@ type TranscriptSegment = {
 转录中途取消 → 已经出的段落丢弃，不写 partial transcript（v0.1 简化）。
 
 **v0.2 引入 partial transcript 的 schema 演进**：
+
 - `transcript.json` 新增 `partial?: boolean` 字段
 - `meta.transcribe.status` 与 partial 互不冲突：partial transcript 可能出现在 status=`failed`（中途失败保留已识别部分）或 `done`（用户主动停止转录提前保存）
 - consumer 看到 partial=true + status=failed → UI 显示"已识别 N 段，可重试补全"
@@ -480,10 +504,10 @@ type TranscriptSegment = {
 
 PRD §4 F5.1 / F5.2 要求按日期分组 + 全文搜索。两个选项：
 
-| 方案 | 选不选 |
-|---|---|
+| 方案                                                   | 选不选                                 |
+| ------------------------------------------------------ | -------------------------------------- |
 | A. 每次启动扫 `recordings/` 全目录，解析每份 meta.json | 不选：100 条录音以下还行，再多启动就慢 |
-| B. 维护一份 `library/index.json`，meta 写时同步更新 | **选** |
+| B. 维护一份 `library/index.json`，meta 写时同步更新    | **选**                                 |
 
 不用 SQLite 的理由：v0.1 量级（千条以内）一份 JSON 完全够；引 SQLite 多一个 native 依赖 + 签名复杂度。
 
@@ -493,11 +517,11 @@ PRD §4 F5.1 / F5.2 要求按日期分组 + 全文搜索。两个选项：
 // library/index.json
 type LibraryIndex = {
   schemaVersion: 1
-  lastBuiltAt: number                         // 全量重建时间戳；用于诊断（"索引有多老"），不用于 reconcile 判据
-                                              // 增量更新**不刷**该字段，仅 rebuildIndex() 才刷
-                                              // reconcile 是否重读 entry 由 entry.syncedAtMtime 与 meta.json mtime 比较决定（见 §5.4）
+  lastBuiltAt: number // 全量重建时间戳；用于诊断（"索引有多老"），不用于 reconcile 判据
+  // 增量更新**不刷**该字段，仅 rebuildIndex() 才刷
+  // reconcile 是否重读 entry 由 entry.syncedAtMtime 与 meta.json mtime 比较决定（见 §5.4）
 
-  entries: LibraryEntry[]                     // 按 startedAt 倒序
+  entries: LibraryEntry[] // 按 startedAt 倒序
 }
 
 type LibraryEntry = {
@@ -509,8 +533,8 @@ type LibraryEntry = {
   status: RecordingMeta['status']
   transcribeStatus: RecordingMeta['transcribe']['status']
   summaryStatus: RecordingMeta['summary']['status']
-  transcriptPreview?: string                  // PRD F5.3 首句预览，~80 字符
-  syncedAtMtime: number                       // 写 entry 时记下的 meta.json mtime；reconcile 用它判断是否需重读
+  transcriptPreview?: string // PRD F5.3 首句预览，~80 字符
+  syncedAtMtime: number // 写 entry 时记下的 meta.json mtime；reconcile 用它判断是否需重读
   // 不放完整 transcript：搜索时按需 lazy 读 transcript.json
 }
 ```
@@ -563,6 +587,7 @@ search(query):
 ```
 
 **损坏 / 缺失场景**：
+
 - `index.json` 损坏 → UI 立即给空列表 + 顶部"正在重建索引"骨架屏 → 后台全量扫 recordings/ → 完成后推送 entries → 隐藏骨架屏
 - 100 条 < 1s、1000 条 ~10s——但用户**不**感知阻塞，可以照常录音 / 操作设置
 
@@ -584,22 +609,22 @@ search(query):
 
 如果未来要做"标记完成的待办"之类的功能，再考虑在 markdown 上叠 frontmatter / 旁路 JSON。
 
-### 6.2 内置模板：templates/builtin/*.json
+### 6.2 内置模板：templates/builtin/\*.json
 
 ```ts
 // templates/builtin/meeting.json
 type Template = {
   schemaVersion: 1
-  id: string                                  // 'builtin/meeting'，user 自定义则 'user/<ulid>'
-  name: string                                // 显示名 "会议纪要"
-  sessionType?: SessionType                   // 与会话类型默认关联；null 表示通用
-  builtin: boolean                            // 内置 true，用户自定义 false
+  id: string // 'builtin/meeting'，user 自定义则 'user/<ulid>'
+  name: string // 显示名 "会议纪要"
+  sessionType?: SessionType // 与会话类型默认关联；null 表示通用
+  builtin: boolean // 内置 true，用户自定义 false
   prompt: {
     system: string
-    user: string                              // 可含变量：{{transcript}} {{title}} {{date}}
+    user: string // 可含变量：{{transcript}} {{title}} {{date}}
   }
   output: {
-    format: 'markdown'                        // v0.1 仅此一种
+    format: 'markdown' // v0.1 仅此一种
     maxTokens?: number
   }
 }
@@ -625,11 +650,11 @@ type ModelManifest = {
   models: {
     [modelKey: string]: {
       kind: 'asr' | 'vad' | 'punct'
-      version: string                         // 'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8'
+      version: string // 'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8'
       downloadedAt: number
       bytesTotal: number
       files: Array<{
-        relPath: string                       // 相对 models/{modelKey}/
+        relPath: string // 相对 models/{modelKey}/
         sha256: string
         bytes: number
       }>
@@ -640,13 +665,14 @@ type ModelManifest = {
   // v0.x GPU 加速 / 其它 native bundle 的按需下载预留位
   // v0.1 始终为空对象。schema 提前定，下载器 / 校验 / manifest 写入逻辑可复用同一套代码
   nativeBundles?: {
-    [bundleKey: string]: {                    // 如 'sherpa-onnx-win32-x64-cuda-12.x'
+    [bundleKey: string]: {
+      // 如 'sherpa-onnx-win32-x64-cuda-12.x'
       kind: 'asr-engine-gpu' | 'codec-runtime' | string
       version: string
       downloadedAt: number
       bytesTotal: number
-      files: Array<{ relPath: string, sha256: string, bytes: number }>
-      source: string                          // GitHub release / 自托管
+      files: Array<{ relPath: string; sha256: string; bytes: number }>
+      source: string // GitHub release / 自托管
     }
   }
 }
@@ -654,12 +680,12 @@ type ModelManifest = {
 
 ### 7.2 用途
 
-| 场景 | 用法 |
-|---|---|
+| 场景               | 用法                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
 | 启动检查模型完整性 | 扫描 `manifest.models[modelKey].files`，校验存在性 + 文件大小（不全量 SHA，慢） |
-| 下载完成后写入 | 全量 SHA 校验 → 写 manifest |
-| 切换模型 | 用 `modelKey` 查 manifest，缺失则触发下载 |
-| 卸载模型 | 删 `models/{modelKey}/` + manifest 移除条目 |
+| 下载完成后写入     | 全量 SHA 校验 → 写 manifest                                                     |
+| 切换模型           | 用 `modelKey` 查 manifest，缺失则触发下载                                       |
+| 卸载模型           | 删 `models/{modelKey}/` + manifest 移除条目                                     |
 
 ### 7.3 SHA256
 
@@ -668,7 +694,7 @@ type ModelManifest = {
 
 ---
 
-## 8. 日志：logs/*.log
+## 8. 日志：logs/\*.log
 
 ### 8.1 主进程日志
 
@@ -686,13 +712,13 @@ type ModelManifest = {
 
 **两级脱敏**——`meta.json` / `settings.json`（设备本地数据）与 `logs/*.log`（可能被 share 出去）按不同强度处理：
 
-| 数据 | meta / settings | 日志 |
-|---|---|---|
-| API key | safeStorage 加密 | 永不出现 |
-| `apiBaseUrl` 完整 URL | 完整存 | host 拆解 + 6 位 hash：`<host:abc123>` 跨日志条目关联用 |
-| 用户主目录 | 完整路径 | `~/Library/...` 占位 |
-| transcript / summary 内容 | 落盘 | 永不出现 |
-| 录音 id / sessionType | 完整存 | 完整存（非敏感） |
+| 数据                      | meta / settings  | 日志                                                    |
+| ------------------------- | ---------------- | ------------------------------------------------------- |
+| API key                   | safeStorage 加密 | 永不出现                                                |
+| `apiBaseUrl` 完整 URL     | 完整存           | host 拆解 + 6 位 hash：`<host:abc123>` 跨日志条目关联用 |
+| 用户主目录                | 完整路径         | `~/Library/...` 占位                                    |
+| transcript / summary 内容 | 落盘             | 永不出现                                                |
+| 录音 id / sessionType     | 完整存           | 完整存（非敏感）                                        |
 
 **主进程 IPC 日志层的 channel 黑名单**——避免高频 / 含 payload 的消息泄漏：
 
@@ -733,6 +759,7 @@ async function deleteRecording(id) {
 ```
 
 **为什么要等取消而非直接 rm**：
+
 - Windows 上文件被 utility process 读时 `fs.rm` 报 EBUSY，删除失败留下半空目录
 - macOS 上 inode 删除后 utility 仍能读 fd，但 LibraryIndex 已移除会引起转录完成时回写 transcript.json 到孤儿目录
 
@@ -744,12 +771,12 @@ async function deleteRecording(id) {
 
 启动时扫描：
 
-| 残留 | 行为 |
-|---|---|
-| `recordings/*/meta.json.tmp` 且 `meta.json` 不存在 | 提升为正式（崩溃恢复） |
-| `recordings/*/meta.json.tmp` 且 `meta.json` 也存在 | 删 .tmp（写 meta 时崩溃，正式版本完好） |
-| `recordings/*/` 没有 meta.json | 视为损坏，重命名为 `_broken/{id}/`，提示用户 |
-| `templates/user/*.json` schema 不对 | 跳过加载，不删；UI 显示"无效模板"图标 |
+| 残留                                               | 行为                                         |
+| -------------------------------------------------- | -------------------------------------------- |
+| `recordings/*/meta.json.tmp` 且 `meta.json` 不存在 | 提升为正式（崩溃恢复）                       |
+| `recordings/*/meta.json.tmp` 且 `meta.json` 也存在 | 删 .tmp（写 meta 时崩溃，正式版本完好）      |
+| `recordings/*/` 没有 meta.json                     | 视为损坏，重命名为 `_broken/{id}/`，提示用户 |
+| `templates/user/*.json` schema 不对                | 跳过加载，不删；UI 显示"无效模板"图标        |
 
 ### 9.3 模型与 app 卸载
 
@@ -765,14 +792,14 @@ PRD §7.5：模型目录在 app 卸载时**不删**。
 
 每份持久化 JSON 都带 `schemaVersion: number`：
 
-| 文件 | 当前版本 | 迁移规则 |
-|---|---|---|
-| settings.json | 1 | 缺失字段补默认值；多余字段忽略不删（forward compat） |
-| recordings/*/meta.json | 1 | 同上 |
-| recordings/*/transcript.json | 1 | 同上 |
-| library/index.json | 1 | 全量重建（轻量） |
-| templates/*.json | 1 | 升级时 builtin/ 用 app 包内版本覆盖 |
-| models/manifest.json | 1 | 全量重建（重新扫 models/ + 文件大小） |
+| 文件                          | 当前版本 | 迁移规则                                             |
+| ----------------------------- | -------- | ---------------------------------------------------- |
+| settings.json                 | 1        | 缺失字段补默认值；多余字段忽略不删（forward compat） |
+| recordings/\*/meta.json       | 1        | 同上                                                 |
+| recordings/\*/transcript.json | 1        | 同上                                                 |
+| library/index.json            | 1        | 全量重建（轻量）                                     |
+| templates/\*.json             | 1        | 升级时 builtin/ 用 app 包内版本覆盖                  |
+| models/manifest.json          | 1        | 全量重建（重新扫 models/ + 文件大小）                |
 
 破坏性改动（删字段 / 改语义）→ `schemaVersion++` + 写 `migrate_X_to_Y` 函数 + 单元测试。
 
@@ -782,11 +809,11 @@ PRD §7.5：模型目录在 app 卸载时**不删**。
 
 ## 11. 跨进程数据访问规则
 
-| 谁 | fs 访问 | 信任级别 |
-|---|---|---|
-| 主进程 | 全部 `{userData}/LazyAudio/*` | 完全可信 |
-| ASR utility | 完整 fs 权限（与主进程同） | **完全可信**（视为主进程扩展） |
-| Renderer | **不直接 fs 访问**；所有读写经主进程 IPC | 不可信 |
+| 谁          | fs 访问                                  | 信任级别                       |
+| ----------- | ---------------------------------------- | ------------------------------ |
+| 主进程      | 全部 `{userData}/LazyAudio/*`            | 完全可信                       |
+| ASR utility | 完整 fs 权限（与主进程同）               | **完全可信**（视为主进程扩展） |
+| Renderer    | **不直接 fs 访问**；所有读写经主进程 IPC | 不可信                         |
 
 **关于 utility process 的访问范围**：
 之前考虑过让 utility "只读 wav + models"做权限隔离。结论是放弃——utility process 在 OS 层就是主进程子进程，没有真正的能力隔离手段。规约式的 allowlist 在 code review 里容易被破坏，反而给出"已经隔离"的虚假安全感。架构上明确：**utility process 是主进程的可信扩展**，独立进程只是为了崩溃隔离 + 长任务不阻塞，**不**为了权限隔离。设计上仍约定 utility 只读 wav + models（避免与主进程写竞争），但靠 code review 而非运行时检查。
@@ -813,10 +840,10 @@ PRD §7.5：模型目录在 app 卸载时**不删**。
 
 ## 13. 跨文档导航
 
-| 想了解 | 看 |
-|---|---|
-| WAV header 字段、PCM 落盘细节 | [`audio-capture.md`](./audio-capture.md) §5 |
-| 本地 / 云端转录怎么产出 transcript.json | [`transcription-pipeline.md`](./transcription-pipeline.md) |
-| `library:*` `secrets:*` IPC 协议 | [`ipc-contract.md`](./ipc-contract.md) |
-| 进程拓扑全景 | [`overview.md`](./overview.md) §2 |
-| 关键决策（ULID id、JSON 不 SQLite、模板存储） | [`adr/`](./adr/) 待写 |
+| 想了解                                        | 看                                                         |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| WAV header 字段、PCM 落盘细节                 | [`audio-capture.md`](./audio-capture.md) §5                |
+| 本地 / 云端转录怎么产出 transcript.json       | [`transcription-pipeline.md`](./transcription-pipeline.md) |
+| `library:*` `secrets:*` IPC 协议              | [`ipc-contract.md`](./ipc-contract.md)                     |
+| 进程拓扑全景                                  | [`overview.md`](./overview.md) §2                          |
+| 关键决策（ULID id、JSON 不 SQLite、模板存储） | [`adr/`](./adr/) 待写                                      |

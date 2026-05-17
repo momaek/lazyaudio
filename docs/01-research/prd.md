@@ -5,6 +5,7 @@
 > **状态**：进入 `02-design` 的输入文档；功能范围已冻结，UX 细节在下一阶段细化
 > **目标读者**：自己（作者 / 实施者）、未来加入的协作者
 > **配套文档**：
+>
 > - 技术可行性：[`sherpa-onnx-research.md`](./sherpa-onnx-research.md)
 > - 草稿与拍板过程：[`product-spec.md`](./product-spec.md)
 
@@ -45,23 +46,23 @@
 
 ### 2.2 场景优先级
 
-| 优先级 | 场景 | 打磨深度 |
-|--------|------|----------|
-| P0 | 线上会议（Zoom / Teams / 腾讯会议） | 主要打磨对象 |
-| P0 | 语音笔记 / 灵感速记 | 快捷键 + 启动速度 |
-| P0 | 面试 — 我作为**面试官** | 复盘回答、结构化评估 |
-| P0 | 面试 — 我作为**面试者** | 自我复盘、记录卡壳点 |
-| P1 | 课程 / 讲座录制 | 跑得通 + 长录音稳定 |
-| P2 | 播客 / 内容创作 | 不优化质量上限，但分轨可用 |
+| 优先级 | 场景                                | 打磨深度                   |
+| ------ | ----------------------------------- | -------------------------- |
+| P0     | 线上会议（Zoom / Teams / 腾讯会议） | 主要打磨对象               |
+| P0     | 语音笔记 / 灵感速记                 | 快捷键 + 启动速度          |
+| P0     | 面试 — 我作为**面试官**             | 复盘回答、结构化评估       |
+| P0     | 面试 — 我作为**面试者**             | 自我复盘、记录卡壳点       |
+| P1     | 课程 / 讲座录制                     | 跑得通 + 长录音稳定        |
+| P2     | 播客 / 内容创作                     | 不优化质量上限，但分轨可用 |
 
 ### 2.3 场景间差异（驱动产品决策）
 
-| | 会议 | 笔记 | 面试官 | 面试者 | 课程 | 播客 |
-|---|---|---|---|---|---|---|
-| 默认音源 | mic + 系统 | 仅 mic | mic + 系统 | mic + 系统 | 系统为主 | mic 为主 |
-| 典型时长 | 30 min–2 h | < 5 min | 30 min–1 h | 30 min–1 h | 1–3 h | 30 min–2 h |
-| LLM 模板 | 会议纪要 + 待办 | 要点速记 | 候选人评估 | 自我复盘 | 章节笔记 | 章节标记 |
-| 协作 | 可分享 | 私人 | 团队分享 | **绝对私人** | 私人 | 公开 |
+|          | 会议            | 笔记     | 面试官     | 面试者       | 课程     | 播客       |
+| -------- | --------------- | -------- | ---------- | ------------ | -------- | ---------- |
+| 默认音源 | mic + 系统      | 仅 mic   | mic + 系统 | mic + 系统   | 系统为主 | mic 为主   |
+| 典型时长 | 30 min–2 h      | < 5 min  | 30 min–1 h | 30 min–1 h   | 1–3 h    | 30 min–2 h |
+| LLM 模板 | 会议纪要 + 待办 | 要点速记 | 候选人评估 | 自我复盘     | 章节笔记 | 章节标记   |
+| 协作     | 可分享          | 私人     | 团队分享   | **绝对私人** | 私人     | 公开       |
 
 → 决定了「**录前选会话类型**」是核心交互，预设音源 + 模板 + 默认标题。
 
@@ -85,11 +86,13 @@
 ### 4.1 必须有（P0 — v0.1 发版前必交付）
 
 #### 录音前
+
 - F1.1 **录前选择会话类型**：通用（默认）/ 会议 / 笔记 / 面试-面试官 / 面试-面试者 / 课程 / 播客，共 7 种。每种类型预设默认音源 + LLM 模板。"上次选择"被记住作为下次默认。
 - F1.2 **音源选择**：mic / system 两个开关，默认值由会话类型决定，用户可改。
 - F1.3 **默认标题**：`{会话类型} {YYYY-MM-DD HH:mm}`（如 `面试官 2026-05-16 14:30`），用户随时可改。
 
 #### 录音中
+
 - F2.1 同时录制 **系统音 + 麦克风**（任一可关）
 - F2.2 显示**录制时长、电平表**（mic / system 各一条）
 - F2.3 可**暂停 / 继续 / 停止**
@@ -97,6 +100,7 @@
 - F2.5 **全局快捷键**开始 / 停止录音（默认值在 02-design 阶段定，建议 `⌘⇧R` / `Ctrl+Shift+R`），设置中可改
 
 #### 录音文件
+
 - F3.1 **默认同时生成分轨 + 混音**：`mic.wav`、`system.wav`、`mixed.wav`。分轨可在设置里关，混音始终生成。
 - F3.2 录音保存目录默认 `~/Library/Application Support/LazyAudio/recordings/`（macOS）/ `%APPDATA%\LazyAudio\recordings\`（Windows），可改
 
@@ -115,12 +119,14 @@ v0.1 **必须**提供两阶段转录：
 - F4.9 **云端模式 Multi Pass 默认关**：切到云端时实时转录默认禁用；用户主动开启时显式告知"网络波动可能导致字幕跳变 / 缺失"
 
 #### 录音库
+
 - F5.1 **按日期分组**：今天 / 昨天 / 本周 / 本月 / 更早，组内按时间倒序
 - F5.2 顶部**搜索框 + 类型筛选 chip**
 - F5.3 每条显示：**类型徽章 + 标题 + 时长 + 转录预览首句**
 - F5.4 操作：重命名、删除（带确认）、在 Finder / Explorer 中显示
 
 #### Onboarding
+
 - F6.1 欢迎页
 - F6.2 **隐私模式选择**：本地（推荐，下载模型）/ 云端（填 API key）
 - F6.3 权限引导：
@@ -168,6 +174,7 @@ v0.1 **必须**提供两阶段转录：
 ```
 
 关键交互细节：
+
 - 隐私模式可在设置里改，但模型 / API key 需要重新走一遍配置
 - 模型下载失败 → 显式"重试 / 跳过到云端 / 退出" 三选项，不卡死
 - 国内用户默认从镜像源（hf-mirror.com）下载，海外用户从 GitHub Releases
@@ -190,6 +197,7 @@ v0.1 **必须**提供两阶段转录：
 ```
 
 设计要点：
+
 - 录音前的浮窗在**有快捷键时弹**，菜单栏点"开始录音"时也走同一浮窗
 - 如果用户不想看浮窗，可在设置中改为"快捷键直接开始录音（用上次配置）"
 - 转录在 **utility process**（Electron 28+）跑，不阻塞主进程
@@ -206,6 +214,7 @@ v0.1 **必须**提供两阶段转录：
 ## 6. 数据模型
 
 存储位置：
+
 - macOS：`~/Library/Application Support/LazyAudio/`
 - Windows：`%APPDATA%\LazyAudio\`
 
@@ -266,15 +275,15 @@ LazyAudio/
 
 ### 7.1 性能
 
-| 指标 | 目标 | 备注 |
-|---|---|---|
-| 冷启动到主窗口可交互 | < 1.5 s | macOS M1 / Win11 i5 |
-| 快捷键到开始录音 | < 500 ms | 包含浮窗显示 |
-| 转录速度（SenseVoice int8 / M1 CPU） | RTF ≤ 0.1 | 1 小时录音 ≤ 6 分钟跑完 Pass B |
-| 实时转录延迟（Pass A，声音到字幕） | < 3s | spike-011 量化后定型，候选 2–5s |
-| 主进程 CPU 占用（录音中 + Pass A 实时跑） | < 8% | M1；主进程 < 5%，留 3% 给 Pass A 协调开销 |
-| utility CPU 占用（录音中 Pass A） | < 150% | streaming/短窗 ASR，1.5 线程 |
-| 内存（录音 1h + Pass A + 准备 Pass B） | **< 2.5 GB** | Multi Pass 比 v0.1 单 pass 上限增加 1 GB（streaming + offline 双 utility 短暂共存） |
+| 指标                                      | 目标         | 备注                                                                                |
+| ----------------------------------------- | ------------ | ----------------------------------------------------------------------------------- |
+| 冷启动到主窗口可交互                      | < 1.5 s      | macOS M1 / Win11 i5                                                                 |
+| 快捷键到开始录音                          | < 500 ms     | 包含浮窗显示                                                                        |
+| 转录速度（SenseVoice int8 / M1 CPU）      | RTF ≤ 0.1    | 1 小时录音 ≤ 6 分钟跑完 Pass B                                                      |
+| 实时转录延迟（Pass A，声音到字幕）        | < 3s         | spike-011 量化后定型，候选 2–5s                                                     |
+| 主进程 CPU 占用（录音中 + Pass A 实时跑） | < 8%         | M1；主进程 < 5%，留 3% 给 Pass A 协调开销                                           |
+| utility CPU 占用（录音中 Pass A）         | < 150%       | streaming/短窗 ASR，1.5 线程                                                        |
+| 内存（录音 1h + Pass A + 准备 Pass B）    | **< 2.5 GB** | Multi Pass 比 v0.1 单 pass 上限增加 1 GB（streaming + offline 双 utility 短暂共存） |
 
 ### 7.2 隐私与安全
 
@@ -291,13 +300,13 @@ LazyAudio/
 
 ### 7.4 兼容性
 
-| 平台 | 版本 | 备注 |
-|---|---|---|
-| macOS | **14.2+** | CoreAudio Tap 抓系统音（audio-only，不需要屏幕录制权限） |
-| macOS | 14.0–14.1 / 13.x | **v0.1 不支持**；低于 14.2 不能用干净的 audio-only API |
-| Windows | 10 / 11 x64 | WASAPI loopback |
-| Windows ARM64 | — | v0.1 不支持，走 emulation 自负 |
-| Linux | — | v0.x 视需求 |
+| 平台          | 版本             | 备注                                                     |
+| ------------- | ---------------- | -------------------------------------------------------- |
+| macOS         | **14.2+**        | CoreAudio Tap 抓系统音（audio-only，不需要屏幕录制权限） |
+| macOS         | 14.0–14.1 / 13.x | **v0.1 不支持**；低于 14.2 不能用干净的 audio-only API   |
+| Windows       | 10 / 11 x64      | WASAPI loopback                                          |
+| Windows ARM64 | —                | v0.1 不支持，走 emulation 自负                           |
+| Linux         | —                | v0.x 视需求                                              |
 
 > macOS 最低版本定 14.2+ 的理由：从 14.2 开始可以用 CoreAudio Tap，**只需麦克风权限就能录系统音**。早于 14.2 必须借道 ScreenCaptureKit，要"屏幕录制"权限，对一个"录音工具"来说是奇怪的权限请求，体验损失大于覆盖率收益。
 
@@ -313,16 +322,16 @@ LazyAudio/
 
 完整技术决策见 [`sherpa-onnx-research.md`](./sherpa-onnx-research.md)，PRD 层级需要知道的：
 
-| 项 | 选型 | 关键约束 |
-|---|---|---|
-| 桌面框架 | Electron + Vite + React + TypeScript | pnpm 管理 |
-| 本地转录 | sherpa-onnx N-API addon | 必须 `asarUnpack`；macOS SIP 剥离 DYLD_*，需 `@loader_path` 方案 |
-| 默认本地模型 | SenseVoice-small int8 2025-09-09 | ~234 MB，按需下载 |
-| VAD | Silero VAD（sherpa-onnx 内置） | ~2 MB |
-| 云端转录 | OpenAI 兼容 API | 用户填 baseUrl / apiKey / model |
-| 系统音采集 | macOS 14.2+ **CoreAudio Tap** / Win WASAPI loopback | macOS 走 Electron 35+ 内置的 `desktopCapturer`（底层自动选 CoreAudio Tap）；Windows 走 `desktopCapturer` + `chromeMediaSource: 'desktop'` |
-| 麦克风采集 | `navigator.mediaDevices.getUserMedia({audio:true})` | 标准 Web API，不依赖 native addon |
-| ASR 进程隔离 | Electron utility process（28+） | 不阻塞主进程；OOM 不拖垮 app |
+| 项           | 选型                                                | 关键约束                                                                                                                                  |
+| ------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面框架     | Electron + Vite + React + TypeScript                | pnpm 管理                                                                                                                                 |
+| 本地转录     | sherpa-onnx N-API addon                             | 必须 `asarUnpack`；macOS SIP 剥离 DYLD\_\*，需 `@loader_path` 方案                                                                        |
+| 默认本地模型 | SenseVoice-small int8 2025-09-09                    | ~234 MB，按需下载                                                                                                                         |
+| VAD          | Silero VAD（sherpa-onnx 内置）                      | ~2 MB                                                                                                                                     |
+| 云端转录     | OpenAI 兼容 API                                     | 用户填 baseUrl / apiKey / model                                                                                                           |
+| 系统音采集   | macOS 14.2+ **CoreAudio Tap** / Win WASAPI loopback | macOS 走 Electron 35+ 内置的 `desktopCapturer`（底层自动选 CoreAudio Tap）；Windows 走 `desktopCapturer` + `chromeMediaSource: 'desktop'` |
+| 麦克风采集   | `navigator.mediaDevices.getUserMedia({audio:true})` | 标准 Web API，不依赖 native addon                                                                                                         |
+| ASR 进程隔离 | Electron utility process（28+）                     | 不阻塞主进程；OOM 不拖垮 app                                                                                                              |
 
 ---
 
@@ -330,16 +339,17 @@ LazyAudio/
 
 v0.1 发布后 30 天观测（dogfood + 朋友圈小范围）：
 
-| 指标 | 目标 |
-|---|---|
-| 我自己每周录音次数 | ≥ 10 |
-| 首启动到完成第一次录音 + 转录的转化率 | ≥ 80% |
-| 首启动模型下载成功率（国内） | ≥ 95% |
-| 转录任务成功率（不算用户主动取消） | ≥ 98% |
+| 指标                                    | 目标  |
+| --------------------------------------- | ----- |
+| 我自己每周录音次数                      | ≥ 10  |
+| 首启动到完成第一次录音 + 转录的转化率   | ≥ 80% |
+| 首启动模型下载成功率（国内）            | ≥ 95% |
+| 转录任务成功率（不算用户主动取消）      | ≥ 98% |
 | 自动生成的 LLM 摘要"基本可用"率（主观） | ≥ 70% |
-| 崩溃率（每 100 次录音） | < 1 |
+| 崩溃率（每 100 次录音）                 | < 1   |
 
 **反指标**：
+
 - 用户填了 API key 但回头切回本地 → 说明云端体验差或本地够用，关注哪个原因
 - 转录完不点开看 → 说明摘要不够好或入口设计差
 
@@ -347,16 +357,16 @@ v0.1 发布后 30 天观测（dogfood + 朋友圈小范围）：
 
 ## 10. 里程碑
 
-| 里程碑 | 内容 | 目标日期 |
-|---|---|---|
-| M0 | PRD 收敛（本文档）| 2026-05-16 ✅ |
-| M1 | UX 设计稿（02-design）| +2 周 |
-| M2 | 技术架构 + ADR（03-architecture）| +3 周 |
-| M3 | 骨架可跑：Electron + 主窗口 + 菜单栏 + 录音落盘（无转录）| +5 周 |
-| M4 | 本地转录跑通（sherpa-onnx 集成 + 模型下载）| +8 周 |
-| M5 | LLM 摘要 + 录音库完整体验 | +10 周 |
-| M6 | v0.1 dogfood 版（自己每天用） | +12 周 |
-| M7 | v0.1 发布（小范围分发，非商店）| +14 周 |
+| 里程碑 | 内容                                                      | 目标日期      |
+| ------ | --------------------------------------------------------- | ------------- |
+| M0     | PRD 收敛（本文档）                                        | 2026-05-16 ✅ |
+| M1     | UX 设计稿（02-design）                                    | +2 周         |
+| M2     | 技术架构 + ADR（03-architecture）                         | +3 周         |
+| M3     | 骨架可跑：Electron + 主窗口 + 菜单栏 + 录音落盘（无转录） | +5 周         |
+| M4     | 本地转录跑通（sherpa-onnx 集成 + 模型下载）               | +8 周         |
+| M5     | LLM 摘要 + 录音库完整体验                                 | +10 周        |
+| M6     | v0.1 dogfood 版（自己每天用）                             | +12 周        |
+| M7     | v0.1 发布（小范围分发，非商店）                           | +14 周        |
 
 时间是 lazy estimate，自己一人开发，按实际节奏调整。
 
@@ -364,18 +374,18 @@ v0.1 发布后 30 天观测（dogfood + 朋友圈小范围）：
 
 ## 11. 风险与缓解
 
-| 风险 | 影响 | 缓解 |
-|---|---|---|
-| macOS SIP 剥离 DYLD_*，签名包加载 sherpa-onnx 失败 | 🔴 高 | CI 必须做"签名+公证后启动"smoke test，不能只在 dev 验证 |
-| CoreAudio Tap 在某些设备组合（蓝牙耳机 / 外接声卡）下行为不一致 | 🟡 中 | spike-001 中覆盖蓝牙耳机场景；Plan B：force ScreenCaptureKit fallback（需额外权限） |
-| 模型下载在国内卡死 | 🟡 中 | hf-mirror / ModelScope / GitHub Releases 多源 fallback + 测速 |
-| 自己写得太多功能、v0.1 发不出去 | 🟡 中 | 严格按 §4 范围；P1/P2 进 backlog 不进 v0.1 |
-| LLM 摘要质量不稳定 → 用户失望 | 🟡 中 | v0.1 把模板可改 prompt 暴露，让用户自己调；不承诺"AI 替你写会议纪要" |
-| 录音中 App 崩溃 → 文件损坏 | 🔴 高 | 边录边写 WAV 流（不缓存到 RAM 再 flush）；最坏情况只丢崩溃前几秒 |
-| Pass A streaming 模型中文 CER 不够，hypothesis 跳变频繁 | 🟡 中 | spike-011 量化 streaming Zipformer vs VAD 短窗 SenseVoice；不达标走 VAD 短窗保底 |
-| 录音 + Pass A 并发吃满 CPU，电平表 / UI 卡 | 🟡 中 | spike-012 在 M1 / Intel Mac / Win i5 三档实测；不达标降级（仅菜单栏模式不跑 Pass A） |
-| Pass A 与 Pass B 结果差异让用户觉得"又改了" | 🟡 中 | UI 不弹通知，原地刷新；segment id 稳定，阅读光标不跳行（spike-013） |
-| 内存 2.5 GB 在 8 GB 入门机器吃紧 | 🟡 中 | Pass B 开跑前必须等 Pass A utility unload；不允许同时持有两份模型超 2s |
+| 风险                                                            | 影响  | 缓解                                                                                 |
+| --------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------ |
+| macOS SIP 剥离 DYLD\_\*，签名包加载 sherpa-onnx 失败            | 🔴 高 | CI 必须做"签名+公证后启动"smoke test，不能只在 dev 验证                              |
+| CoreAudio Tap 在某些设备组合（蓝牙耳机 / 外接声卡）下行为不一致 | 🟡 中 | spike-001 中覆盖蓝牙耳机场景；Plan B：force ScreenCaptureKit fallback（需额外权限）  |
+| 模型下载在国内卡死                                              | 🟡 中 | hf-mirror / ModelScope / GitHub Releases 多源 fallback + 测速                        |
+| 自己写得太多功能、v0.1 发不出去                                 | 🟡 中 | 严格按 §4 范围；P1/P2 进 backlog 不进 v0.1                                           |
+| LLM 摘要质量不稳定 → 用户失望                                   | 🟡 中 | v0.1 把模板可改 prompt 暴露，让用户自己调；不承诺"AI 替你写会议纪要"                 |
+| 录音中 App 崩溃 → 文件损坏                                      | 🔴 高 | 边录边写 WAV 流（不缓存到 RAM 再 flush）；最坏情况只丢崩溃前几秒                     |
+| Pass A streaming 模型中文 CER 不够，hypothesis 跳变频繁         | 🟡 中 | spike-011 量化 streaming Zipformer vs VAD 短窗 SenseVoice；不达标走 VAD 短窗保底     |
+| 录音 + Pass A 并发吃满 CPU，电平表 / UI 卡                      | 🟡 中 | spike-012 在 M1 / Intel Mac / Win i5 三档实测；不达标降级（仅菜单栏模式不跑 Pass A） |
+| Pass A 与 Pass B 结果差异让用户觉得"又改了"                     | 🟡 中 | UI 不弹通知，原地刷新；segment id 稳定，阅读光标不跳行（spike-013）                  |
+| 内存 2.5 GB 在 8 GB 入门机器吃紧                                | 🟡 中 | Pass B 开跑前必须等 Pass A utility unload；不允许同时持有两份模型超 2s               |
 
 ---
 
@@ -397,13 +407,13 @@ v0.1 发布后 30 天观测（dogfood + 朋友圈小范围）：
 
 ## 附录 A：术语
 
-| 术语 | 含义 |
-|---|---|
-| 会话类型 | 录音前选择的预设，决定默认音源 + LLM 模板 + 默认标题前缀 |
-| 分轨 | mic.wav + system.wav 各自独立的音频文件 |
-| 混音 | mixed.wav，mic + system 合成一条 |
-| RTF | Real-Time Factor，处理 1s 音频所用秒数，< 1 即比实时快 |
-| 隐私模式 | 本地（sherpa-onnx）/ 云端（OpenAI 兼容 API）的二选一 |
+| 术语            | 含义                                                             |
+| --------------- | ---------------------------------------------------------------- |
+| 会话类型        | 录音前选择的预设，决定默认音源 + LLM 模板 + 默认标题前缀         |
+| 分轨            | mic.wav + system.wav 各自独立的音频文件                          |
+| 混音            | mixed.wav，mic + system 合成一条                                 |
+| RTF             | Real-Time Factor，处理 1s 音频所用秒数，< 1 即比实时快           |
+| 隐私模式        | 本地（sherpa-onnx）/ 云端（OpenAI 兼容 API）的二选一             |
 | utility process | Electron 28+ 提供的隔离进程类型，比 child_process 更合适跑长任务 |
 
 ## 附录 B：变更记录

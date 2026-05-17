@@ -4,16 +4,16 @@
 
 ## 风险登记表（Risk Register）
 
-| ID | 风险 | 严重性 | 当前判断 | 建议 |
-|----|------|--------|---------|------|
-| R1 | macOS 同时录系统音 + 麦克风（audio-only） | **致命** | ✅ Electron 35+ 内置走 CoreAudio Tap（macOS 14.2+），仅需麦克风权限 | **低风险**，跑 spike 确认 |
-| R2 | Windows 同时录系统音 + 麦克风 | **致命** | ⚠️ 能录但有已知 bug | 需 spike 验证当前 Electron 版本 |
-| R3 | sherpa-onnx 在 Electron 里跑起来 | 高 | ✅ 有 prebuilt 包 | 标准做法，关注打包配置 |
-| R4 | macOS 公证 + native addon 签名 | 高 | ⚠️ 已知复杂 | 必须早跑 spike，否则发布前才发现就晚 |
-| R5 | mic 和 system 两路音频时间同步 | 中 | 🤔 待验证 | spike 中量化漂移幅度 |
-| R6 | 长录音（2-3h）稳定性 | 中 | 🤔 待验证 | 留到开发阶段压测 |
-| R7 | 全局快捷键 + macOS 辅助功能权限 | 中 | ⚠️ Sonoma+ 需 Accessibility 权限 | 加到 onboarding 流程 |
-| R8 | sherpa-onnx 实测速度满足体验 | 中 | 🤔 待验证 | 详见 `sherpa-onnx-research.md` |
+| ID  | 风险                                      | 严重性   | 当前判断                                                            | 建议                                 |
+| --- | ----------------------------------------- | -------- | ------------------------------------------------------------------- | ------------------------------------ |
+| R1  | macOS 同时录系统音 + 麦克风（audio-only） | **致命** | ✅ Electron 35+ 内置走 CoreAudio Tap（macOS 14.2+），仅需麦克风权限 | **低风险**，跑 spike 确认            |
+| R2  | Windows 同时录系统音 + 麦克风             | **致命** | ⚠️ 能录但有已知 bug                                                 | 需 spike 验证当前 Electron 版本      |
+| R3  | sherpa-onnx 在 Electron 里跑起来          | 高       | ✅ 有 prebuilt 包                                                   | 标准做法，关注打包配置               |
+| R4  | macOS 公证 + native addon 签名            | 高       | ⚠️ 已知复杂                                                         | 必须早跑 spike，否则发布前才发现就晚 |
+| R5  | mic 和 system 两路音频时间同步            | 中       | 🤔 待验证                                                           | spike 中量化漂移幅度                 |
+| R6  | 长录音（2-3h）稳定性                      | 中       | 🤔 待验证                                                           | 留到开发阶段压测                     |
+| R7  | 全局快捷键 + macOS 辅助功能权限           | 中       | ⚠️ Sonoma+ 需 Accessibility 权限                                    | 加到 onboarding 流程                 |
+| R8  | sherpa-onnx 实测速度满足体验              | 中       | 🤔 待验证                                                           | 详见 `sherpa-onnx-research.md`       |
 
 ---
 
@@ -23,11 +23,11 @@
 
 `desktopCapturer` 这个 API 名字带 "desktop" 是历史包袱，**底层在 macOS 上会自动选最优 API**：
 
-| macOS 版本 | 实际走的 API | 权限提示 | 是否需要屏幕录制权限 |
-|---|---|---|---|
-| **14.2+** | CoreAudio Tap（`AudioHardwareCreateProcessTap`）| 仅麦克风 | **否** ✅ |
-| 13.0 – 14.1 | ScreenCaptureKit（SCStream） | 麦克风 + 屏幕录制 | 是 ⚠️ |
-| < 13 | 无官方方案，需 BlackHole 虚拟设备 | 仅麦克风 | 否 |
+| macOS 版本  | 实际走的 API                                     | 权限提示          | 是否需要屏幕录制权限 |
+| ----------- | ------------------------------------------------ | ----------------- | -------------------- |
+| **14.2+**   | CoreAudio Tap（`AudioHardwareCreateProcessTap`） | 仅麦克风          | **否** ✅            |
+| 13.0 – 14.1 | ScreenCaptureKit（SCStream）                     | 麦克风 + 屏幕录制 | 是 ⚠️                |
+| < 13        | 无官方方案，需 BlackHole 虚拟设备                | 仅麦克风          | 否                   |
 
 **v0.1 决定**：最低支持 **macOS 14.2+**，只用 CoreAudio Tap 这条干净路径。早于 14.2 的用户在 onboarding 看到不兼容提示。
 
@@ -40,7 +40,7 @@ const sources = await desktopCapturer.getSources({ types: ['screen'] })
 // 2. 把它喂给 getUserMedia 的 audio 约束
 const systemStream = await navigator.mediaDevices.getUserMedia({
   audio: { mandatory: { chromeMediaSourceId: sources[0].id } },
-  video: false  // 关键：明确不要视频
+  video: false, // 关键：明确不要视频
 })
 
 // 3. 麦克风走标准 Web API
@@ -128,7 +128,7 @@ spike-002-windows-dual-audio/
 - electron-builder 的 `asarUnpack` 配置示例：
   ```yaml
   asarUnpack:
-    - "node_modules/sherpa-onnx-*/**"
+    - 'node_modules/sherpa-onnx-*/**'
   ```
 
 ### Spike 计划
@@ -236,16 +236,16 @@ spike-005-track-sync/
 
 ## Spike 执行顺序建议
 
-| 顺序 | Spike | 阻塞下游 | 预估 |
-|------|-------|---------|------|
-| 1 | spike-001 macOS 双轨录音 | 整个产品 | 0.5 天 |
-| 2 | spike-003 sherpa-onnx 集成 | 转录核心 | 0.5 天 |
-| 3 | spike-004 macOS 签名公证 | 发布 | 1 天 |
-| 4 | spike-002 Windows 双轨录音 | Windows 版本 | 0.5 天 |
-| 5 | spike-005 音轨同步量化 | 体验质量 | 0.5 天 |
-| 6 | **spike-011 Pass A 引擎选型**（VAD 短窗 SenseVoice vs streaming Zipformer / Paraformer，中文 CER + 延迟 + 内存三轴对比）| Multi Pass 架构定型 | 2 天 |
-| 7 | **spike-012 Pass A + 录音并发资源压测**（M1 / Intel Mac / Win i5 三档跑 1h，CPU / 内存 / 电平表手感）| Multi Pass 性能预算定型 | 1 天 |
-| 8 | **spike-013 hypothesis → confirmed 原地替换 UI 稳定性**（构造模拟数据，验证 segment id 稳定 + 阅读光标不跳行）| 详情区 UI 实现 | 0.5 天 |
+| 顺序 | Spike                                                                                                                    | 阻塞下游                | 预估   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ------ |
+| 1    | spike-001 macOS 双轨录音                                                                                                 | 整个产品                | 0.5 天 |
+| 2    | spike-003 sherpa-onnx 集成                                                                                               | 转录核心                | 0.5 天 |
+| 3    | spike-004 macOS 签名公证                                                                                                 | 发布                    | 1 天   |
+| 4    | spike-002 Windows 双轨录音                                                                                               | Windows 版本            | 0.5 天 |
+| 5    | spike-005 音轨同步量化                                                                                                   | 体验质量                | 0.5 天 |
+| 6    | **spike-011 Pass A 引擎选型**（VAD 短窗 SenseVoice vs streaming Zipformer / Paraformer，中文 CER + 延迟 + 内存三轴对比） | Multi Pass 架构定型     | 2 天   |
+| 7    | **spike-012 Pass A + 录音并发资源压测**（M1 / Intel Mac / Win i5 三档跑 1h，CPU / 内存 / 电平表手感）                    | Multi Pass 性能预算定型 | 1 天   |
+| 8    | **spike-013 hypothesis → confirmed 原地替换 UI 稳定性**（构造模拟数据，验证 segment id 稳定 + 阅读光标不跳行）           | 详情区 UI 实现          | 0.5 天 |
 
 **总计约 7.5 天的技术验证**（Multi Pass 之前约 3 天，加 spike-011/012/013 共 3.5 天）。建议 spike-011/012/013 在 02-design 阶段并行，结果回灌 PRD §7.1 性能预算 + 03-architecture transcription-pipeline。
 

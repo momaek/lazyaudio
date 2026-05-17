@@ -21,25 +21,26 @@
 
 ## 1. 技术栈速查
 
-| 层 | 选型 | 版本 | 理由 |
-|---|---|---|---|
-| 桌面框架 | **Electron** | ≥ 35 | CoreAudio Tap 默认开启（PRD §7.4 / tech-feasibility R1）；utility process 成熟 |
-| 构建工具 | **electron-vite** (alex8088) | ≥ 4 | 官方推荐 Electron + Vite 整合方案；原生支持 main / preload / renderer 三段、多 entry、HMR |
-| 渲染 UI | **React** + **TypeScript** | React 19、TS 5.x | PRD §8 已定 |
-| 包管理 | **pnpm** | ≥ 9 | PRD §8 已定；workspace / 硬链接对 native 模块 + 多平台 prebuilt 友好 |
-| 样式 | **Tailwind CSS** + **CSS variables** | Tailwind 4 | 与 design-system tokens（颜色 / 间距 / 圆角）一一对应；不要 styled-components / emotion |
-| 状态管理 | **Zustand** | ≥ 5 | 跨窗口、跨组件状态轻量；避免 Redux 样板 |
-| IPC schema | **Zod** | ≥ 3 | ipc-contract §11 已定（IPC 双向 validate） |
-| i18n | **react-i18next** + **i18next** | — | overview §6.4 已定 |
-| 路由 | 不用 | — | 多窗口 = 多 HTML entry；窗口内一两屏直接 conditional render，路由开销不值 |
-| 单元测试 | **Vitest** | ≥ 2 | 与 Vite 同栈 |
-| 端到端 | **Playwright** for Electron | ≥ 1.45 | 官方 Electron 支持成熟 |
-| Lint / Format | **ESLint** + **Prettier** | ESLint 9 flat config | overview §6 i18n / IPC 用自定义 rule 兜底 |
-| Git hooks | **simple-git-hooks** + **lint-staged** | — | 比 husky 轻 |
-| 原生转录 | **sherpa-onnx** + 平台 prebuilt 包 | 1.13.x | sherpa-onnx-research §4 / §5 |
-| 打包发布 | **electron-builder** | ≥ 25 | 签名 + 公证 + dmg/nsis 一站式；asarUnpack 配置成熟 |
+| 层            | 选型                                   | 版本                 | 理由                                                                                      |
+| ------------- | -------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
+| 桌面框架      | **Electron**                           | ≥ 35                 | CoreAudio Tap 默认开启（PRD §7.4 / tech-feasibility R1）；utility process 成熟            |
+| 构建工具      | **electron-vite** (alex8088)           | ≥ 4                  | 官方推荐 Electron + Vite 整合方案；原生支持 main / preload / renderer 三段、多 entry、HMR |
+| 渲染 UI       | **React** + **TypeScript**             | React 19、TS 5.x     | PRD §8 已定                                                                               |
+| 包管理        | **pnpm**                               | ≥ 9                  | PRD §8 已定；workspace / 硬链接对 native 模块 + 多平台 prebuilt 友好                      |
+| 样式          | **Tailwind CSS** + **CSS variables**   | Tailwind 4           | 与 design-system tokens（颜色 / 间距 / 圆角）一一对应；不要 styled-components / emotion   |
+| 状态管理      | **Zustand**                            | ≥ 5                  | 跨窗口、跨组件状态轻量；避免 Redux 样板                                                   |
+| IPC schema    | **Zod**                                | ≥ 3                  | ipc-contract §11 已定（IPC 双向 validate）                                                |
+| i18n          | **react-i18next** + **i18next**        | —                    | overview §6.4 已定                                                                        |
+| 路由          | 不用                                   | —                    | 多窗口 = 多 HTML entry；窗口内一两屏直接 conditional render，路由开销不值                 |
+| 单元测试      | **Vitest**                             | ≥ 2                  | 与 Vite 同栈                                                                              |
+| 端到端        | **Playwright** for Electron            | ≥ 1.45               | 官方 Electron 支持成熟                                                                    |
+| Lint / Format | **ESLint** + **Prettier**              | ESLint 9 flat config | overview §6 i18n / IPC 用自定义 rule 兜底                                                 |
+| Git hooks     | **simple-git-hooks** + **lint-staged** | —                    | 比 husky 轻                                                                               |
+| 原生转录      | **sherpa-onnx** + 平台 prebuilt 包     | 1.13.x               | sherpa-onnx-research §4 / §5                                                              |
+| 打包发布      | **electron-builder**                   | ≥ 25                 | 签名 + 公证 + dmg/nsis 一站式；asarUnpack 配置成熟                                        |
 
 > **不引入的依赖**（避免 v0.1 复杂度）：
+>
 > - ❌ Redux / MobX —— 用 Zustand
 > - ❌ styled-components / emotion —— 用 Tailwind
 > - ❌ dayjs / moment —— 用 `Intl.DateTimeFormat`（overview §6.4）
@@ -464,14 +465,14 @@ import { z } from 'zod'
 export const CHANNEL = {
   retry: 'transcribe:retry',
   cancel: 'transcribe:cancel',
-  progress: 'transcribe:progress',           // event
-  liveSegment: 'transcribe:live-segment',    // event
+  progress: 'transcribe:progress', // event
+  liveSegment: 'transcribe:live-segment', // event
   offlineOverwrite: 'transcribe:offline-overwrite',
   runPartialOffline: 'transcribe:run-partial-offline',
 } as const
 
 export const RetryArgs = z.object({
-  recordingId: z.string().length(26),        // ULID
+  recordingId: z.string().length(26), // ULID
 })
 
 export type RetryArgs = z.infer<typeof RetryArgs>
@@ -575,13 +576,13 @@ export default defineConfig({
 - **A（推荐，与 electron-vite 默认对齐）**：让 electron-vite 在 `out/main/`、`out/preload/`、`out/main/workers/` 各自注入 `package.json {"type":"commonjs"}` 覆盖。electron-vite 默认行为就是这样；只要**不手动改 `output.entryFileNames`**，这个覆盖文件就会生成。
 - **B**：在 build 配置里把产物后缀改成 `.cjs`，Node 看到 `.cjs` 强制按 CJS 解析，无需 package.json 覆盖：
 
-    ```ts
-    main: {
-      build: { rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].cjs' } } },
-    }
-    ```
+  ```ts
+  main: {
+    build: { rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].cjs' } } },
+  }
+  ```
 
-    用 B 时记得同步改 `package.json` 的 `"main": "out/main/index.cjs"`。
+  用 B 时记得同步改 `package.json` 的 `"main": "out/main/index.cjs"`。
 
 **别两个一起用、也别两个都不用**——是 electron + vite + ESM 项目最常翻车的点。
 
@@ -595,10 +596,10 @@ ls out/main/package.json out/preload/package.json out/main/workers/asr/package.j
 
 ### 8.1 path alias 速查
 
-| alias | 解析到 | 哪些进程能用 |
-|---|---|---|
-| `@shared` | `shared/` | main / preload / renderer / utility |
-| `@` | `src/renderer/` | 仅 renderer（避免 main 误 import 前端代码） |
+| alias     | 解析到          | 哪些进程能用                                |
+| --------- | --------------- | ------------------------------------------- |
+| `@shared` | `shared/`       | main / preload / renderer / utility         |
+| `@`       | `src/renderer/` | 仅 renderer（避免 main 误 import 前端代码） |
 
 ---
 
@@ -606,72 +607,72 @@ ls out/main/package.json out/preload/package.json out/main/workers/asr/package.j
 
 ```json5
 {
-  "name": "lazyaudio",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",                              // 项目默认 ESM；utility 用 .cts 显式标 CJS
-  "main": "out/main/index.js",                   // electron-vite 构建产物
-  "engines": { "node": ">=20" },
-  "packageManager": "pnpm@9.x",
-  "scripts": {
-    "dev": "electron-vite dev",
-    "dev:reset": "tsx scripts/dev-reset.ts && electron-vite dev",
-    "build": "electron-vite build",
-    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "test": "vitest run",
-    "test:e2e": "playwright test",
-    "verify:prebuilt": "tsx scripts/verify-prebuilt.ts",
-    "pack:mac": "electron-vite build && electron-builder --mac",
-    "pack:win": "electron-vite build && electron-builder --win",
-    "release": "electron-vite build && electron-builder --publish always"
+  name: 'lazyaudio',
+  version: '0.0.1',
+  private: true,
+  type: 'module', // 项目默认 ESM；utility 用 .cts 显式标 CJS
+  main: 'out/main/index.js', // electron-vite 构建产物
+  engines: { node: '>=20' },
+  packageManager: 'pnpm@9.x',
+  scripts: {
+    dev: 'electron-vite dev',
+    'dev:reset': 'tsx scripts/dev-reset.ts && electron-vite dev',
+    build: 'electron-vite build',
+    typecheck: 'tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit && tsc -p tsconfig.worker.json --noEmit',
+    lint: 'eslint .',
+    format: 'prettier --write .',
+    test: 'vitest run',
+    'test:e2e': 'playwright test',
+    'verify:prebuilt': 'tsx scripts/verify-prebuilt.ts',
+    'pack:mac': 'electron-vite build && electron-builder --mac',
+    'pack:win': 'electron-vite build && electron-builder --win',
+    release: 'electron-vite build && electron-builder --publish always',
   },
-  "dependencies": {
-    "sherpa-onnx": "^1.13.2",
-    "i18next": "^23.x",
-    "react-i18next": "^14.x",
-    "react": "^19.x",
-    "react-dom": "^19.x",
-    "zod": "^3.x",
-    "zustand": "^5.x",
-    "ulid": "^2.x"
+  dependencies: {
+    'sherpa-onnx': '^1.13.2',
+    i18next: '^23.x',
+    'react-i18next': '^14.x',
+    react: '^19.x',
+    'react-dom': '^19.x',
+    zod: '^3.x',
+    zustand: '^5.x',
+    ulid: '^2.x',
   },
-  "optionalDependencies": {
-    "sherpa-onnx-darwin-arm64": "^1.13.2",
-    "sherpa-onnx-darwin-x64": "^1.13.2",
-    "sherpa-onnx-win32-x64": "^1.13.2"
+  optionalDependencies: {
+    'sherpa-onnx-darwin-arm64': '^1.13.2',
+    'sherpa-onnx-darwin-x64': '^1.13.2',
+    'sherpa-onnx-win32-x64': '^1.13.2',
   },
-  "devDependencies": {
-    "electron": "^35.x",
-    "electron-builder": "^25.x",
-    "electron-vite": "^4.x",
-    "@vitejs/plugin-react": "^5.x",
-    "vite": "^5.x",
-    "typescript": "^5.x",
-    "vitest": "^2.x",
-    "@playwright/test": "^1.45.x",
-    "playwright": "^1.45.x",
-    "eslint": "^9.x",
-    "@typescript-eslint/parser": "^8.x",
-    "@typescript-eslint/eslint-plugin": "^8.x",
-    "eslint-plugin-react": "^7.x",
-    "eslint-plugin-react-hooks": "^5.x",
-    "prettier": "^3.x",
-    "tailwindcss": "^4.x",
-    "postcss": "^8.x",
-    "autoprefixer": "^10.x",
-    "tsx": "^4.x",
-    "simple-git-hooks": "^2.x",
-    "lint-staged": "^15.x"
+  devDependencies: {
+    electron: '^35.x',
+    'electron-builder': '^25.x',
+    'electron-vite': '^4.x',
+    '@vitejs/plugin-react': '^5.x',
+    vite: '^5.x',
+    typescript: '^5.x',
+    vitest: '^2.x',
+    '@playwright/test': '^1.45.x',
+    playwright: '^1.45.x',
+    eslint: '^9.x',
+    '@typescript-eslint/parser': '^8.x',
+    '@typescript-eslint/eslint-plugin': '^8.x',
+    'eslint-plugin-react': '^7.x',
+    'eslint-plugin-react-hooks': '^5.x',
+    prettier: '^3.x',
+    tailwindcss: '^4.x',
+    postcss: '^8.x',
+    autoprefixer: '^10.x',
+    tsx: '^4.x',
+    'simple-git-hooks': '^2.x',
+    'lint-staged': '^15.x',
   },
-  "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged"
+  'simple-git-hooks': {
+    'pre-commit': 'pnpm lint-staged',
   },
-  "lint-staged": {
-    "*.{ts,tsx,cts,cjs,js,jsx}": ["eslint --fix", "prettier --write"],
-    "*.{json,md,css,html}": ["prettier --write"]
-  }
+  'lint-staged': {
+    '*.{ts,tsx,cts,cjs,js,jsx}': ['eslint --fix', 'prettier --write'],
+    '*.{json,md,css,html}': ['prettier --write'],
+  },
 }
 ```
 
@@ -698,11 +699,11 @@ tsconfig.json                # 根：path alias、严格模式、共享 options
 
 各 tsconfig 的 `include` 范围互不重叠：
 
-| 配置 | include |
-|---|---|
-| `tsconfig.node.json` | `src/main/**`（不含 workers）+ `src/preload/**` + `scripts/**` + `shared/**` |
-| `tsconfig.web.json` | `src/renderer/**` + `shared/**` |
-| `tsconfig.worker.json` | `src/main/workers/**` + `shared/**` |
+| 配置                   | include                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `tsconfig.node.json`   | `src/main/**`（不含 workers）+ `src/preload/**` + `scripts/**` + `shared/**` |
+| `tsconfig.web.json`    | `src/renderer/**` + `shared/**`                                              |
+| `tsconfig.worker.json` | `src/main/workers/**` + `shared/**`                                          |
 
 `tsconfig.worker.json` 的 `types` 字段**必须 include `"electron"`**——utility process 用的 `process.parentPort` 是 Electron 注入的全局对象，类型声明来自 `node_modules/electron/electron.d.ts`。不 include → `process.parentPort` 推断为 `any` 或编译报错。
 
@@ -800,25 +801,31 @@ src/
 ## 14. 常见疑问
 
 **Q：为什么不用 Next.js / Tauri / Wails？**
+
 - Next.js 是 web 框架，Electron 内层装 React 就够了，多一层 Next 是浪费
 - Tauri 用 Rust + WebView，没有 utility process 抽象、没有 N-API 生态，sherpa-onnx 集成路径不通
 - Wails 同理，且 macOS WebView 不能稳定调 `getUserMedia({audio: chromeMediaSourceId})`
 
 **Q：为什么不用 React Server Components / RSC？**
+
 - Electron renderer 是纯客户端，没有 server 概念，RSC 无意义
 
 **Q：为什么不用 monorepo（turborepo / nx）？**
+
 - 单个 app，没有跨包共享需求；`shared/` 一个文件夹够用
 - v0.2 如果要做 web 端镜像 / CLI 工具，再升级 monorepo
 
 **Q：utility process 为什么单独 CJS？**
+
 - sherpa-onnx-node 是 CJS 包；ESM 包 require 它会触发 dual-package hazard
 - electron-vite 主进程是 ESM，但 utility process entry 显式 `.cts`，构建产物 `.cjs`，加载 sherpa-onnx 没坑
 
 **Q：能不能在 renderer 直接跑 sherpa-onnx WASM 版？**
+
 - sherpa-onnx-research §3 已结论否决：WASM 单线程、性能差 5×+。utility process 是唯一推荐路径
 
 **Q：preload 那么薄，能不能合到 main 里？**
+
 - 不能。preload 是 Electron sandbox 模型的固定入口；没有 preload 就拿不到 `contextBridge`，renderer 也就不能安全调 IPC
 
 ---

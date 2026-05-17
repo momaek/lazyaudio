@@ -1,237 +1,394 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>LazyAudio Design</title>
-  <link rel="stylesheet" href="tokens.css"/>
-  <link rel="stylesheet" href="app.css"/>
-  <style>
-    html, body { height: 100%; }
-    body { background: #f0eee9; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LazyAudio Design</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: #f0eee9;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
 
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+      integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+      crossorigin="anonymous"
+    ></script>
 
-  <script type="text/babel" src="design-canvas.jsx"></script>
-  <script type="text/babel" src="icons.jsx"></script>
-  <script type="text/babel" src="waveform.jsx"></script>
-  <script type="text/babel" src="main-window.jsx"></script>
-  <script type="text/babel" src="prerecord.jsx"></script>
-  <script type="text/babel" src="menubar.jsx"></script>
-  <script type="text/babel" src="onboarding.jsx"></script>
-  <script type="text/babel" src="settings.jsx"></script>
-  <script type="text/babel" src="app-icon.jsx"></script>
+    <script type="text/babel" src="design-canvas.jsx"></script>
+    <script type="text/babel" src="icons.jsx"></script>
+    <script type="text/babel" src="waveform.jsx"></script>
+    <script type="text/babel" src="main-window.jsx"></script>
+    <script type="text/babel" src="prerecord.jsx"></script>
+    <script type="text/babel" src="menubar.jsx"></script>
+    <script type="text/babel" src="onboarding.jsx"></script>
+    <script type="text/babel" src="settings.jsx"></script>
+    <script type="text/babel" src="app-icon.jsx"></script>
 
-  <script type="text/babel">
-    function App() {
-      return (
-        <DesignCanvas>
-          <DCSection
-            id="main-window"
-            title="P1 · 主窗口"
-            subtitle="§6.1 / §6.3.5 — macOS 浅色"
-          >
-            <DCArtboard
-              id="mw-mac-light-data"
-              label="01 · 有数据态 §6.1"
-              width={1280}
-              height={800}
-              data-screen-label="P1 主窗口 · macOS 浅色 · 有数据"
+    <script type="text/babel">
+      function App() {
+        return (
+          <DesignCanvas>
+            <DCSection id="main-window" title="P1 · 主窗口" subtitle="§6.1 / §6.3.5 — macOS 浅色">
+              <DCArtboard
+                id="mw-mac-light-data"
+                label="01 · 有数据态 §6.1"
+                width={1280}
+                height={800}
+                data-screen-label="P1 主窗口 · macOS 浅色 · 有数据"
+              >
+                <MainWindow
+                  theme="light"
+                  chrome="mac"
+                  state="data"
+                  selectedId="s1"
+                  activeChip="all"
+                />
+              </DCArtboard>
+              <DCArtboard
+                id="mw-mac-light-recording"
+                label="02 · 录音中 §6.3.5"
+                width={1280}
+                height={800}
+                data-screen-label="P1 主窗口 · macOS 浅色 · 录音中"
+              >
+                <MainWindow theme="light" chrome="mac" state="recording" activeChip="all" />
+              </DCArtboard>
+              <DCArtboard
+                id="mw-mac-light-empty"
+                label="03 · 空状态 §6.2"
+                width={1280}
+                height={800}
+                data-screen-label="P1 主窗口 · macOS 浅色 · 空状态"
+              >
+                <MainWindow theme="light" chrome="mac" state="empty" />
+              </DCArtboard>
+              <DCArtboard
+                id="mw-mac-light-transcribing"
+                label="04 · 转录中 §6.3"
+                width={1280}
+                height={800}
+                data-screen-label="P1 主窗口 · macOS 浅色 · 转录中"
+              >
+                <MainWindow theme="light" chrome="mac" state="transcribing" />
+              </DCArtboard>
+              <DCArtboard
+                id="mw-mac-light-failed"
+                label="05 · 转录失败 §6.3"
+                width={1280}
+                height={800}
+                data-screen-label="P1 主窗口 · macOS 浅色 · 转录失败"
+              >
+                <MainWindow theme="light" chrome="mac" state="failed" />
+              </DCArtboard>
+            </DCSection>
+
+            <DCSection
+              id="prerecord"
+              title="P2 · 录音前确认浮窗"
+              subtitle="§6.4 — 360×220 · macOS vibrancy（§3 唯一允许的例外）"
             >
-              <MainWindow theme="light" chrome="mac" state="data" selectedId="s1" activeChip="all" />
-            </DCArtboard>
-            <DCArtboard
-              id="mw-mac-light-recording"
-              label="02 · 录音中 §6.3.5"
-              width={1280}
-              height={800}
-              data-screen-label="P1 主窗口 · macOS 浅色 · 录音中"
-            >
-              <MainWindow theme="light" chrome="mac" state="recording" activeChip="all" />
-            </DCArtboard>
-            <DCArtboard
-              id="mw-mac-light-empty"
-              label="03 · 空状态 §6.2"
-              width={1280}
-              height={800}
-              data-screen-label="P1 主窗口 · macOS 浅色 · 空状态"
-            >
-              <MainWindow theme="light" chrome="mac" state="empty" />
-            </DCArtboard>
-            <DCArtboard
-              id="mw-mac-light-transcribing"
-              label="04 · 转录中 §6.3"
-              width={1280}
-              height={800}
-              data-screen-label="P1 主窗口 · macOS 浅色 · 转录中"
-            >
-              <MainWindow theme="light" chrome="mac" state="transcribing" />
-            </DCArtboard>
-            <DCArtboard
-              id="mw-mac-light-failed"
-              label="05 · 转录失败 §6.3"
-              width={1280}
-              height={800}
-              data-screen-label="P1 主窗口 · macOS 浅色 · 转录失败"
-            >
-              <MainWindow theme="light" chrome="mac" state="failed" />
-            </DCArtboard>
-          </DCSection>
+              <DCArtboard
+                id="prerec-light"
+                label="06 · 对话浮窗 §6.4"
+                width={720}
+                height={520}
+                data-screen-label="P2 录音前浮窗 · 浅色"
+              >
+                <PreRecordStage theme="light" typeKey="interviewer" />
+              </DCArtboard>
+            </DCSection>
 
-          <DCSection
-            id="prerecord"
-            title="P2 · 录音前确认浮窗"
-            subtitle="§6.4 — 360×220 · macOS vibrancy（§3 唯一允许的例外）"
-          >
-            <DCArtboard
-              id="prerec-light"
-              label="06 · 对话浮窗 §6.4"
-              width={720}
-              height={520}
-              data-screen-label="P2 录音前浮窗 · 浅色"
+            <DCSection
+              id="menubar"
+              title="P3 · 菜单栏 Dropdown"
+              subtitle="§6.5 — 空闲 + 录音中双态"
             >
-              <PreRecordStage theme="light" typeKey="interviewer"/>
-            </DCArtboard>
-          </DCSection>
+              <DCArtboard
+                id="mb-idle"
+                label="07 · 空闲态 + 子菜单展开"
+                width={920}
+                height={520}
+                data-screen-label="P3 菜单栏 · 空闲态"
+              >
+                <MenuBarIdle theme="light" />
+              </DCArtboard>
+              <DCArtboard
+                id="mb-recording"
+                label="08 · 录音中"
+                width={720}
+                height={480}
+                data-screen-label="P3 菜单栏 · 录音中"
+              >
+                <MenuBarRecording theme="light" />
+              </DCArtboard>
+            </DCSection>
 
-          <DCSection
-            id="menubar"
-            title="P3 · 菜单栏 Dropdown"
-            subtitle="§6.5 — 空闲 + 录音中双态"
-          >
-            <DCArtboard
-              id="mb-idle"
-              label="07 · 空闲态 + 子菜单展开"
-              width={920}
-              height={520}
-              data-screen-label="P3 菜单栏 · 空闲态"
+            <DCSection
+              id="onboarding"
+              title="P4 · Onboarding"
+              subtitle="§6.6 P0 五屏：1 / 2 / 4a / 5 / 7 — 所有 720×520"
             >
-              <MenuBarIdle theme="light"/>
-            </DCArtboard>
-            <DCArtboard
-              id="mb-recording"
-              label="08 · 录音中"
-              width={720}
-              height={480}
-              data-screen-label="P3 菜单栏 · 录音中"
+              <DCArtboard
+                id="ob-1"
+                label="屏 1 · 欢迎"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 1 欢迎"
+              >
+                <OnbWelcome theme="light" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-2"
+                label="屏 2 · 隐私模式"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 2 隐私模式"
+              >
+                <OnbPrivacy theme="light" selected="local" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-3"
+                label="屏 3 · 系统权限 (P1)"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 3 系统权限"
+              >
+                <OnbPermissions theme="light" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-4a"
+                label="屏 4a · 模型下载"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 4a 模型下载"
+              >
+                <OnbModelDownload theme="light" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-4b"
+                label="屏 4b · 云端 API 配置 (P1)"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 4b 云端 API"
+              >
+                <OnbApiConfig theme="light" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-5"
+                label="屏 5 · 快捷键"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 5 快捷键"
+              >
+                <OnbShortcut theme="light" platform="mac" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-6"
+                label="屏 6 · 默认会话类型 (P1)"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 6 默认类型"
+              >
+                <OnbSessionType theme="light" selected="note" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-7"
+                label="屏 7 · 完成"
+                width={840}
+                height={620}
+                data-screen-label="P4 Onboarding · 7 完成"
+              >
+                <OnbDone theme="light" />
+              </DCArtboard>
+            </DCSection>
+
+            <DCSection
+              id="settings"
+              title="P5 · 设置"
+              subtitle="§6.9 — 880×640 · 左 200 nav + 右 32 padding · 控件高度按 §5.4.1"
             >
-              <MenuBarRecording theme="light"/>
-            </DCArtboard>
-          </DCSection>
+              <DCArtboard
+                id="set-general"
+                label="通用 tab (P2)"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 通用"
+              >
+                <SettingsWindow theme="light" nav="general" />
+              </DCArtboard>
+              <DCArtboard
+                id="set-recording"
+                label="录音 tab (P2)"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 录音"
+              >
+                <SettingsWindow theme="light" nav="recording" />
+              </DCArtboard>
+              <DCArtboard
+                id="set-shortcut"
+                label="快捷键 tab (P2)"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 快捷键"
+              >
+                <SettingsWindow theme="light" nav="shortcut" />
+              </DCArtboard>
+              <DCArtboard
+                id="set-privacy"
+                label="隐私 tab (P2)"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 隐私"
+              >
+                <SettingsWindow theme="light" nav="privacy" />
+              </DCArtboard>
+              <DCArtboard
+                id="set-privacy-modal"
+                label="隐私 · 二次确认 modal"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 隐私 · 确认弹窗"
+              >
+                <SettingsWindow theme="light" nav="privacy" showModal />
+              </DCArtboard>
+              <DCArtboard
+                id="set-about"
+                label="关于 tab (P2)"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 关于"
+              >
+                <SettingsWindow theme="light" nav="about" />
+              </DCArtboard>
+              <DCArtboard
+                id="set-local"
+                label="转录引擎 · 本地"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 转录引擎 · 本地"
+              >
+                <SettingsWindow theme="light" tab="local" nav="transcribe" />
+              </DCArtboard>
+              <DCArtboard
+                id="set-cloud"
+                label="转录引擎 · 云端 API"
+                width={880}
+                height={640}
+                data-screen-label="P5 设置 · 转录引擎 · 云端"
+              >
+                <SettingsWindow theme="light" tab="cloud" nav="transcribe" />
+              </DCArtboard>
+            </DCSection>
 
-          <DCSection
-            id="onboarding"
-            title="P4 · Onboarding"
-            subtitle="§6.6 P0 五屏：1 / 2 / 4a / 5 / 7 — 所有 720×520"
-          >
-            <DCArtboard id="ob-1" label="屏 1 · 欢迎" width={840} height={620} data-screen-label="P4 Onboarding · 1 欢迎">
-              <OnbWelcome theme="light"/>
-            </DCArtboard>
-            <DCArtboard id="ob-2" label="屏 2 · 隐私模式" width={840} height={620} data-screen-label="P4 Onboarding · 2 隐私模式">
-              <OnbPrivacy theme="light" selected="local"/>
-            </DCArtboard>
-            <DCArtboard id="ob-3" label="屏 3 · 系统权限 (P1)" width={840} height={620} data-screen-label="P4 Onboarding · 3 系统权限">
-              <OnbPermissions theme="light"/>
-            </DCArtboard>
-            <DCArtboard id="ob-4a" label="屏 4a · 模型下载" width={840} height={620} data-screen-label="P4 Onboarding · 4a 模型下载">
-              <OnbModelDownload theme="light"/>
-            </DCArtboard>
-            <DCArtboard id="ob-4b" label="屏 4b · 云端 API 配置 (P1)" width={840} height={620} data-screen-label="P4 Onboarding · 4b 云端 API">
-              <OnbApiConfig theme="light"/>
-            </DCArtboard>
-            <DCArtboard id="ob-5" label="屏 5 · 快捷键" width={840} height={620} data-screen-label="P4 Onboarding · 5 快捷键">
-              <OnbShortcut theme="light" platform="mac"/>
-            </DCArtboard>
-            <DCArtboard id="ob-6" label="屏 6 · 默认会话类型 (P1)" width={840} height={620} data-screen-label="P4 Onboarding · 6 默认类型">
-              <OnbSessionType theme="light" selected="note"/>
-            </DCArtboard>
-            <DCArtboard id="ob-7" label="屏 7 · 完成" width={840} height={620} data-screen-label="P4 Onboarding · 7 完成">
-              <OnbDone theme="light"/>
-            </DCArtboard>
-          </DCSection>
+            <DCSection
+              id="dark"
+              title="P6 · 深色模式"
+              subtitle="主窗口（数据 + 录音中）· 录音前浮窗 · Onboarding 屏 7"
+            >
+              <DCArtboard
+                id="mw-mac-dark-data"
+                label="主窗口 · 深色 · 有数据"
+                width={1280}
+                height={800}
+                data-screen-label="P6 深色 · 主窗口 · 有数据"
+              >
+                <MainWindow theme="dark" chrome="mac" state="data" />
+              </DCArtboard>
+              <DCArtboard
+                id="mw-mac-dark-rec"
+                label="主窗口 · 深色 · 录音中"
+                width={1280}
+                height={800}
+                data-screen-label="P6 深色 · 主窗口 · 录音中"
+              >
+                <MainWindow theme="dark" chrome="mac" state="recording" />
+              </DCArtboard>
+              <DCArtboard
+                id="prerec-dark"
+                label="录音前浮窗 · 深色"
+                width={720}
+                height={520}
+                data-screen-label="P6 深色 · 录音前浮窗"
+              >
+                <PreRecordStage theme="dark" typeKey="interviewer" />
+              </DCArtboard>
+              <DCArtboard
+                id="ob-7-dark"
+                label="Onboarding 屏 7 · 深色"
+                width={840}
+                height={620}
+                data-screen-label="P6 深色 · Onboarding 屏 7"
+              >
+                <OnbDone theme="dark" />
+              </DCArtboard>
+            </DCSection>
 
-          <DCSection
-            id="settings"
-            title="P5 · 设置"
-            subtitle="§6.9 — 880×640 · 左 200 nav + 右 32 padding · 控件高度按 §5.4.1"
-          >
-            <DCArtboard id="set-general" label="通用 tab (P2)" width={880} height={640} data-screen-label="P5 设置 · 通用">
-              <SettingsWindow theme="light" nav="general"/>
-            </DCArtboard>
-            <DCArtboard id="set-recording" label="录音 tab (P2)" width={880} height={640} data-screen-label="P5 设置 · 录音">
-              <SettingsWindow theme="light" nav="recording"/>
-            </DCArtboard>
-            <DCArtboard id="set-shortcut" label="快捷键 tab (P2)" width={880} height={640} data-screen-label="P5 设置 · 快捷键">
-              <SettingsWindow theme="light" nav="shortcut"/>
-            </DCArtboard>
-            <DCArtboard id="set-privacy" label="隐私 tab (P2)" width={880} height={640} data-screen-label="P5 设置 · 隐私">
-              <SettingsWindow theme="light" nav="privacy"/>
-            </DCArtboard>
-            <DCArtboard id="set-privacy-modal" label="隐私 · 二次确认 modal" width={880} height={640} data-screen-label="P5 设置 · 隐私 · 确认弹窗">
-              <SettingsWindow theme="light" nav="privacy" showModal/>
-            </DCArtboard>
-            <DCArtboard id="set-about" label="关于 tab (P2)" width={880} height={640} data-screen-label="P5 设置 · 关于">
-              <SettingsWindow theme="light" nav="about"/>
-            </DCArtboard>
-            <DCArtboard id="set-local" label="转录引擎 · 本地" width={880} height={640} data-screen-label="P5 设置 · 转录引擎 · 本地">
-              <SettingsWindow theme="light" tab="local" nav="transcribe"/>
-            </DCArtboard>
-            <DCArtboard id="set-cloud" label="转录引擎 · 云端 API" width={880} height={640} data-screen-label="P5 设置 · 转录引擎 · 云端">
-              <SettingsWindow theme="light" tab="cloud" nav="transcribe"/>
-            </DCArtboard>
-          </DCSection>
+            <DCSection
+              id="windows"
+              title="P7 · Windows 风格"
+              subtitle="§5.6 — 只换窗口外壳 + hover/字体/滚动条；主窗口布局完全一致"
+            >
+              <DCArtboard
+                id="mw-win-light-data"
+                label="Windows · 浅色 · 有数据"
+                width={1280}
+                height={800}
+                data-screen-label="P7 Windows · 主窗口 · 有数据"
+              >
+                <MainWindow theme="light" chrome="win" state="data" />
+              </DCArtboard>
+            </DCSection>
 
-          <DCSection
-            id="dark"
-            title="P6 · 深色模式"
-            subtitle="主窗口（数据 + 录音中）· 录音前浮窗 · Onboarding 屏 7"
-          >
-            <DCArtboard id="mw-mac-dark-data" label="主窗口 · 深色 · 有数据" width={1280} height={800} data-screen-label="P6 深色 · 主窗口 · 有数据">
-              <MainWindow theme="dark" chrome="mac" state="data"/>
-            </DCArtboard>
-            <DCArtboard id="mw-mac-dark-rec" label="主窗口 · 深色 · 录音中" width={1280} height={800} data-screen-label="P6 深色 · 主窗口 · 录音中">
-              <MainWindow theme="dark" chrome="mac" state="recording"/>
-            </DCArtboard>
-            <DCArtboard id="prerec-dark" label="录音前浮窗 · 深色" width={720} height={520} data-screen-label="P6 深色 · 录音前浮窗">
-              <PreRecordStage theme="dark" typeKey="interviewer"/>
-            </DCArtboard>
-            <DCArtboard id="ob-7-dark" label="Onboarding 屏 7 · 深色" width={840} height={620} data-screen-label="P6 深色 · Onboarding 屏 7">
-              <OnbDone theme="dark"/>
-            </DCArtboard>
-          </DCSection>
-
-          <DCSection
-            id="windows"
-            title="P7 · Windows 风格"
-            subtitle="§5.6 — 只换窗口外壳 + hover/字体/滚动条；主窗口布局完全一致"
-          >
-            <DCArtboard id="mw-win-light-data" label="Windows · 浅色 · 有数据" width={1280} height={800} data-screen-label="P7 Windows · 主窗口 · 有数据">
-              <MainWindow theme="light" chrome="win" state="data"/>
-            </DCArtboard>
-          </DCSection>
-
-          <DCSection
-            id="app-icon"
-            title="P8 · App Icon"
-            subtitle="§3 调性 — 工具感 / 克制 / 无渐变 · macOS squircle + Windows 方形"
-          >
-            <DCArtboard id="icon-mac" label="macOS · master + 预览" width={1024} height={640} data-screen-label="P8 App Icon · macOS">
-              <AppIconStage shape="mac"/>
-            </DCArtboard>
-            <DCArtboard id="icon-win" label="Windows · master + 预览" width={1024} height={640} data-screen-label="P8 App Icon · Windows">
-              <AppIconStage shape="win"/>
-            </DCArtboard>
-          </DCSection>
-        </DesignCanvas>
-      );
-    }
-    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-  </script>
-</body>
+            <DCSection
+              id="app-icon"
+              title="P8 · App Icon"
+              subtitle="§3 调性 — 工具感 / 克制 / 无渐变 · macOS squircle + Windows 方形"
+            >
+              <DCArtboard
+                id="icon-mac"
+                label="macOS · master + 预览"
+                width={1024}
+                height={640}
+                data-screen-label="P8 App Icon · macOS"
+              >
+                <AppIconStage shape="mac" />
+              </DCArtboard>
+              <DCArtboard
+                id="icon-win"
+                label="Windows · master + 预览"
+                width={1024}
+                height={640}
+                data-screen-label="P8 App Icon · Windows"
+              >
+                <AppIconStage shape="win" />
+              </DCArtboard>
+            </DCSection>
+          </DesignCanvas>
+        )
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
 </html>

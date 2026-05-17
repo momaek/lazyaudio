@@ -20,14 +20,14 @@
 
 PRD §3 已经把原则定下来了。落到架构上，有 5 条硬约束直接驱动结构：
 
-| 约束 | 来源 | 对架构的影响 |
-|---|---|---|
-| **本地优先**：默认数据不出本机 | PRD §3.1 | 没有"server"角色；云能力（LLM / 云转录）走可选 HTTP client，且 API key 进 keychain |
-| **录音不可被意外中断 / 崩溃丢数据** | PRD §7.3 / §11 | 录音落盘走主进程**流式 append**；renderer 崩溃最多丢崩前几秒，已落盘部分完好 |
-| **转录不阻塞 UI、OOM 不拖垮 app** | PRD §5.2 / §8 | 本地 ASR 跑在独立 **utility process**，崩了主进程能感知并重启 |
-| **跨平台**：macOS 14.2+ / Windows 10+ | PRD §7.4 | 系统音采集走 Electron 35+ `desktopCapturer` 抽象（macOS 自动选 CoreAudio Tap，Windows 自动选 WASAPI loopback），上层不分平台分支 |
-| **快捷键到开始录音 < 500 ms**（拆为：< 100 ms 浮窗可见 + < 400 ms 第一帧 PCM）| PRD §7.1 / audio-capture §1.1 | 录音前浮窗常驻（隐藏 BrowserWindow）；冷启动后预热 utility process 与 audio graph |
-| **Multi Pass 实时转录**（v0.1 P0）| PRD §4.1 F4.6–F4.9 / §7.1 | 录音中 streaming utility process 实时跑 Pass A（hypothesis→confirmed），录音结束后 offline utility 跑 Pass B 覆盖；两个 utility **不长期共存**，Pass B 启动前 Pass A 必须 unload |
+| 约束                                                                           | 来源                          | 对架构的影响                                                                                                                                                                     |
+| ------------------------------------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **本地优先**：默认数据不出本机                                                 | PRD §3.1                      | 没有"server"角色；云能力（LLM / 云转录）走可选 HTTP client，且 API key 进 keychain                                                                                               |
+| **录音不可被意外中断 / 崩溃丢数据**                                            | PRD §7.3 / §11                | 录音落盘走主进程**流式 append**；renderer 崩溃最多丢崩前几秒，已落盘部分完好                                                                                                     |
+| **转录不阻塞 UI、OOM 不拖垮 app**                                              | PRD §5.2 / §8                 | 本地 ASR 跑在独立 **utility process**，崩了主进程能感知并重启                                                                                                                    |
+| **跨平台**：macOS 14.2+ / Windows 10+                                          | PRD §7.4                      | 系统音采集走 Electron 35+ `desktopCapturer` 抽象（macOS 自动选 CoreAudio Tap，Windows 自动选 WASAPI loopback），上层不分平台分支                                                 |
+| **快捷键到开始录音 < 500 ms**（拆为：< 100 ms 浮窗可见 + < 400 ms 第一帧 PCM） | PRD §7.1 / audio-capture §1.1 | 录音前浮窗常驻（隐藏 BrowserWindow）；冷启动后预热 utility process 与 audio graph                                                                                                |
+| **Multi Pass 实时转录**（v0.1 P0）                                             | PRD §4.1 F4.6–F4.9 / §7.1     | 录音中 streaming utility process 实时跑 Pass A（hypothesis→confirmed），录音结束后 offline utility 跑 Pass B 覆盖；两个 utility **不长期共存**，Pass B 启动前 Pass A 必须 unload |
 
 ---
 
@@ -79,11 +79,11 @@ graph TD
 
 3 个 BrowserWindow，共享同一份 React 代码 + 路由：
 
-| 窗口 | 用途 | 显示策略 |
-|---|---|---|
-| Main Window | 录音库列表 + 详情面板 + 设置 | 用户唤起时显示；关闭只是隐藏 |
+| 窗口                | 用途                                   | 显示策略                            |
+| ------------------- | -------------------------------------- | ----------------------------------- |
+| Main Window         | 录音库列表 + 详情面板 + 设置           | 用户唤起时显示；关闭只是隐藏        |
 | Record-Prep Popover | 录前确认浮窗（会话类型 / 音源 / 开始） | **常驻隐藏**，快捷键时 ~50ms 内显示 |
-| Onboarding | 首启动 7 屏流程 | 一次性，完成后关闭 |
+| Onboarding          | 首启动 7 屏流程                        | 一次性，完成后关闭                  |
 
 - **不做**：文件 I/O、keychain、HTTP 到云端
 - **做**：
@@ -97,12 +97,14 @@ graph TD
 两个 utility process 都加载 **sherpa-onnx N-API addon**，但**不长期共存**——目的是把内存峰值压在 1.5 GB 以内（PRD §7.1 上限 2.5 GB，留 1 GB 给录音 + UI + utility 切换时短暂重叠）。
 
 **Pass A（Streaming Utility）**：
+
 - 录音 start 时 fork，录音中常驻
 - 接收 PCM 流（从 main，audio-capture §4 fork 的副本）；按 spike-011 选型走 streaming Zipformer 或 VAD 短窗 SenseVoice
 - 输出：`{ segmentId, start, end, text, stability: 'hypothesis' | 'confirmed', speaker }` 事件
 - 录音 stop → main 发 `unload` → utility 自杀（释放模型内存）→ main 才 fork Pass B utility
 
 **Pass B（Offline Utility）**：
+
 - 录音 stop 后 fork（且 Pass A 已 unload）；或用户在 banner 点 "跑离线" 触发增量 Pass B
 - 接收 `{ recordingId, wavPath, timeRange? }`（增量模式 timeRange = `[0, N*60s]`）
 - 输出：完整 segments + 时间戳 + speaker；写完 → main 用 segments 整体覆盖 transcript.live.json 内容 → renderer UI 原地刷新
@@ -114,12 +116,12 @@ graph TD
 
 ### 2.2 为什么不是其它拓扑
 
-| 候选 | 否决理由 |
-|---|---|
-| ASR 跑在 renderer | renderer 崩溃会同时丢 UI；GPU process / sandbox 限制下加载 native addon 麻烦 |
-| ASR 跑 `child_process.fork` | 没有 Electron 提供的崩溃事件 / message port；utility process 是官方推荐 |
+| 候选                                  | 否决理由                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| ASR 跑在 renderer                     | renderer 崩溃会同时丢 UI；GPU process / sandbox 限制下加载 native addon 麻烦                            |
+| ASR 跑 `child_process.fork`           | 没有 Electron 提供的崩溃事件 / message port；utility process 是官方推荐                                 |
 | 单一 BrowserWindow 切换路由代替多窗口 | "常驻隐藏"的录前浮窗 + "一次性"的 onboarding 用同一个 BrowserWindow 会让"显示/隐藏"语义乱掉，分开更干净 |
-| 把云端能力放 renderer | renderer 拿不到 keychain；XSS / 第三方依赖一旦渗透 key 就漏了 |
+| 把云端能力放 renderer                 | renderer 拿不到 keychain；XSS / 第三方依赖一旦渗透 key 就漏了                                           |
 
 ---
 
@@ -168,23 +170,23 @@ graph LR
 
 ### 模块速查表
 
-| 模块 | 主进程 | Renderer | ASR utility | 详见 |
-|---|:---:|:---:|:---:|---|
-| App 生命周期 / 单实例 | ● | | | overview |
-| 菜单栏 / 全局快捷键 | ● | | | overview |
-| 窗口管理 | ● | (UI) | | overview |
-| 音频采集（mic + system） | (权限) | ● | | audio-capture.md |
-| WAV 编码 / 落盘 | ●（append） | (PCM source) | | audio-capture.md |
-| 录音状态机 | ● | (观察者) | | audio-capture.md |
-| 转录引擎抽象 | ● | | | transcription-pipeline.md |
-| 本地转录（sherpa-onnx） | (调度) | | ● | transcription-pipeline.md |
-| 云端转录（OpenAI 兼容） | ● | | | transcription-pipeline.md |
-| 模型下载 / 校验 | ● | (UI) | | transcription-pipeline.md |
-| LLM 摘要 + 模板 | ● | (UI) | | transcription-pipeline.md |
-| 录音元数据 / transcript / summary | ● | | | data-model.md |
-| 录音库扫描 / 索引 / 搜索 | ● | (UI) | | data-model.md |
-| 设置 + Keychain | ● | (UI) | | data-model.md |
-| IPC 协议 | ● | ● | ● | ipc-contract.md |
+| 模块                              |   主进程    |   Renderer   | ASR utility | 详见                      |
+| --------------------------------- | :---------: | :----------: | :---------: | ------------------------- |
+| App 生命周期 / 单实例             |      ●      |              |             | overview                  |
+| 菜单栏 / 全局快捷键               |      ●      |              |             | overview                  |
+| 窗口管理                          |      ●      |     (UI)     |             | overview                  |
+| 音频采集（mic + system）          |   (权限)    |      ●       |             | audio-capture.md          |
+| WAV 编码 / 落盘                   | ●（append） | (PCM source) |             | audio-capture.md          |
+| 录音状态机                        |      ●      |   (观察者)   |             | audio-capture.md          |
+| 转录引擎抽象                      |      ●      |              |             | transcription-pipeline.md |
+| 本地转录（sherpa-onnx）           |   (调度)    |              |      ●      | transcription-pipeline.md |
+| 云端转录（OpenAI 兼容）           |      ●      |              |             | transcription-pipeline.md |
+| 模型下载 / 校验                   |      ●      |     (UI)     |             | transcription-pipeline.md |
+| LLM 摘要 + 模板                   |      ●      |     (UI)     |             | transcription-pipeline.md |
+| 录音元数据 / transcript / summary |      ●      |              |             | data-model.md             |
+| 录音库扫描 / 索引 / 搜索          |      ●      |     (UI)     |             | data-model.md             |
+| 设置 + Keychain                   |      ●      |     (UI)     |             | data-model.md             |
+| IPC 协议                          |      ●      |      ●       |      ●      | ipc-contract.md           |
 
 ---
 
@@ -242,11 +244,13 @@ graph LR
 ```
 
 **云模式 Multi Pass**（默认关）：
+
 - Pass A：复用本地 streaming utility（必须装本地模型）；或用户主动启用云端切片上传 → 走 OpenAI 兼容 transcription API 切片 + 拼接
 - Pass B：云端 API 一次性上传完整 WAV（mp3 转码后），verbose_json 拿 segments
 - UI 提示"云端 Pass A 受网络抖动影响，可能字幕跳变 / 缺失"
 
 **关键时序约束**：
+
 - Pass A unload 与 Pass B fork **必须串行**（中间 ~1-2s 间隙），不允许两个 utility 同时持有模型——这是 PRD §7.1 内存预算的硬约束
 - Pass A 退出超时（5s）→ 强制 SIGKILL → 仍 fork Pass B
 - 增量 Pass B（用户在 banner 点"跑前 N 分钟离线精修"）走另一条 fork，**不**先 unload Pass A——这种情况下两 utility 短暂共存，仅当用户机器内存 > 6GB 时启用（v0.1 启动时检测，否则灰化"跑离线"按钮，文案 "内存不足，请录音结束后再跑"）
@@ -361,13 +365,13 @@ lazyaudio/
 
 ### 6.1 错误与恢复
 
-| 失败点 | 行为 |
-|---|---|
+| 失败点                  | 行为                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | renderer 崩溃（录音中） | 主进程检测到 webContents crash → 立即 flush + close writers → meta.status=failed-partial → 重启 renderer 可看到已录部分 |
-| utility process 崩溃 | 主进程监听 `exit`，meta.transcribeStatus=failed，UI 显示"重试" |
-| 磁盘写失败 | 录音状态机进 failed，UI 红条警告；不静默吞错 |
-| 模型下载失败 | onboarding 内显式三选项：重试 / 切云端 / 退出 |
-| 云 API 401 / 超时 | 摘要状态 failed，可重试；不阻塞转录 |
+| utility process 崩溃    | 主进程监听 `exit`，meta.transcribeStatus=failed，UI 显示"重试"                                                          |
+| 磁盘写失败              | 录音状态机进 failed，UI 红条警告；不静默吞错                                                                            |
+| 模型下载失败            | onboarding 内显式三选项：重试 / 切云端 / 退出                                                                           |
+| 云 API 401 / 超时       | 摘要状态 failed，可重试；不阻塞转录                                                                                     |
 
 ### 6.2 安全
 
@@ -379,24 +383,24 @@ lazyaudio/
 
 PRD §7.1 的指标分摊：
 
-| 指标 | 设计责任方 |
-|---|---|
-| 冷启动 < 1.5s | 主进程：BrowserWindow 异步创建；utility process 懒启动 |
+| 指标                                                        | 设计责任方                                                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 冷启动 < 1.5s                                               | 主进程：BrowserWindow 异步创建；utility process 懒启动                              |
 | 快捷键 → 浮窗可见 < 100 ms / 浮窗回车 → 第一帧 PCM < 400 ms | 浮窗常驻隐藏 `.show()` 即出；audio graph 在浮窗显示时已预热（见 audio-capture §10） |
-| RTF ≤ 0.1 | utility process + SenseVoice int8，由 transcription-pipeline 文档保证 |
-| 录音中 CPU < 5% | renderer 用 AudioWorklet 而非 ScriptProcessor；主进程 WAV append 用流而非整块写 |
-| 内存 < 1.5GB | utility process 独立堆，模型可在空闲时主动 unload |
+| RTF ≤ 0.1                                                   | utility process + SenseVoice int8，由 transcription-pipeline 文档保证               |
+| 录音中 CPU < 5%                                             | renderer 用 AudioWorklet 而非 ScriptProcessor；主进程 WAV append 用流而非整块写     |
+| 内存 < 1.5GB                                                | utility process 独立堆，模型可在空闲时主动 unload                                   |
 
 ### 6.4 国际化（i18n）
 
 **选型**：**`react-i18next` + `i18next`**（zh-CN 默认，en v0.2）。
 
-| 选项 | 决定 | 理由 |
-|---|---|---|
+| 选项                        | 决定   | 理由                                                                                           |
+| --------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
 | `react-i18next` + `i18next` | **✅** | 生态最大；Electron 多窗口共享 store 成熟；lazy load namespace；fallback 链清晰；~30 KB gzipped |
-| `react-intl` (FormatJS) | ❌ | Bundle 偏大（~50 KB）；ICU MessageFormat 对中文价值有限（无复数变化） |
-| `@lingui/macro` | ❌ | 编译时方案、bundle 小，但工具链复杂；多窗口 Electron 集成案例少 |
-| 自写 hook + JSON 表 | ❌ | v0.1 看似够用；v0.2 加 en 时一定要重写 plural / fallback |
+| `react-intl` (FormatJS)     | ❌     | Bundle 偏大（~50 KB）；ICU MessageFormat 对中文价值有限（无复数变化）                          |
+| `@lingui/macro`             | ❌     | 编译时方案、bundle 小，但工具链复杂；多窗口 Electron 集成案例少                                |
+| 自写 hook + JSON 表         | ❌     | v0.1 看似够用；v0.2 加 en 时一定要重写 plural / fallback                                       |
 
 **目录布局**：
 
@@ -434,21 +438,22 @@ src/
 
 很多 bug（dylib 加载、文件路径、权限弹窗时机）来自"开发能跑、签名包不能跑"。一处统一处理：
 
-| 维度 | Dev（`electron .`） | Packaged（.app / .exe） | 责任方 |
-|---|---|---|---|
-| `node_modules` 位置 | 源码 `<repo>/node_modules` | `app.asar.unpacked/node_modules` | 加载层用 `app.isPackaged` 分支（见 [`transcription-pipeline.md`](./transcription-pipeline.md) §3.2） |
-| sherpa-onnx dylib 加载 | `DYLD_FALLBACK_LIBRARY_PATH` 可设有效 | SIP 剥 DYLD_*，必须靠 `@loader_path` + install_name_tool | electron-builder afterPack（[transcription-pipeline.md §3.2.1](./transcription-pipeline.md)） |
-| `.node` addon 解包 | 直接从 node_modules 加载 | 必须 `asarUnpack`，否则 dlopen 失败 | electron-builder.yml 显式 glob |
-| 麦克风权限弹窗 | dev 下绑 Electron Helper，弹窗显示 "Electron" | 绑 LazyAudio.app，弹窗显示 "LazyAudio" | macOS 系统行为，无法干预；测试必须在签名包里跑 |
-| 屏幕录制权限 | 同上 | 同上 | 不应触发（CoreAudio Tap 不需）；spike-001 必须在签名包验证 |
-| globalShortcut 注册 | 即时生效 | macOS Sonoma+ 需 Accessibility 权限 | onboarding 引导（[audio-capture.md §7.1](./audio-capture.md)） |
-| 公证 staple | 不需要 | 必须；CI 必跑 | electron-builder 配置 + Apple API key 环境变量 |
-| 自动更新 | 不工作 | electron-updater 走 GitHub Releases | M7 启用 |
-| 日志路径 | `<repo>/logs/` 或 stdout | `~/Library/Logs/LazyAudio/` | 主进程用 `app.getPath('logs')` |
-| safeStorage 可用性 | 一般 true | 一般 true；macOS 首次访问 keychain 弹一次允许 | 兜底见 [`data-model.md`](./data-model.md) §3.2 |
-| utility process loader | DYLD 可调，dylib 缺失也能跑（如果有源 link） | 必须 install_name_tool 改写 + asarUnpack | electron-builder afterPack |
+| 维度                   | Dev（`electron .`）                           | Packaged（.app / .exe）                                    | 责任方                                                                                               |
+| ---------------------- | --------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `node_modules` 位置    | 源码 `<repo>/node_modules`                    | `app.asar.unpacked/node_modules`                           | 加载层用 `app.isPackaged` 分支（见 [`transcription-pipeline.md`](./transcription-pipeline.md) §3.2） |
+| sherpa-onnx dylib 加载 | `DYLD_FALLBACK_LIBRARY_PATH` 可设有效         | SIP 剥 DYLD\_\*，必须靠 `@loader_path` + install_name_tool | electron-builder afterPack（[transcription-pipeline.md §3.2.1](./transcription-pipeline.md)）        |
+| `.node` addon 解包     | 直接从 node_modules 加载                      | 必须 `asarUnpack`，否则 dlopen 失败                        | electron-builder.yml 显式 glob                                                                       |
+| 麦克风权限弹窗         | dev 下绑 Electron Helper，弹窗显示 "Electron" | 绑 LazyAudio.app，弹窗显示 "LazyAudio"                     | macOS 系统行为，无法干预；测试必须在签名包里跑                                                       |
+| 屏幕录制权限           | 同上                                          | 同上                                                       | 不应触发（CoreAudio Tap 不需）；spike-001 必须在签名包验证                                           |
+| globalShortcut 注册    | 即时生效                                      | macOS Sonoma+ 需 Accessibility 权限                        | onboarding 引导（[audio-capture.md §7.1](./audio-capture.md)）                                       |
+| 公证 staple            | 不需要                                        | 必须；CI 必跑                                              | electron-builder 配置 + Apple API key 环境变量                                                       |
+| 自动更新               | 不工作                                        | electron-updater 走 GitHub Releases                        | M7 启用                                                                                              |
+| 日志路径               | `<repo>/logs/` 或 stdout                      | `~/Library/Logs/LazyAudio/`                                | 主进程用 `app.getPath('logs')`                                                                       |
+| safeStorage 可用性     | 一般 true                                     | 一般 true；macOS 首次访问 keychain 弹一次允许              | 兜底见 [`data-model.md`](./data-model.md) §3.2                                                       |
+| utility process loader | DYLD 可调，dylib 缺失也能跑（如果有源 link）  | 必须 install_name_tool 改写 + asarUnpack                   | electron-builder afterPack                                                                           |
 
 **强制 CI 项**：
+
 - macOS：每个 PR 跑"签名 + 公证 + staple + 启动 smoke test"（不能只在 dev 验证）
 - Windows：每个 PR 跑"installer 签名 + 安装 + 启动 + 录音 1 帧"
 - 两个平台都跑 spike-001/002（双轨录音）的自动化版本
@@ -457,13 +462,13 @@ src/
 
 ## 8. 跨文档导航
 
-| 想了解 | 看 |
-|---|---|
-| mic / system 音怎么抓、WAV 怎么写、平台差异 | [`audio-capture.md`](./audio-capture.md) |
-| 本地 / 云端转录的统一抽象、模型下载、LLM 摘要管线 | [`transcription-pipeline.md`](./transcription-pipeline.md) |
-| settings / meta / transcript / summary 的字段与版本化 | [`data-model.md`](./data-model.md) |
-| renderer ↔ main ↔ utility 的 IPC 消息清单与类型 | [`ipc-contract.md`](./ipc-contract.md) |
-| 关键技术决策的取舍 | [`adr/`](./adr/) |
+| 想了解                                                | 看                                                         |
+| ----------------------------------------------------- | ---------------------------------------------------------- |
+| mic / system 音怎么抓、WAV 怎么写、平台差异           | [`audio-capture.md`](./audio-capture.md)                   |
+| 本地 / 云端转录的统一抽象、模型下载、LLM 摘要管线     | [`transcription-pipeline.md`](./transcription-pipeline.md) |
+| settings / meta / transcript / summary 的字段与版本化 | [`data-model.md`](./data-model.md)                         |
+| renderer ↔ main ↔ utility 的 IPC 消息清单与类型       | [`ipc-contract.md`](./ipc-contract.md)                     |
+| 关键技术决策的取舍                                    | [`adr/`](./adr/)                                           |
 
 ---
 
@@ -471,18 +476,18 @@ src/
 
 以下决策 PRD / 调研阶段已经定下来了，但理由 / 候选 / 否决项还没整理成 ADR。开发开始前**至少把前 3 条补上**，其余按需。
 
-| # | 主题 | 状态 | 优先级 |
-|---|---|---|---|
-| 1 | macOS 最低版本定 14.2+（CoreAudio Tap vs ScreenCaptureKit） | 已决，待写 | 高 |
-| 2 | 本地转录引擎选 sherpa-onnx（vs whisper.cpp / faster-whisper） | 已决，待写 | 高 |
-| 3 | ASR 跑 utility process（vs renderer / child_process） | 已决，待写 | 高 |
-| 4 | 系统音通过 Electron `desktopCapturer` 抽象（vs 自己 N-API 包） | 已决，待写 | 中 |
-| 5 | 录音状态机放主进程（vs renderer） | 已决，待写 | 中 |
-| 6 | WAV append 流式落盘（vs MediaRecorder 缓存后整块写） | 已决，待写 | 中 |
-| 7 | 默认模型选 SenseVoice int8（vs Whisper / Paraformer） | 已决，待写 | 中 |
-| 8 | 录音前浮窗用独立 BrowserWindow（vs 路由切换） | 已决，待写 | 低 |
-| 9 | Keychain / Credential Manager 存 API key（vs 加密文件） | 已决，待写 | 低 |
-| 10 | 删除录音直接物理删（vs 回收站） | 已决，待写 | 低 |
+| #   | 主题                                                           | 状态       | 优先级 |
+| --- | -------------------------------------------------------------- | ---------- | ------ |
+| 1   | macOS 最低版本定 14.2+（CoreAudio Tap vs ScreenCaptureKit）    | 已决，待写 | 高     |
+| 2   | 本地转录引擎选 sherpa-onnx（vs whisper.cpp / faster-whisper）  | 已决，待写 | 高     |
+| 3   | ASR 跑 utility process（vs renderer / child_process）          | 已决，待写 | 高     |
+| 4   | 系统音通过 Electron `desktopCapturer` 抽象（vs 自己 N-API 包） | 已决，待写 | 中     |
+| 5   | 录音状态机放主进程（vs renderer）                              | 已决，待写 | 中     |
+| 6   | WAV append 流式落盘（vs MediaRecorder 缓存后整块写）           | 已决，待写 | 中     |
+| 7   | 默认模型选 SenseVoice int8（vs Whisper / Paraformer）          | 已决，待写 | 中     |
+| 8   | 录音前浮窗用独立 BrowserWindow（vs 路由切换）                  | 已决，待写 | 低     |
+| 9   | Keychain / Credential Manager 存 API key（vs 加密文件）        | 已决，待写 | 低     |
+| 10  | 删除录音直接物理删（vs 回收站）                                | 已决，待写 | 低     |
 
 ---
 
@@ -493,6 +498,7 @@ src/
 - VAD 切片粒度（决定 transcript.json 段落长度与点击跳转手感）。→ transcription-pipeline.md spike-006
 
 > 以下原列表中的几条已在 r2/r3 修订中落地，不再是"开放"：
+>
 > - ~~WAV 写入是 IPC PCM 流还是 encode 后分块~~ → audio-capture §4 MessagePort + transferable
 > - ~~录音库索引扫盘 vs index.json~~ → data-model §5.2 / §5.4 两阶段
 > - ~~IPC 是否走 zod~~ → ipc-contract §11 已 zod

@@ -22,11 +22,11 @@
 
 ### 1.1 开发机
 
-| 平台 | 最低要求 | 推荐 |
-|---|---|---|
-| macOS | 14.2+（Sonoma），Intel 或 Apple Silicon | M 系列芯片，macOS 15+ |
-| Windows | 10 21H2+ / 11，x64 | Win11 x64 |
-| Linux | Ubuntu 22.04+ / Fedora 38+，x64 | — |
+| 平台    | 最低要求                                | 推荐                  |
+| ------- | --------------------------------------- | --------------------- |
+| macOS   | 14.2+（Sonoma），Intel 或 Apple Silicon | M 系列芯片，macOS 15+ |
+| Windows | 10 21H2+ / 11，x64                      | Win11 x64             |
+| Linux   | Ubuntu 22.04+ / Fedora 38+，x64         | —                     |
 
 > v0.1 不发 Linux，但 Linux 上能跑 dev 模式（spike / unit test）；只有打包发布走不通。
 
@@ -42,12 +42,12 @@
 
 ### 2.1 通用
 
-| 工具 | 版本 | 安装方式 | 校验 |
-|---|---|---|---|
-| **Node.js** | ≥ 20 LTS（锁主版本，见 `.nvmrc`）| nvm / volta / fnm | `node -v` |
-| **pnpm** | ≥ 9 | `corepack enable && corepack prepare pnpm@latest --activate` | `pnpm -v` |
-| **git** | ≥ 2.40 | 系统包管理器 | `git --version` |
-| **Python** | 3.10–3.12 | 系统包管理器 | `python3 -V` |
+| 工具        | 版本                              | 安装方式                                                     | 校验            |
+| ----------- | --------------------------------- | ------------------------------------------------------------ | --------------- |
+| **Node.js** | ≥ 20 LTS（锁主版本，见 `.nvmrc`） | nvm / volta / fnm                                            | `node -v`       |
+| **pnpm**    | ≥ 9                               | `corepack enable && corepack prepare pnpm@latest --activate` | `pnpm -v`       |
+| **git**     | ≥ 2.40                            | 系统包管理器                                                 | `git --version` |
+| **Python**  | 3.10–3.12                         | 系统包管理器                                                 | `python3 -V`    |
 
 > Python 是 **node-gyp 隐式依赖**——99% 的 native 包用 prebuilt 不会触发，但保险起见装上，遇到 native build 失败时不至于卡住。
 
@@ -83,10 +83,10 @@ winget install -e --id Microsoft.VisualStudio.2022.BuildTools
 
 ### 2.4 编辑器（强烈推荐）
 
-| 编辑器 | 必装插件 |
-|---|---|
+| 编辑器               | 必装插件                                                           |
+| -------------------- | ------------------------------------------------------------------ |
 | **VS Code** / Cursor | ESLint、Prettier、Tailwind CSS IntelliSense、EditorConfig、GitLens |
-| WebStorm | 内置 |
+| WebStorm             | 内置                                                               |
 
 `.vscode/extensions.json` 已列推荐插件，VS Code 打开会自动提示安装。
 
@@ -203,11 +203,11 @@ electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-
 
 模型不进 npm 包，按 [`../03-architecture/transcription-pipeline.md`](../03-architecture/transcription-pipeline.md) §3.5 走多源 fallback：
 
-| 源 | URL | 用途 |
-|---|---|---|
-| hf-mirror | https://hf-mirror.com | 国内默认 |
-| ModelScope | https://modelscope.cn | 国内备选 |
-| HuggingFace | https://huggingface.co | 海外默认 |
+| 源              | URL                                            | 用途     |
+| --------------- | ---------------------------------------------- | -------- |
+| hf-mirror       | https://hf-mirror.com                          | 国内默认 |
+| ModelScope      | https://modelscope.cn                          | 国内备选 |
+| HuggingFace     | https://huggingface.co                         | 海外默认 |
 | GitHub Releases | https://github.com/k2-fsa/sherpa-onnx/releases | 终极兜底 |
 
 下载器自动按列表 head 测速选最快的，不需要人工切。
@@ -323,11 +323,11 @@ v0.1 实际用的调试手段：
 
 1. **`stdio: 'inherit'` + `console.log`**：dev 模式 utility 的 stdout/stderr 直接进 electron 主进程终端。最直接、最够用。
 
-    ```ts
-    if (!app.isPackaged) {
-      utilityProcess.fork(entry, [], { stdio: 'inherit' })
-    }
-    ```
+   ```ts
+   if (!app.isPackaged) {
+     utilityProcess.fork(entry, [], { stdio: 'inherit' })
+   }
+   ```
 
 2. **`parentPort.postMessage({ type: 'log', level, msg })`**：主进程订阅后统一 log 到 `~/Library/Logs/LazyAudio/asr.log`；packaged 模式也能看（详见 [`../03-architecture/overview.md`](../03-architecture/overview.md) §6.5）
 
@@ -337,11 +337,11 @@ v0.x 如果常用 inspect，再 spike 一次 `NODE_OPTIONS=--inspect` 通过 env
 
 ### 7.4 日志
 
-| 来源 | dev 路径 | packaged 路径 |
-|---|---|---|
-| 主进程 | stdout | `~/Library/Logs/LazyAudio/main.log` |
-| Utility | stdout（通过 parentPort 转发到主进程）| 同上 `asr.log` |
-| Renderer | DevTools console | 不落盘（隐私） |
+| 来源     | dev 路径                               | packaged 路径                       |
+| -------- | -------------------------------------- | ----------------------------------- |
+| 主进程   | stdout                                 | `~/Library/Logs/LazyAudio/main.log` |
+| Utility  | stdout（通过 parentPort 转发到主进程） | 同上 `asr.log`                      |
+| Renderer | DevTools console                       | 不落盘（隐私）                      |
 
 dev 模式 stdout 直接看；packaged 调试需要：
 

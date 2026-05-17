@@ -17,6 +17,7 @@
 第一批用户 = 技术 / 产品 / 设计岗的个人贡献者或 manager，每周大量会议 + 1-on-1 + 面试，**注重隐私，不愿把会议内容传第三方云**。
 
 核心使用场景：
+
 1. 线上会议（Zoom / Teams / 腾讯会议）— 录 + 转录 + 生成纪要
 2. 语音笔记 / 灵感速记 — 快捷键秒起
 3. 作为面试官的面试 — 复盘候选人回答、生成结构化评估
@@ -33,6 +34,7 @@
 **参考**：macOS 系统设置、Linear、Logic Pro 录音面板、Obsidian / Tana 的工具感。
 
 **禁止**：
+
 - ❌ 装饰性渐变背景 / 玻璃拟态卡片 / 大量阴影 / 装饰性图形
   - 唯一例外：macOS 系统原生 vibrancy 可用于浮窗 / dropdown 背景（见 §5.6）；不要在主窗口内部、卡片、按钮上使用磨砂
 - ❌ 卡通插画 / 营销感 banner
@@ -40,6 +42,7 @@
 - ❌ "立即升级" 这类消费 SaaS 文案
 
 **视觉特征**：
+
 - ✅ 大量灰阶 + 极少强调色
 - ✅ 紧凑信息密度（参考 Linear / Obsidian）
 - ✅ 录制状态（呼吸红点）是全 App 唯一的"花"
@@ -74,16 +77,16 @@ danger  #DC2626 / #FF6369
 
 UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
-| Token | 浅色 | 深色 | 用途 |
-|---|---|---|---|
-| `surface/canvas`  | gray-50  | gray-950 | 窗口最底层背景（左侧列表区） |
-| `surface/panel`   | gray-0 (#fff) | gray-900 | 右侧详情区、设置内容区 |
-| `surface/raised`  | gray-0   | gray-850 | 浮窗、dropdown、悬浮卡片 |
-| `surface/sunken`  | gray-100 | gray-1000 | 转录段落 hover、输入框 bg |
-| `surface/hover`   | gray-100 | gray-850 | 列表项 hover |
-| `surface/selected`| accent @ 8% | accent @ 12% | 列表项选中、当前播放段 |
-| `border/subtle`   | gray-200 | gray-800 | 分割线、面板边界 |
-| `border/strong`   | gray-300 | gray-700 | 输入框、按钮边框 |
+| Token              | 浅色          | 深色         | 用途                         |
+| ------------------ | ------------- | ------------ | ---------------------------- |
+| `surface/canvas`   | gray-50       | gray-950     | 窗口最底层背景（左侧列表区） |
+| `surface/panel`    | gray-0 (#fff) | gray-900     | 右侧详情区、设置内容区       |
+| `surface/raised`   | gray-0        | gray-850     | 浮窗、dropdown、悬浮卡片     |
+| `surface/sunken`   | gray-100      | gray-1000    | 转录段落 hover、输入框 bg    |
+| `surface/hover`    | gray-100      | gray-850     | 列表项 hover                 |
+| `surface/selected` | accent @ 8%   | accent @ 12% | 列表项选中、当前播放段       |
+| `border/subtle`    | gray-200      | gray-800     | 分割线、面板边界             |
+| `border/strong`    | gray-300      | gray-700     | 输入框、按钮边框             |
 
 原则：相邻两层亮度差 ≥ 1 级，绝不出现"两个 panel 贴在一起分不清"。
 
@@ -91,27 +94,27 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
 按说话人出现顺序循环分配，**不要和 §5.2 会话类型色混用**，否则用户会分不清颜色代表什么。
 
-| Token | 浅色 | 深色 | 用于 |
-|---|---|---|---|
-| `speaker-1` | #1F6FEB | #4493F8 | 第 1 位说话人（通常是用户，麦克风源） |
-| `speaker-2` | #D97706 | #F2A742 | 第 2 位说话人（通常是系统音源） |
-| `speaker-3` | #3E9B4F | #46A758 | 第 3 位说话人 |
-| `speaker-4` | #B85C97 | #DD7CC4 | 第 4 位说话人 |
-| `speaker-5+` | gray-500 | gray-500 | 5 人以上一律灰，不再分配 |
+| Token        | 浅色     | 深色     | 用于                                  |
+| ------------ | -------- | -------- | ------------------------------------- |
+| `speaker-1`  | #1F6FEB  | #4493F8  | 第 1 位说话人（通常是用户，麦克风源） |
+| `speaker-2`  | #D97706  | #F2A742  | 第 2 位说话人（通常是系统音源）       |
+| `speaker-3`  | #3E9B4F  | #46A758  | 第 3 位说话人                         |
+| `speaker-4`  | #B85C97  | #DD7CC4  | 第 4 位说话人                         |
+| `speaker-5+` | gray-500 | gray-500 | 5 人以上一律灰，不再分配              |
 
 转录段中常见缩写 `●M` = speaker-1（Microphone）、`●S` = speaker-2（System）。
 
 ### 5.2 7 种会话类型色（仅用于徽章 + 列表项 icon）
 
-| sessionType | 中文 | hue |
-|---|---|---|
-| general | 通用 | gray |
-| meeting | 会议 | blue |
-| note | 笔记 | yellow |
-| interview-as-interviewer | 面试官 | purple |
-| interview-as-candidate | 面试者 | pink |
-| lecture | 课程 | emerald |
-| podcast | 播客 | orange |
+| sessionType              | 中文   | hue     |
+| ------------------------ | ------ | ------- |
+| general                  | 通用   | gray    |
+| meeting                  | 会议   | blue    |
+| note                     | 笔记   | yellow  |
+| interview-as-interviewer | 面试官 | purple  |
+| interview-as-candidate   | 面试者 | pink    |
+| lecture                  | 课程   | emerald |
+| podcast                  | 播客   | orange  |
 
 ### 5.3 字体
 
@@ -125,15 +128,15 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
 ### 5.4.1 控件高度（统一 token，跨页面强制一致）
 
-| 控件 | 高度 | 内边距 | 备注 |
-|---|---|---|---|
-| 主按钮 / primary | 32px | 12 横 | 文字 13px semi-bold，accent bg，hover 加深 4% |
-| 次按钮 / secondary | 32px | 12 横 | `surface/raised` bg + `border/strong`，文字 13px |
-| 小按钮 / compact | 24px | 8 横 | 详情头 / 工具栏内，文字 12px |
-| 输入框 | 32px | 8 横 | 配 `border/strong`，focus 边框变 accent |
-| 大输入框（onboarding / 设置表单） | 36px | 12 横 | API 配置等 |
-| segmented control | 28px | — | 整体 6px 圆角；单段平角，选中段 `surface/raised` bg |
-| 链接按钮 | 行内 | — | 无 bg，accent 文字，hover 下划线 |
+| 控件                              | 高度 | 内边距 | 备注                                                |
+| --------------------------------- | ---- | ------ | --------------------------------------------------- |
+| 主按钮 / primary                  | 32px | 12 横  | 文字 13px semi-bold，accent bg，hover 加深 4%       |
+| 次按钮 / secondary                | 32px | 12 横  | `surface/raised` bg + `border/strong`，文字 13px    |
+| 小按钮 / compact                  | 24px | 8 横   | 详情头 / 工具栏内，文字 12px                        |
+| 输入框                            | 32px | 8 横   | 配 `border/strong`，focus 边框变 accent             |
+| 大输入框（onboarding / 设置表单） | 36px | 12 横  | API 配置等                                          |
+| segmented control                 | 28px | —      | 整体 6px 圆角；单段平角，选中段 `surface/raised` bg |
+| 链接按钮                          | 行内 | —      | 无 bg，accent 文字，hover 下划线                    |
 
 ### 5.5 主窗口尺寸
 
@@ -143,16 +146,16 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
 ### 5.6 跨平台差异（macOS 14.2+ vs Windows 10+）
 
-| 项 | macOS | Windows |
-|---|---|---|
-| 窗口控件位置 | 左上 traffic light（红黄绿圆点） | 右上 `— □ ×` |
-| 标题栏 | 系统原生 + 居中标题 | 自绘标题栏，左对齐标题 |
-| 字体 | SF Pro / SF Mono | Segoe UI / Cascadia Mono |
-| 快捷键键帽 | `⌘ ⇧ ⌥ ⌃` 符号 | `Ctrl / Shift / Alt / Win` 文字 |
-| 菜单栏常驻 | 顶部系统菜单栏右侧状态栏 icon | 系统托盘 icon（右下角） |
-| 浮窗 / 弹窗阴影 | macOS 标准 vibrancy（轻磨砂） | Windows Acrylic（弱阴影，无磨砂） |
-| 滚动条 | 自动隐藏，hover 出现 | 始终可见，10px 宽 |
-| 按钮 hover | 整体微亮 4% | 加 1px accent 描边 |
+| 项              | macOS                            | Windows                           |
+| --------------- | -------------------------------- | --------------------------------- |
+| 窗口控件位置    | 左上 traffic light（红黄绿圆点） | 右上 `— □ ×`                      |
+| 标题栏          | 系统原生 + 居中标题              | 自绘标题栏，左对齐标题            |
+| 字体            | SF Pro / SF Mono                 | Segoe UI / Cascadia Mono          |
+| 快捷键键帽      | `⌘ ⇧ ⌥ ⌃` 符号                   | `Ctrl / Shift / Alt / Win` 文字   |
+| 菜单栏常驻      | 顶部系统菜单栏右侧状态栏 icon    | 系统托盘 icon（右下角）           |
+| 浮窗 / 弹窗阴影 | macOS 标准 vibrancy（轻磨砂）    | Windows Acrylic（弱阴影，无磨砂） |
+| 滚动条          | 自动隐藏，hover 出现             | 始终可见，10px 宽                 |
+| 按钮 hover      | 整体微亮 4%                      | 加 1px accent 描边                |
 
 > 默认按 macOS 形态画。Windows 版**只换窗口外壳 + 上述控件细节**，主窗口内部布局、间距、组件、字号一律一致——不要做两套不同的信息架构。
 
@@ -190,6 +193,7 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 ```
 
 要点：
+
 - 列表项：左侧类型 icon + 颜色点 → 标题 → 时长 → 转录预览首句
 - 列表分组头："今天 / 昨天 / 本周 / 本月 / 更早"
 - 列表项录音中：圆点用呼吸红点 + 标题加 "（录制中）"
@@ -199,15 +203,15 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
 尺寸细节（画稿时必须遵守）：
 
-| 区域 | 尺寸 | 备注 |
-|---|---|---|
-| 左侧列表栏宽 | 280px | 可拖拽 240–360 |
-| 详情头 | 高 56px | 标题 + 类型徽章 + 操作按钮一行。和列表项同高纯属功能巧合，**不要刻意把左右栏对齐成网格** |
-| 波形条 | 高 64px | gray-300 描线，已播放段填 accent |
-| 播放控制条 | 高 40px | 播放/暂停按钮 32px，速度/跳转 28px |
-| 转录 / 摘要分隔 | 50% / 50% | 中间 1px `border/subtle`，可拖拽 30–70% |
-| 转录段落行高 | 24px | 段间距 8px |
-| 摘要面板底部操作条 | 高 44px | `[换模板]` `[复制]` 右对齐 |
+| 区域               | 尺寸      | 备注                                                                                     |
+| ------------------ | --------- | ---------------------------------------------------------------------------------------- |
+| 左侧列表栏宽       | 280px     | 可拖拽 240–360                                                                           |
+| 详情头             | 高 56px   | 标题 + 类型徽章 + 操作按钮一行。和列表项同高纯属功能巧合，**不要刻意把左右栏对齐成网格** |
+| 波形条             | 高 64px   | gray-300 描线，已播放段填 accent                                                         |
+| 播放控制条         | 高 40px   | 播放/暂停按钮 32px，速度/跳转 28px                                                       |
+| 转录 / 摘要分隔    | 50% / 50% | 中间 1px `border/subtle`，可拖拽 30–70%                                                  |
+| 转录段落行高       | 24px      | 段间距 8px                                                                               |
+| 摘要面板底部操作条 | 高 44px   | `[换模板]` `[复制]` 右对齐                                                               |
 
 **搜索 + 类型筛选**（列表栏顶部，详情上方）：
 
@@ -235,6 +239,7 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 #### 6.3 主窗口 — 转录中 / 失败状态
 
 列表项 + 详情两个状态都要表达：
+
 - 列表项：徽章替换为 `⟳ 34%` pending 色
 - 详情：转录文本区显示骨架屏 + 进度，摘要面板 disabled
 
@@ -274,6 +279,7 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 #### 6.5 菜单栏 Dropdown — 两态
 
 **空闲态**：
+
 ```
 开始录音…              ⌘⇧R
 ───────────────────────
@@ -289,6 +295,7 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 ```
 
 **录音中**：
+
 ```
 ● 03:24  录制中（面试官）
 ───────────────────────
@@ -325,23 +332,27 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 **窗口规格**：所有 onboarding 屏共用 720×520 居中浮窗（不可调整大小），底部固定 64px 操作条，左侧"上一步"灰色链接 + 右侧 primary "下一步"，正中放 1–7 圆点进度指示器。
 
 **屏 1 — 欢迎**：
+
 - 居中 App icon（80px） + slogan "录下你电脑的声音，转成可搜索的文字"
 - 副文案 13px gray "本地优先 · 自动转录 · AI 一键纪要"
 - "下一步" primary button
 
 **屏 2 — 隐私模式选择**：
+
 - 两个大卡片左右排列，单卡 280×200
 - 左：「🔒 本地（推荐）」标签 + "所有数据留在你机器上"描述 + "约 270 MB 模型"小字
 - 右：「☁ 云端」标签 + "用 OpenAI 兼容 API 转录"描述 + "需要 API key"小字
 - 选中态：边框 accent + 浅 accent 背景
 
 **屏 4a — 模型下载**：
+
 - 标题 "正在下载本地转录模型"
 - 进度条（高 6px）+ 百分比 + 速度（MB/s）+ 剩余时间
 - 进度条下方："切换镜像源" / "取消" 链接（11px gray）
 - 完成态：✓ 完成 + "下一步" 自动可点
 
 **屏 5 — 快捷键介绍**：
+
 - 居中三个键帽图形拼接：`⌘` `⇧` `R`（macOS 风格圆角键帽 48×48；Windows 版用 `Ctrl` `Shift` `R`）
 - 标题 "用快捷键秒起录音"
 - 副文案 "⌘⇧R 一键开始 / 停止，全局生效"
@@ -349,6 +360,7 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 - "下一步" primary
 
 **屏 7 — 完成**：
+
 - 居中 ✓ 大图标（success 色，64px 圆形 bg @ 12% + 描边）
 - 标题 "准备就绪"
 - 副文案 "按 ⌘⇧R 开始你的第一次录音"
@@ -383,6 +395,7 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 **窗口规格**：880×640 独立窗口，最小 720×520，不可全屏。
 
 **整体布局**：
+
 - 左侧 nav 宽 200px，bg = `surface/canvas`，单项 36px 高 + 16 横内边距，13px 文字
   - 选中态：左边 2px accent 竖条 + bg `surface/selected`，文字 accent 色
   - hover：bg `surface/hover`
@@ -457,12 +470,12 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
 ## 8. 关键交互动效
 
-| 交互 | 效果 | 时长 |
-|---|---|---|
-| 浮窗入场 | scale 0.96→1 + opacity 0→1 | 100 ms ease-out |
-| 列表项 hover | bg → `surface/hover` | 80 ms |
-| 录制红点 | 呼吸（见 7.2） | 1200 ms |
-| 转录 loading | 圆环旋转 | 800 ms linear |
+| 交互         | 效果                       | 时长            |
+| ------------ | -------------------------- | --------------- |
+| 浮窗入场     | scale 0.96→1 + opacity 0→1 | 100 ms ease-out |
+| 列表项 hover | bg → `surface/hover`       | 80 ms           |
+| 录制红点     | 呼吸（见 7.2）             | 1200 ms         |
+| 转录 loading | 圆环旋转                   | 800 ms linear   |
 
 不做：页面切换 slide、stagger 列表进入、鼠标跟随。
 
@@ -500,12 +513,12 @@ UI 由若干灰阶层叠出来，请严格按以下分配，不要乱用：
 
 ## 附录：与其他文档的对应
 
-| brief 章节 | 完整规范 |
-|---|---|
-| §3 调性 | [`design-system.md`](./design-system.md) §1 |
-| §5 视觉规范 | [`design-system.md`](./design-system.md) §2–§4 |
+| brief 章节  | 完整规范                                                             |
+| ----------- | -------------------------------------------------------------------- |
+| §3 调性     | [`design-system.md`](./design-system.md) §1                          |
+| §5 视觉规范 | [`design-system.md`](./design-system.md) §2–§4                       |
 | §6 页面清单 | [`information-architecture.md`](./information-architecture.md) §3–§7 |
-| §7 组件 | [`design-system.md`](./design-system.md) §5 |
-| §8 动效 | [`design-system.md`](./design-system.md) §8 |
-| user flows | [`user-flows.md`](./user-flows.md) |
-| PRD | [`../01-research/prd.md`](../01-research/prd.md) |
+| §7 组件     | [`design-system.md`](./design-system.md) §5                          |
+| §8 动效     | [`design-system.md`](./design-system.md) §8                          |
+| user flows  | [`user-flows.md`](./user-flows.md)                                   |
+| PRD         | [`../01-research/prd.md`](../01-research/prd.md)                     |
