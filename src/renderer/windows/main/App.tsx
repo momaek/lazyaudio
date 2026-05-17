@@ -18,16 +18,11 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let cancelled = false
-    // 防御 preload 缺失(browser 直接访问 / preload 注入失败):不让 useEffect 同步 throw 把整棵树拆掉。
-    const api = (window as Window & { lazyaudio?: typeof window.lazyaudio }).lazyaudio
-    if (!api?.system?.ping) {
-      setStatus({
-        kind: 'error',
-        message: 'window.lazyaudio.system.ping unavailable (preload missing)',
-      })
-      return
-    }
-    api.system
+    // 这里不做 `if (!window.lazyaudio)` 防御:Electron preload 应该**永远**注入 window.lazyaudio。
+    // 没注入意味着环境 bug(preload 路径错 / sandbox+ESM 不兼容 / 等),要让 React 抛错让开发者立刻看见,
+    // 而不是优雅显示"preload missing"把问题掩盖掉。
+    // 浏览器(无 preload)不是本组件的合法 AC 验证目标 — 用 Electron + screencapture 验。
+    window.lazyaudio.system
       .ping()
       .then((result) => {
         if (!cancelled) setStatus({ kind: 'ok', result })
