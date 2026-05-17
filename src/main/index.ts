@@ -16,6 +16,7 @@ function createMainWindow(): BrowserWindow {
     show: false,
     title: 'LazyAudio',
     webPreferences: {
+      // preload 强制 CJS 输出(.js),sandbox: true 下 Electron 不支持 ESM preload
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,

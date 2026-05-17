@@ -24,6 +24,8 @@ export default defineConfig({
         input: {
           index: resolve('src/preload/index.ts'),
         },
+        // sandbox: true 下 Electron 的 preload 不支持 ESM,必须 CJS
+        output: { format: 'cjs', entryFileNames: '[name].js' },
       },
     },
     resolve: {
