@@ -1,0 +1,26 @@
+{
+  "name": "lazyaudio-spike-011",
+  "version": "0.0.0",
+  "private": true,
+  "description": "spike-011 Pass A 引擎选型 POC(不进生产)",
+  "type": "module",
+  "scripts": {
+    "download:models": "tsx src/scripts/download-models.ts",
+    "prepare:fixtures": "tsx src/scripts/prepare-fixtures.ts",
+    "bench": "tsx src/bench.ts",
+    "poc:a": "tsx src/poc-a-streaming.ts",
+    "poc:b": "tsx src/poc-b-vad-shortwin.ts"
+  },
+  "dependencies": {
+    "sherpa-onnx-node": "^1.13.2"
+  },
+  "optionalDependencies": {
+    "sherpa-onnx-darwin-arm64": "^1.13.2",
+    "sherpa-onnx-darwin-x64": "^1.13.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

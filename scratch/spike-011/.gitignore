@@ -1,0 +1,6 @@
+# 模型 / 测试音频 / 结果产物不进 git(体积大 + 可重下)
+models/
+fixtures/
+results/
+node_modules/
+pnpm-lock.yaml
