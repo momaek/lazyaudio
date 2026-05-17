@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 SenseVoice);等 PR 开;T01 已合
+> **当前焦点**：spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 SenseVoice);PR [#2](https://github.com/momaek/lazyaudio/pull/2) 等 review;T01 已合(#1)
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -94,7 +94,7 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_目前没有 WIP 任务。spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 SenseVoice),分支 `spike/011-pass-a-engine`,等 push + 开 PR。下一步候选见下。_
+_目前没有 WIP 任务。spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 SenseVoice),PR [#2](https://github.com/momaek/lazyaudio/pull/2) review 中。下一步候选见下。_
 
 **下一步候选**(按 dev-plan §2.4 退出条件倒推):
 
@@ -109,28 +109,28 @@ _目前没有 WIP 任务。spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 S
 
 ## 2. Pre-M3 — Spike
 
-| ID        | 标题                                  | 状态    | 起         | 完         | 备注 / PR                                                                                               |
-| --------- | ------------------------------------- | ------- | ---------- | ---------- | ------------------------------------------------------------------------------------------------------- |
-| spike-001 | macOS 双轨录音                        | ✅ done | —          | 已完       | tech-feasibility                                                                                        |
-| spike-002 | Windows 双轨录音                      | ✅ done | —          | 已完       | tech-feasibility                                                                                        |
-| spike-003 | sherpa-onnx + Electron POC            | ✅ done | —          | 已完       | tech-feasibility                                                                                        |
-| spike-004 | macOS 签名 + 公证链                   | ✅ done | —          | 已完       | tech-feasibility                                                                                        |
-| spike-005 | mic / system 漂移量化                 | 🔲 todo | —          | —          | 0.5d                                                                                                    |
-| spike-010 | 快捷键 → 第一帧 PCM < 100/400 ms      | 🔲 todo | —          | —          | 0.5d                                                                                                    |
-| spike-011 | Pass A 引擎选型                       | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;分支 spike/011-pass-a-engine,等 PR;tech-feasibility §spike-011 + ADR-0004 |
-| spike-012 | Pass A + 录音并发 1h 资源压测         | 🔲 todo | —          | —          | 1d；依赖 011                                                                                            |
-| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | 🔲 todo | —          | —          | 0.5d                                                                                                    |
+| ID        | 标题                                  | 状态    | 起         | 完         | 备注 / PR                                                                                                                |
+| --------- | ------------------------------------- | ------- | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| spike-001 | macOS 双轨录音                        | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
+| spike-002 | Windows 双轨录音                      | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
+| spike-003 | sherpa-onnx + Electron POC            | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
+| spike-004 | macOS 签名 + 公证链                   | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
+| spike-005 | mic / system 漂移量化                 | 🔲 todo | —          | —          | 0.5d                                                                                                                     |
+| spike-010 | 快捷键 → 第一帧 PCM < 100/400 ms      | 🔲 todo | —          | —          | 0.5d                                                                                                                     |
+| spike-011 | Pass A 引擎选型                       | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004 |
+| spike-012 | Pass A + 录音并发 1h 资源压测         | 🔲 todo | —          | —          | 1d；依赖 011                                                                                                             |
+| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | 🔲 todo | —          | —          | 0.5d                                                                                                                     |
 
 ---
 
 ## 3. Pre-M3 — ADR
 
-| ID       | 主题                                                      | 状态    | 完         | 备注                               |
-| -------- | --------------------------------------------------------- | ------- | ---------- | ---------------------------------- |
-| ADR-0001 | macOS 最低版本 14.2+（CoreAudio Tap vs ScreenCaptureKit） | 🔲 todo | —          | M3 首 commit 前必出                |
-| ADR-0002 | sherpa-onnx + macOS @loader_path 加载链                   | 🔲 todo | —          | M3 首 commit 前必出                |
-| ADR-0003 | ASR 跑 utility process                                    | 🔲 todo | —          | M3 首 commit 前必出                |
-| ADR-0004 | Pass A 引擎选型 → vad-shortwin SenseVoice                 | ✅ done | 2026-05-17 | 分支 spike/011-pass-a-engine,等 PR |
+| ID       | 主题                                                      | 状态    | 完         | 备注                                                |
+| -------- | --------------------------------------------------------- | ------- | ---------- | --------------------------------------------------- |
+| ADR-0001 | macOS 最低版本 14.2+（CoreAudio Tap vs ScreenCaptureKit） | 🔲 todo | —          | M3 首 commit 前必出                                 |
+| ADR-0002 | sherpa-onnx + macOS @loader_path 加载链                   | 🔲 todo | —          | M3 首 commit 前必出                                 |
+| ADR-0003 | ASR 跑 utility process                                    | 🔲 todo | —          | M3 首 commit 前必出                                 |
+| ADR-0004 | Pass A 引擎选型 → vad-shortwin SenseVoice                 | ✅ done | 2026-05-17 | PR [#2](https://github.com/momaek/lazyaudio/pull/2) |
 
 ---
 
