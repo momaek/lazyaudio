@@ -1,0 +1,15 @@
+node_modules/
+out/
+dist/
+.vite/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage/
+playwright-report/
+test-results/
+
+# 本地 dev 时下载的模型 / 录音 / 用户数据
+.local-userdata/

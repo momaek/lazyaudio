@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.wav binary
+*.icns binary
+*.ico binary
+*.png binary
+*.p8 binary
+*.pfx binary

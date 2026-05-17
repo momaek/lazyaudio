@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claude-design",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765"],
+      "port": 8765,
+      "cwd": "docs/02-design/ui-mockups/claude-design/project"
+    }
+  ]
+}
