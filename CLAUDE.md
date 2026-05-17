@@ -46,6 +46,8 @@
 - **Git**：不主动 `commit` / `push` / `merge`。用户明说才动。不准 `--no-verify` / `--amend` / `force push`。
 - **progress.md 与代码同 PR**：状态变更必须和触发它的代码改动在同一个 PR 里。
 - **AC 没全过不准 ✅**。详见 progress.md §0.2 DoD。
+- **AC 验证走最直接路径，不靠间接证据替代**。涉及 Electron 真窗口的可观测 AC（渲染输出 / 真 IPC / 录音 / 转录 / 文件落盘 etc）**必须** `pnpm dev` 起 Electron + `screencapture -x` 抓窗口为证据；**不准**用 unit test mock electron / "启动 clean" / "代码 review 三轴覆盖" 替代。`screencapture` 需要 macOS 隐私设置里给 Claude.app **"屏幕与系统音频录制"** 权限并重启 Claude；权限未通时**别钻 browser preview**（没 preload，本质不可能验通 IPC），暂时挂 🔄 等权限。教训：T04 PR #7 用 mock 单元测试当 AC，埋了 sandbox+ESM preload bug 到 T05 才暴露（dev-environment.md §8.8）。
+- **验证纠结 > 15 min 主动停下来问"路径选错没?"**。降版本 / 加防御 fallback / 复杂 workaround 之前先怀疑"是不是验证目标本身就不对"（比如 browser 验 Electron preload）。
 - **不复制 AC**：progress.md 的 §1 checkbox 是工作区（PR 合并后清空），不是 AC 的副本。AC 单一信息源在 development-plan.md。
 - **UI 实施基准**：所有屏幕的视觉与交互按 [`docs/02-design/ui-mockups/claude-design/project/`](./docs/02-design/ui-mockups/claude-design/project/) 的 jsx 原型实施；token / 行为细节查 [`docs/02-design/design-system.md`](./docs/02-design/design-system.md) + [`docs/02-design/screen-specs/`](./docs/02-design/screen-specs/)；偏离 / 简化前先报备。Pencil 稿（`local-pencil/`）已被 [`mockup-review.md`](./docs/02-design/mockup-review.md) 降级为参考，**不作为实施依据**。
 - **改 spec 前先报备**：要改 dev-plan / PRD / 03-architecture / 02-design 任何文档，先告诉用户为啥要改，等同意再动。
