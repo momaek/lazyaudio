@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 SenseVoice);PR [#2](https://github.com/momaek/lazyaudio/pull/2) 等 review;T01 已合(#1)
+> **当前焦点**：ADR-0001/0002/0003 PR [#3](https://github.com/momaek/lazyaudio/pull/3) 等 review (base = spike/011);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) 等 review;T01 已合(#1)
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -79,14 +79,14 @@
 
 ## 速查面板
 
-| 维度                      | 数字                                                  |
-| ------------------------- | ----------------------------------------------------- |
-| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**       |
-| ✅ done                   | 7(spike-001/002/003/004 + T01 + spike-011 + ADR-0004) |
-| 🔄 wip                    | 0                                                     |
-| ⛔ blocked                | 0                                                     |
-| 🔲 todo                   | 54                                                    |
-| 本周燃尽                  | —                                                     |
+| 维度                      | 数字                                                                  |
+| ------------------------- | --------------------------------------------------------------------- |
+| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**                       |
+| ✅ done                   | 10(spike-001/002/003/004 + T01 + spike-011 + ADR-0001/0002/0003/0004) |
+| 🔄 wip                    | 0                                                                     |
+| ⛔ blocked                | 0                                                                     |
+| 🔲 todo                   | 51                                                                    |
+| 本周燃尽                  | —                                                                     |
 
 ---
 
@@ -94,15 +94,14 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_目前没有 WIP 任务。spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 SenseVoice),PR [#2](https://github.com/momaek/lazyaudio/pull/2) review 中。下一步候选见下。_
+_目前没有 WIP 任务。ADR-0001/0002/0003 PR [#3](https://github.com/momaek/lazyaudio/pull/3) review 中(base = spike/011);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) review 中。下一步候选见下。_
 
-**下一步候选**(按 dev-plan §2.4 退出条件倒推):
+**下一步候选**(Pre-M3 退出条件倒推):
 
 - `spike-010` 快捷键 → 第一帧 PCM 性能基线(0.5d,影响 PRD §7.1)
 - `spike-005` mic / system 漂移量化(0.5d,影响 T14 mixdown)
 - `spike-013` hypothesis → confirmed UI 稳定性(0.5d,与 02-design 协作)
-- `spike-012` Pass A + 录音并发 1h 压测(1d,依赖 spike-011 ✅ — 现在可起)
-- ADR-0001 / 0002 / 0003 占位 → 完整正文(候选 / 否决理由补齐)
+- `spike-012` Pass A + 录音并发 1h 压测(1d,依赖 spike-011 ✅)
 - `T02` CI lint+typecheck+test (T01 已合,可起)
 
 ---
@@ -127,9 +126,9 @@ _目前没有 WIP 任务。spike-011 + ADR-0004 已闭环(走 B 路 VAD 短窗 S
 
 | ID       | 主题                                                      | 状态    | 完         | 备注                                                |
 | -------- | --------------------------------------------------------- | ------- | ---------- | --------------------------------------------------- |
-| ADR-0001 | macOS 最低版本 14.2+（CoreAudio Tap vs ScreenCaptureKit） | 🔲 todo | —          | M3 首 commit 前必出                                 |
-| ADR-0002 | sherpa-onnx + macOS @loader_path 加载链                   | 🔲 todo | —          | M3 首 commit 前必出                                 |
-| ADR-0003 | ASR 跑 utility process                                    | 🔲 todo | —          | M3 首 commit 前必出                                 |
+| ADR-0001 | macOS 最低版本 14.2+（CoreAudio Tap vs ScreenCaptureKit） | ✅ done | 2026-05-17 | PR [#3](https://github.com/momaek/lazyaudio/pull/3) |
+| ADR-0002 | sherpa-onnx + macOS @loader_path 加载链                   | ✅ done | 2026-05-17 | PR [#3](https://github.com/momaek/lazyaudio/pull/3) |
+| ADR-0003 | ASR 跑 utility process                                    | ✅ done | 2026-05-17 | PR [#3](https://github.com/momaek/lazyaudio/pull/3) |
 | ADR-0004 | Pass A 引擎选型 → vad-shortwin SenseVoice                 | ✅ done | 2026-05-17 | PR [#2](https://github.com/momaek/lazyaudio/pull/2) |
 
 ---
