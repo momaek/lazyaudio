@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：ADR-0001/0002/0003 PR [#3](https://github.com/momaek/lazyaudio/pull/3) 等 review (base = spike/011);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) 等 review;T01 已合(#1)
+> **当前焦点**：T02 CI lint+typecheck+test(🔄 起 2026-05-17,分支 feat/T02-ci);Pre-M3 前 3 个 PR (#1/#2/#3/#4) 已合
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -83,9 +83,9 @@
 | ------------------------- | --------------------------------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**                       |
 | ✅ done                   | 10(spike-001/002/003/004 + T01 + spike-011 + ADR-0001/0002/0003/0004) |
-| 🔄 wip                    | 0                                                                     |
+| 🔄 wip                    | 1(T02)                                                                |
 | ⛔ blocked                | 0                                                                     |
-| 🔲 todo                   | 51                                                                    |
+| 🔲 todo                   | 50                                                                    |
 | 本周燃尽                  | —                                                                     |
 
 ---
@@ -94,15 +94,25 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_目前没有 WIP 任务。ADR-0001/0002/0003 PR [#3](https://github.com/momaek/lazyaudio/pull/3) review 中(base = spike/011);spike-011 PR [#2](https://github.com/momaek/lazyaudio/pull/2) review 中。下一步候选见下。_
+### T02 — CI: lint + typecheck + test(🔄 起 2026-05-17,分支 feat/T02-ci)
 
-**下一步候选**(Pre-M3 退出条件倒推):
+AC checklist(本 PR 合前必勾):
 
-- `spike-010` 快捷键 → 第一帧 PCM 性能基线(0.5d,影响 PRD §7.1)
-- `spike-005` mic / system 漂移量化(0.5d,影响 T14 mixdown)
-- `spike-013` hypothesis → confirmed UI 稳定性(0.5d,与 02-design 协作)
-- `spike-012` Pass A + 录音并发 1h 压测(1d,依赖 spike-011 ✅)
-- `T02` CI lint+typecheck+test (T01 已合,可起)
+- [ ] `.github/workflows/ci.yml` 落地,3 个 job:lint / typecheck / test
+- [ ] PR 自动触发 CI(`on: pull_request`),merge 前可以靠 branch protection block 不绿的 PR
+- [ ] 顺手装 vitest + vitest.config.ts + 1-2 sanity test(T01 没装,test job 否则空跑)
+- [ ] **AC**:本 PR 自身就是 dummy PR,push 后 CI 3 job 全绿(贴 CI run 链接)
+- [ ] 本地 `pnpm lint && pnpm typecheck && pnpm test` 全过
+
+**下一步候选**(T02 合后 Pre-M3 退出条件倒推):
+
+- `T03` Tailwind + design tokens(0.5d,依赖 T01,UI 任务前置)
+- `T04` IPC 框架(0.5d,依赖 T01,跨进程胶水)
+- `T05` i18n / `T06` 日志(各 0.5d,独立)
+- `spike-010` 快捷键 → 第一帧 PCM(0.5d)
+- `spike-005` mic/system 漂移量化(0.5d,需 fixture)
+- `spike-013` hypothesis UI 稳定性(0.5d,需设计协作)
+- `spike-012` Pass A 并发 1h 压测(1d,依赖 spike-011 ✅)
 
 ---
 
@@ -140,7 +150,7 @@ _目前没有 WIP 任务。ADR-0001/0002/0003 PR [#3](https://github.com/momaek/
 | ID  | 标题                                      | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                 |
 | --- | ----------------------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | -------------------- |
 | T01 | 仓库脚手架                                | ✅ done | feat/T01-scaffold ([#1](https://github.com/momaek/lazyaudio/pull/1)) | 2026-05-17 | 2026-05-17 | AC 全过,PR review 中 |
-| T02 | CI: lint + typecheck + test               | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
+| T02 | CI: lint + typecheck + test               | 🔄 wip  | feat/T02-ci                                                          | 2026-05-17 | —          | AC 跑过等 PR         |
 | T03 | Tailwind + design tokens（浅 + 深双模式） | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
 | T04 | IPC 框架                                  | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
 | T05 | i18n 框架                                 | 🔲 todo | —                                                                    | —          | —          | 依赖 T01             |
