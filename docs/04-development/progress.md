@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-17
 > **当前里程碑**：Pre-M3
-> **当前焦点**：spike-010 PR 待开,A 段浮窗 p95 46.4ms + B 段 PCM p95 235ms 验过(M2 arm64);剩 spike-005/012/013 + 02-design 屏 0 + LLM 模板
+> **当前焦点**：spike-013 PR 待开,B 策略 segment id 稳定率 100% 验过;剩 spike-005/012 + 02-design 屏 0 + LLM 模板
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 16(+spike-010)                                  |
+| ✅ done                   | 17(+spike-013)                                  |
 | 🔄 wip                    | 0                                               |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 44                                              |
+| 🔲 todo                   | 42                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,13 +94,12 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_spike-010 代码 + 数据 + tech-feasibility 结论完毕,等 commit/push/开 PR。_
+_spike-013 代码 + 数据 + tech-feasibility 结论完毕,等 commit/push/开 PR。_
 
-**下一步候选**(spike-010 合后):
+**下一步候选**(spike-013 合后):
 
 - `spike-005` mic/system 漂移(0.5d,需 fixture)
-- `spike-013` hypothesis UI(0.5d,需设计协作)
-- `spike-012` Pass A 并发 1h(1d,⚠️ 无 Intel/Win 机器,只能跑 M2 一档,需拆分或砍 scope)
+- `spike-012` Pass A 并发 1h(1d,⚠️ 无 Intel/Win 机器,需拆 12a/12b 或砍 scope,改 dev-plan 前报备)
 - 02-design 屏 0 + LLM 模板 v0.1(非代码,需用户拍)
 
 ---
@@ -117,7 +116,7 @@ _spike-010 代码 + 数据 + tech-feasibility 结论完毕,等 commit/push/开 P
 | spike-010 | 快捷键 → 第一帧 PCM < 100/400 ms      | ✅ done | 2026-05-17 | 2026-05-17 | M2 arm64:A p95 46.4ms + B p95 235ms;tech-feasibility §spike-010                                                          |
 | spike-011 | Pass A 引擎选型                       | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004 |
 | spike-012 | Pass A + 录音并发 1h 资源压测         | 🔲 todo | —          | —          | 1d；依赖 011                                                                                                             |
-| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | 🔲 todo | —          | —          | 0.5d                                                                                                                     |
+| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | ✅ done | 2026-05-17 | 2026-05-17 | B 策略(timestamp key)id 稳定率 100%;tech-feasibility §spike-013                                                          |
 
 ---
 
