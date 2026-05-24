@@ -1,0 +1,8 @@
+# pnpm 10+ 把项目级 pnpm settings 从 package.json 的 "pnpm" 字段迁到这里。
+# 我们不是 workspace，但 pnpm 10 仍用这个文件读 settings。
+# 详见 https://pnpm.io/settings#onlybuiltdependencies
+
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+  - simple-git-hooks
