@@ -612,7 +612,7 @@ ls out/main/package.json out/preload/package.json out/main/workers/asr/package.j
   private: true,
   type: 'module', // 项目默认 ESM；utility 用 .cts 显式标 CJS
   main: 'out/main/index.js', // electron-vite 构建产物
-  engines: { node: '>=20' },
+  engines: { node: '>=22' },
   packageManager: 'pnpm@9.x',
   scripts: {
     dev: 'electron-vite dev',
