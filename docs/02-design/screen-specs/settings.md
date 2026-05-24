@@ -262,36 +262,15 @@
 | 输出格式       | Select                                 | `Markdown`           |
 | Prompt         | Textarea monospace（min-height 280px） | 见下                 |
 
-**会议纪要 默认 prompt**（v0.1 初版，需打磨）：
+**Prompt 默认值 + 输入约定 + 输出渲染**详见 [`../llm-templates.md`](../llm-templates.md)：
 
-```
-你是一个专业的会议纪要助手。下面是一段会议的转录文本（mic = 我；system = 对方/会议内其他人）。
+- 会议纪要：[`§2`](../llm-templates.md#2-模板会议纪要-meeting) — v0.1 已出
+- 要点速记：[`§3`](../llm-templates.md#3-模板要点速记-note) — v0.1 已出
+- 候选人评估 / 自我复盘 / 章节笔记：M5 T51 LLM 摘要核心 PR 一并补
+- 输入文本组装格式（`[mic 00:00:12] ...`）+ 长度截断策略：[`§1`](../llm-templates.md#1-输入约定喂给-llm-的-user-message)
+- 摘要渲染（checkbox / 时间戳锚点等）：[`§4`](../llm-templates.md#4-输出渲染约定)
 
-请生成一份结构化的会议纪要，包含：
-
-## 议题
-列出本次会议讨论的主要议题（3-7 条）。
-
-## 决议
-明确达成的决议（带责任人）。
-
-## 待办
-具体的 action items，格式：`- [ ] {内容} @{责任人} {期限}`。如果未明确，用 @未指定 / 期限未指定。
-
-## 悬而未决
-没有结论但需要后续跟进的议题。
-
-## 摘要
-用 2-3 句话总结本次会议核心。
-
-要求：
-- 用中文输出
-- 不要编造转录里没有的内容
-- 时间戳保留为 [HH:MM:SS] 格式
-- 如果转录不清晰、不完整，明确指出
-```
-
-其他 4 个模板的默认 prompt 在 [`../llm-templates.md`](../llm-templates.md)（待补）。
+settings UI 的"编辑 prompt"textarea 默认填的是 `llm-templates.md` 里对应模板的 prompt 字符串；用户改后保存到 `settings.json`，"重置为默认"按钮就是把 user override 清掉、回退到 `llm-templates.md` 里的版本。
 
 ### 编辑区底部
 

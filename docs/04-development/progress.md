@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23
 > **当前里程碑**：Pre-M3
-> **当前焦点**：spike-005 部分拍板完成,代码 + 文档待开 PR;剩 spike-012 + 02-design 屏 0 + LLM 模板
+> **当前焦点**：02-design 屏 0 + LLM 模板 v0.1（🔄 待 PR）;剩 spike-012 即可进 M3
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -94,27 +94,26 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### spike-005 — mic / system 漂移量化（部分拍板）✅ 待 PR
+### chore: 02-design 屏 0 + LLM 模板 v0.1 🔄 待 PR
 
-起始 2026-05-22 · 完成 2026-05-23 · 分支 `spike/005-track-sync`
+起始 2026-05-23 · 分支 `chore/02-design-screen0-llm-templates`
 
-来源：[`tech-feasibility.md` §R5](../01-research/tech-feasibility.md#r5--mic-和-system-音轨时间同步) + [`audio-capture.md` §6.2 注脚](../03-architecture/audio-capture.md)
+来源：dev-plan §2.4 Pre-M3 退出条件 第 4 / 第 5 项（02-design 屏 0 + LLM 模板 prompt v0.1 至少 meeting / note）。
 
-**AC checkbox**（dev-plan 里 spike-005 仅一句话；细化退出条件取自 tech-feasibility §R5 + 阶段退出条件 §spike-005）：
+**AC checkbox**（这两项 dev-plan 没列细化 AC，本 PR 自定 + 报备）：
 
-- [x] **AC1** 能同时 capture mic + system 两路，写出独立 wav 文件（M2 arm64 macOS 26.5）— Electron 42 + audio-only SCKit 路径走通，3 run × 12s 全跑通
-- [x] **AC2** 有可重复的 reference 触发源（6 个 click @ 1.5s 间隔，spike 自动 afplay reference.wav）
-- [x] **AC3** 分析脚本能在两路 wav 中检测 click 峰值 — smoke 验证：注入 17.2ms drift → 检测 17.188ms，误差 0.012ms
-- [x] **AC4** 跑 3 run × 6 click = 18 click 对，数据 + 结论写进 `tech-feasibility.md §spike-005`（mic 路因合盖物理静音；sys 路 18/18 检出；时钟同步 < 21 μs / 12s）
-- [x] **AC5** 决策落地：`audio-capture.md §6.2` 注脚改写 + `R5` 状态置部分拍板 + §2.1 加 sidenote 指向 audio-only SCKit 正解 + spike 清单 §13 打勾
-- [x] **AC6** progress.md §2 spike-005 ✅ + 同 PR 提交（**本次 PR 完成**）
+- [x] **AC1** `02-design/screen-specs/onboarding.md` 在屏 1 之前加屏 0 全章节（目的 / 进入条件 / 区域 / 文案变体 mac+win+通用 / 行为 / 状态变体 / 边界 / Mockup 待画清单）
+- [x] **AC2** `02-design/user-flows.md` 流程 1.1 mermaid 加版本检查分叉到屏 0；§1.3 状态机加屏 0 行
+- [x] **AC3** `02-design/information-architecture.md` §6.1 步骤序列 + §6.2 表加屏 0
+- [x] **AC4** `02-design/llm-templates.md` 新建：输入约定 §1（含双轨 speaker / 长度截断 / sysmeta 元数据）+ meeting 完整模板 §2 + note 完整模板 §3 + 输出渲染约定 §4
+- [x] **AC5** `02-design/screen-specs/settings.md` Tab 4 把"待补"link 改成指向 llm-templates.md 锚点
+- [x] **AC6** `03-architecture/audio-capture.md §7.1` 移除"02-design 未补齐" callout，指向 02-design 已补章节
+- [x] **AC7** progress.md §1 清干净 + §4.1 Pre-M3 退出条件第 4 / 第 5 项打勾（这两项是 supporting deliverable，不在 spike/ADR/T 编号系统里，速查面板数字不动）
 
-**部分拍板说明**：mic 路 ground truth 未拿到（spike 设备合盖、内置 mic 物理静音）。已验证：同 AudioContext 下两路采样时钟严格同步（< 21 μs / 12s）+ audio-only SCKit 路径走通。**起点对齐验证推迟到 M3 T13/T14 真实录音 + mixdown 听感测试**（T14 AC 加一条"30min mixed.wav 听感 mic 与 system 同步无错位"）— 这条改 dev-plan，T14 落地 PR 一并加（不在本 PR 内）。
+**报备说明**：
 
-**spike 实操副产品（影响 T01）**：
-
-- Node 基线 ≥ **22.x**：T01 `.nvmrc` 写 `22`（Electron 35+ 用 ESM `@electron/get@5`，Node 20 装不下）
-- dev 时 Electron.app 必须 **ad-hoc 签名**（macOS 26 Tahoe TCC 对未签名 binary 直接 denied 不弹框）；T01-T02 postinstall + CI mac job 都要
+- llm-templates.md 是新建文件（不算改 spec）；其余动的都是 spec 增量补齐（屏 0 是 audio-capture.md §7.1 早就要求加的，方向已定），settings.md Tab 4 只是把 stub 占位变实链接
+- 其他 3 个 LLM 模板（候选人评估 / 自我复盘 / 章节笔记）按 dev-plan §2.4 退出条件 "至少 meeting / note 两个" 推到 M5 T51 一并出 — 这部分本 PR 不做，llm-templates.md §0 表里标 ⏳ M5 T51
 
 ---
 
@@ -160,11 +159,11 @@
 
 **Pre-M3 退出条件**（dev-plan §2.4 复核）：
 
-- [ ] spike-005 / 010 / 011 / 012 / 013 全部拍板
-- [ ] ADR-0001 / 0002 / 0003 写完
-- [ ] T01-T06 全部 done，CI 绿
-- [ ] 02-design 屏 0（macOS 版本检查）补完
-- [ ] LLM 模板 prompt v0.1 至少 meeting / note 两个
+- [ ] spike-005 / 010 / 011 / 012 / 013 全部拍板（差 spike-012）
+- [x] ADR-0001 / 0002 / 0003 写完
+- [x] T01-T06 全部 done，CI 绿
+- [x] 02-design 屏 0（macOS 版本检查）补完
+- [x] LLM 模板 prompt v0.1 至少 meeting / note 两个
 
 ### 4.2 M3 — 骨架可跑（T10-T20）
 

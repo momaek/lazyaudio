@@ -374,9 +374,7 @@ PRD §4.1 F3.1：**混音始终生成，分轨可关**。
 | 辅助功能（Accessibility） | onboarding 步骤 3                                                         | 全局快捷键失效，但点菜单栏仍可开始录音            |
 | 屏幕录制                  | **不请求**                                                                | —                                                 |
 
-如果用户在 macOS 14.0–14.1：onboarding 检测后直接显示"系统版本不支持"页面（PRD §7.4），不让进入主流程。
-
-> **依赖 02-design 未补齐**：当前 `docs/02-design/user-flows.md` §1 / `information-architecture.md` §6 的 onboarding 流程图**没有**版本检查这一屏（应作为欢迎页之前的"屏 0"）。架构层把这条要求记录在此，02-design 在 v0.1 dogfood 前需补一屏：不达标 → 显示退出提示 + 升级链接，不进 main onboarding。
+如果用户在 macOS 14.0–14.1：onboarding 检测后直接显示"系统版本不支持"页面（PRD §7.4），不让进入主流程。02-design 已补齐：[`screen-specs/onboarding.md` 屏 0](../02-design/screen-specs/onboarding.md#屏-0--系统不达标)、[`user-flows.md` §1.1](../02-design/user-flows.md)、[`information-architecture.md` §6.1](../02-design/information-architecture.md)。
 
 ### 7.2 Windows
 
