@@ -1,20 +1,20 @@
 // T11 — 录音前浮窗 UI
-// 视觉对齐 information-architecture.md §4.2 ASCII mockup,frameless 浮窗 520×360 由 T10 prep-window.ts 创建。
+// 严格按 02-design/ui-mockups/claude-design/project/{prerecord.jsx, app.css §6.4} 实施。
+// 浮窗 360×220 macOS vibrancy(prep-window.ts 设 transparent: true 让 .prerec 的 backdrop-filter 透到桌面)。
 //
 // 行为:
 // - mount 时 invoke record.getPrepDefaults() → 设 sessionType + sources 初值
 // - Enter / "开始录音" → invoke record.start() → 成功后 invoke record.hidePrep()
-// - Esc / "取消" → invoke record.hidePrep()
-// - 标题(title)在 renderer 本地拼:`{sessionType 中文} {YYYY-MM-DD HH:mm}`,提交时算
-//   一次,避免 main → user 之间过期(ipc-contract.md §2.1 注明)
+// - Esc / "取消" / 右上 X / dropdown 失焦点击外部 → 关 / hide
+// - title 在 renderer 本地拼:`{sessionType 中文} {YYYY-MM-DD HH:mm}`,
+//   提交瞬间算一次,避免 main → user 之间过期(ipc-contract.md §2.1)
 
 import '../../styles/globals.css'
-import { useCallback, useEffect, useState } from 'react'
+import './prep.css'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/Button'
 import type { SessionType } from '@shared/ipc/record'
 
-// 与 TypeBadge.tsx + common.json session.* 对齐
 const SESSION_I18N_KEY: Record<SessionType, string> = {
   general: 'session.general',
   meeting: 'session.meeting',
@@ -23,6 +23,17 @@ const SESSION_I18N_KEY: Record<SessionType, string> = {
   'interview-as-candidate': 'session.interviewAsCandidate',
   lecture: 'session.lecture',
   podcast: 'session.podcast',
+}
+
+// 与 tokens.css --color-type-* 对齐
+const SESSION_DOT_COLOR: Record<SessionType, string> = {
+  general: 'var(--color-type-general)',
+  meeting: 'var(--color-type-meeting)',
+  note: 'var(--color-type-note)',
+  'interview-as-interviewer': 'var(--color-type-interviewer)',
+  'interview-as-candidate': 'var(--color-type-candidate)',
+  lecture: 'var(--color-type-lecture)',
+  podcast: 'var(--color-type-podcast)',
 }
 
 const SESSION_ORDER: SessionType[] = [
@@ -41,6 +52,61 @@ function formatTitleTimestamp(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function CheckMark(): React.JSX.Element {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m2.5 6 2.5 2.5L9.5 3.5" />
+    </svg>
+  )
+}
+
+function CloseX(): React.JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m2.5 2.5 7 7M9.5 2.5l-7 7" />
+    </svg>
+  )
+}
+
+function ChevronDown(): React.JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="type-chevron"
+    >
+      <path d="m3 4.5 3 3 3-3" />
+    </svg>
+  )
+}
+
 export function App(): React.JSX.Element {
   const { t } = useTranslation()
   const [sessionType, setSessionType] = useState<SessionType>('general')
@@ -48,6 +114,8 @@ export function App(): React.JSX.Element {
   const [system, setSystem] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownWrapRef = useRef<HTMLDivElement>(null)
 
   // mount:拉默认值
   useEffect(() => {
@@ -62,6 +130,31 @@ export function App(): React.JSX.Element {
       }
     })()
   }, [])
+
+  // 浮窗下次 show 时重置 submitting + 清错 + 关 dropdown
+  useEffect(() => {
+    function onVis(): void {
+      if (document.visibilityState === 'visible') {
+        setSubmitting(false)
+        setErrorMsg(null)
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
+  // dropdown 失焦点击外部关
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function onDocClick(e: MouseEvent): void {
+      if (!dropdownWrapRef.current?.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [dropdownOpen])
 
   const handleCancel = useCallback(async () => {
     try {
@@ -89,35 +182,25 @@ export function App(): React.JSX.Element {
       })
       console.info('record:start ok', res)
       await window.lazyaudio.record.hidePrep()
-      // 保留 submitting=true 直到下次 show:浮窗 hide 后被 blur,下次 show 时组件已被
-      // hide / show 复用(不 remount),所以重置 submitting 由下面的 visibilitychange 兜底
     } catch (e) {
       setErrorMsg(t('prep.errorStartFailed') + ' ' + String(e))
       setSubmitting(false)
     }
   }, [submitting, mic, system, sessionType, t])
 
-  // 浮窗下次 show 时(visibilitychange visible)重置 submitting + 清错
-  useEffect(() => {
-    function onVis(): void {
-      if (document.visibilityState === 'visible') {
-        setSubmitting(false)
-        setErrorMsg(null)
-      }
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
-  }, [])
-
-  // 全局键盘:Enter 提交 / Esc 取消
+  // 全局键盘:Esc 关 dropdown 优先,否则取消浮窗;Enter 提交
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
         e.preventDefault()
-        void handleCancel()
+        if (dropdownOpen) {
+          setDropdownOpen(false)
+        } else {
+          void handleCancel()
+        }
       } else if (e.key === 'Enter') {
-        // focus 在 chip 按钮上时让按钮 native 处理(否则空格 / Enter 默认会激活 chip);
-        // focus 在 start / cancel 按钮上 native 也会触发 onClick,不重复 dispatch。
+        // focus 在按钮上让 native onClick 处理(避免双触发);dropdown 打开时不抢
+        if (dropdownOpen) return
         const target = e.target as HTMLElement | null
         if (target?.tagName === 'BUTTON') return
         e.preventDefault()
@@ -126,99 +209,131 @@ export function App(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleCancel, handleStart])
+  }, [dropdownOpen, handleCancel, handleStart])
 
   return (
-    <main
-      className="bg-bg-l1 text-fg flex h-screen flex-col gap-4 p-5 text-sm select-none"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-    >
-      <header
-        className="text-fg-strong text-base font-semibold"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+    <div className="prerec">
+      <button
+        type="button"
+        className="prerec-close"
+        title={t('prep.close')}
+        aria-label={t('prep.close')}
+        onClick={() => void handleCancel()}
       >
-        {t('prep.title')}
-      </header>
+        <CloseX />
+      </button>
 
-      <section
-        className="flex flex-col gap-2"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <label className="text-fg-muted text-xs">{t('prep.sessionType')}</label>
-        <div className="flex flex-wrap gap-1.5">
-          {SESSION_ORDER.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setSessionType(type)}
-              className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                sessionType === type ? 'bg-accent text-white' : 'bg-bg-l2 text-fg hover:bg-bg-l3'
-              }`}
-            >
-              {t(SESSION_I18N_KEY[type])}
-            </button>
-          ))}
+      <h3 className="prerec-title">{t('prep.title')}</h3>
+
+      {/* 会话类型 dropdown */}
+      <div className="prerec-row">
+        <span className="lbl">{t('prep.sessionType')}</span>
+        <div ref={dropdownWrapRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className="type-select"
+            onClick={() => setDropdownOpen((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={dropdownOpen}
+          >
+            <span
+              className="type-glyph-dot"
+              style={{ background: SESSION_DOT_COLOR[sessionType] }}
+            />
+            <span>{t(SESSION_I18N_KEY[sessionType])}</span>
+            <ChevronDown />
+          </button>
+          {dropdownOpen && (
+            <div className="type-popover" role="listbox">
+              {SESSION_ORDER.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className="type-popover-item"
+                  role="option"
+                  aria-selected={type === sessionType}
+                  onClick={() => {
+                    setSessionType(type)
+                    setDropdownOpen(false)
+                  }}
+                >
+                  <span
+                    className="type-glyph-dot"
+                    style={{ background: SESSION_DOT_COLOR[type] }}
+                  />
+                  <span>{t(SESSION_I18N_KEY[type])}</span>
+                  {type === sessionType && (
+                    <span className="type-popover-check">
+                      <CheckMark />
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      </section>
+      </div>
 
-      <section
-        className="flex flex-col gap-2"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <label className="text-fg-muted text-xs">{t('prep.sources')}</label>
-        <div className="flex gap-4">
-          <label className="flex cursor-pointer items-center gap-2">
+      {/* 音源 cb stack */}
+      <div className="prerec-row">
+        <span className="lbl">{t('prep.sources')}</span>
+        <div className="checkbox-stack">
+          <label className="checkbox-row">
             <input
               type="checkbox"
+              className="cb-native"
               checked={mic}
               onChange={(e) => setMic(e.target.checked)}
-              className="accent-accent h-4 w-4"
             />
+            <span className={`cb ${mic ? 'is-on' : ''}`} aria-hidden>
+              {mic && <CheckMark />}
+            </span>
             <span>{t('prep.mic')}</span>
+            <span className="meta">{t('prep.deviceMicPlaceholder')}</span>
           </label>
-          <label className="flex cursor-pointer items-center gap-2">
+          <label className="checkbox-row">
             <input
               type="checkbox"
+              className="cb-native"
               checked={system}
               onChange={(e) => setSystem(e.target.checked)}
-              className="accent-accent h-4 w-4"
             />
+            <span className={`cb ${system ? 'is-on' : ''}`} aria-hidden>
+              {system && <CheckMark />}
+            </span>
             <span>{t('prep.system')}</span>
+            <span className="meta">{t('prep.deviceSystemPlaceholder')}</span>
           </label>
         </div>
-      </section>
+      </div>
 
-      {errorMsg && (
-        <div
-          className="text-danger text-xs"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      {errorMsg && <div className="prerec-error">{errorMsg}</div>}
+
+      <div className="prerec-actions">
+        <button type="button" className="prerec-btn secondary" onClick={() => void handleCancel()}>
+          {t('prep.cancel')}
+        </button>
+        <button
+          type="button"
+          className="prerec-btn primary"
+          onClick={() => void handleStart()}
+          disabled={submitting}
+          autoFocus
         >
-          {errorMsg}
-        </div>
-      )}
+          {submitting ? t('prep.starting') : t('prep.start')}
+        </button>
+      </div>
 
-      <div className="flex-1" />
-
-      <section
-        className="flex items-center justify-between"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <span className="text-fg-muted text-xs">{t('prep.shortcutHint')}</span>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="default" onClick={() => void handleCancel()}>
-            {t('prep.cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            size="default"
-            onClick={() => void handleStart()}
-            disabled={submitting}
-            autoFocus
-          >
-            {submitting ? t('prep.starting') : t('prep.start')}
-          </Button>
-        </div>
-      </section>
-    </main>
+      <div className="prerec-hint">
+        <span>
+          <span className="keys">{'⌘⇧R'}</span>
+          {t('prep.hintStartKey')}
+        </span>
+        <span>
+          <span className="keys">{'Esc'}</span>
+          {t('prep.hintCancelKey')}
+        </span>
+      </div>
+    </div>
   )
 }

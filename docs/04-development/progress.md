@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-24
 > **当前里程碑**：M3（spike-012 另 session 在跑）
-> **当前焦点**：T10 main/settings 窗口 chrome §5.7 补漏 🔄;T11 prep mockup 对齐（另 session）;下一候选 T12 音频采集 / T15 录音库 / T18 设置骨架（依赖 T10 ✅）
+> **当前焦点**：T11 prep UI fix（🔄 wip）— 对齐 prerecord.jsx mockup,补 T11 PR #16 没参考 design 的偏差
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -79,14 +79,14 @@
 
 ## 速查面板
 
-| 维度                      | 数字                                                                   |
-| ------------------------- | ---------------------------------------------------------------------- |
-| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**                        |
-| ✅ done                   | 21                                                                     |
-| 🔄 wip                    | 3（spike-012 另 session / T10 chrome fix / T11 mockup fix 另 session） |
-| ⛔ blocked                | 0                                                                      |
-| 🔲 todo                   | 38                                                                     |
-| 本周燃尽                  | —                                                                      |
+| 维度                      | 数字                                                   |
+| ------------------------- | ------------------------------------------------------ |
+| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**        |
+| ✅ done                   | 21                                                     |
+| 🔄 wip                    | 2（spike-012 另 session / T11 prep UI fix 本 session） |
+| ⛔ blocked                | 0                                                      |
+| 🔲 todo                   | 38                                                     |
+| 本周燃尽                  | —                                                      |
 
 ---
 
@@ -94,49 +94,34 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### fix: T10 main / settings 窗口 chrome §5.7 补漏 🔄
+### fix: T11 prep UI 对齐 mockup 🔄
 
-起始 2026-05-24 · 分支 `fix/T10-window-chrome`
+起始 2026-05-24 · 分支 `fix/T11-prep-mockup-align`
 
-**背景**：T10 PR #15 主进程脚手架落地时,三个 BrowserWindow 的构造参数没参考 [`design-brief.md §5.7`](../02-design/design-brief.md) 的「集成式 chrome 全局规则」——main / settings 都漏了 `titleBarStyle: 'hiddenInset'` + `trafficLightPosition`,settings 还漏了 `fullscreenable: false` 且 `minWidth` 与 spec 不符。违反 CLAUDE.md「UI 实施基准」。prep 窗口的 `frame: false` 已对齐(§5.7「自绘 chrome」),不动。
+**背景**：PR #16 把 T11 的 IPC 通路 + 基础 UI 落地了，但视觉**完全没参考** [`prerecord.jsx`](../02-design/ui-mockups/claude-design/project/prerecord.jsx) 原型 — 我只看了 `information-architecture.md §4.2` 的 ASCII 示意。违反 CLAUDE.md "UI 实施基准...按 jsx 原型实施；偏离 / 简化前先报备"。本 fix-up PR 修。
 
-**偏差清单**（PR #15 vs design-brief.md §5.7 + §6.x 设置）：
+**偏差清单**（PR #16 vs prerecord.jsx + app.css §6.4）：
 
-| 维度                          | 设计（§5.7 + §6.x）                | PR #15 实现                           | fix 后      |
-| ----------------------------- | ---------------------------------- | ------------------------------------- | ----------- |
-| main titleBarStyle            | hiddenInset（fullSizeContentView） | 默认（独立标题栏 + "LazyAudio" 标题） | hiddenInset |
-| main trafficLightPosition     | x:16 y:18                          | 默认（左上紧贴）                      | x:16 y:18   |
-| settings titleBarStyle        | hiddenInset                        | 默认                                  | hiddenInset |
-| settings trafficLightPosition | x:16 y:18                          | 默认                                  | x:16 y:18   |
-| settings fullscreenable       | false（spec 不可全屏）             | 缺（默认 true）                       | false       |
-| settings minWidth             | 720（spec 最小 720×520）           | 760                                   | 720         |
+| 维度     | 设计                                                               | PR #16 实现          | fix 后                 |
+| -------- | ------------------------------------------------------------------ | -------------------- | ---------------------- |
+| 尺寸     | 360×220                                                            | 520×360              | 360×220                |
+| 背景     | rgba(246,246,248,0.72) + backdrop-filter blur(40px) saturate(180%) | 实色 bg-bg-l1        | vibrancy 还原          |
+| 圆角     | 12px                                                               | macOS frameless 默认 | 12px                   |
+| 会话类型 | dropdown + 类型色 dot + chevron                                    | 7 chip 横排          | dropdown               |
+| 音源     | 自定义 cb 14×14 + 设备名 meta 右对齐                               | 原生 checkbox 横排   | 自定义 cb + 占位设备名 |
+| 关闭 X   | 右上 24×24                                                         | 缺                   | 加                     |
+| 进入动画 | scale 0.96→1 fade 100ms                                            | 缺                   | 加                     |
+| 底部提示 | 居中 + mono 键位                                                   | spread + 普通字体    | 居中 + mono            |
+| 网格     | grid-template-columns: 64px 1fr                                    | flex 堆叠            | grid 64px 1fr          |
 
 **AC checkbox**：
 
-- [x] **AC1** `src/main/windows/main-window.ts` 加 `titleBarStyle: 'hiddenInset'` + `trafficLightPosition: { x: 16, y: 18 }`,留 Windows titleBarOverlay 给 T70 release(与 template icon 一起)的注释
-- [x] **AC2** `src/main/windows/settings-window.ts` 同 AC1 + `fullscreenable: false` + `minWidth: 760 → 720`
-- [ ] **AC3** 手测(`pnpm dev`):主窗口标题文字消失 + traffic light 浮在内容上方 16/18;⌘, 设置窗口同上 + 无全屏按钮 + 无法 drag 出全屏
-- [x] **AC4** CI 三件套:`pnpm lint` 0 errors(2 pre-existing T01 placeholder warning,与本 PR 无关) + `pnpm typecheck` pass + `pnpm test 4/4`
-
----
-
-### T11 — 录音前浮窗 UI ✅ 待 PR
-
-起始 2026-05-24 · 完成 2026-05-24 · 分支 `feat/T11-prep-popover`
-
-来源：[`development-plan.md` T11](./development-plan.md) + [`information-architecture.md` §4.2](../02-design/information-architecture.md) + [`ipc-contract.md` §2.1](../03-architecture/ipc-contract.md)。
-
-**AC checkbox**（dev-plan T11 原 AC："⌘⇧R → 浮窗 100ms 内出现 → 选完 enter → IPC 触发 record:start"）：
-
-- [x] **AC1** `shared/ipc/record.ts` schema 实化：SessionType enum + Sources + PrepDefaults + StartArgs + StartResult + HidePrepArgs/Result；`channels.ts` 加 `record:hide-prep`（报备见 PR body）
-- [x] **AC2** `shared/types/api.ts` LazyAudioApi 加 `record` 域：getPrepDefaults / start / hidePrep
-- [x] **AC3** `src/preload/bridge/make-api.ts` 暴露 record bridge
-- [x] **AC4** `src/main/ipc/record.ts` 实装 3 handler：getPrepDefaults（hardcoded `general` + mic+system 全开）/ start（T11 仅 log + 返回 fake `{recordingId, startedAt}`，T13 接 orchestrator）/ hidePrep（调 hidePrepWindow）
-- [x] **AC5** `src/renderer/windows/prep/App.tsx` UI 实现：i18n 化（common.json 加 `prep.*` 块）+ 7 chip + mic/system toggle + 取消/开始按钮 + Enter/Esc 全局键 + autoFocus 在开始按钮 + visibilitychange 重置 submitting
-- [x] **AC6** title 在 renderer 拼（`{sessionType 中文} YYYY-MM-DD HH:mm`）— log 验证：`title: '通用 2026-05-24 22:42'`
-- [x] **AC7** `ipc-contract.md §2.1` 加 `record:hide-prep` 行 + §10 preload API 表加 `hidePrep: () => invoke('record:hide-prep')`
-- [x] **AC8** 手测（用户截图 + log 交叉验证）：⌘⇧R 弹浮窗 ✅，UI 渲染正确（chip / checkbox accent / 主按钮 focus 框）✅，点开始 → log `[T11 stub] record:start received { recordingId: 'stub-...', sessionType: 'general', sources: {mic:true,system:true}, title: '通用 2026-05-24 22:42' }` ✅，浮窗自动 hide ✅
-- [x] **AC9** CI 三件套：`pnpm lint` 0 errors（2 pre-existing warning 在 onboarding/settings T01 placeholder，prep 那 1 个被本 PR 消除）+ `pnpm typecheck` + `pnpm test 4/4`
+- [ ] **AC1** `src/main/windows/prep-window.ts` 尺寸 520×360 → 360×220 + `transparent: true`（让 CSS backdrop-filter 透到桌面）+ `hasShadow: true`（macOS）+ `roundedCorners: true`
+- [ ] **AC2** 新建 `src/renderer/windows/prep/prep.css`：把 mockup `app.css §6.4` 的 .prerec / .prerec-row / .type-select / .cb / .checkbox-row / .prerec-actions / .prerec-hint / @keyframes prerec-in 全套搬来，用我们 `tokens.css` 的 var（`--color-gray-*` / `--color-bg-l*` / `--color-accent`）替换 mockup 的 semantic var
+- [ ] **AC3** 重写 `src/renderer/windows/prep/App.tsx`：右上 close X / dropdown（点击展开 7 项 popover 列表 + 当前打勾）+ 自定义 cb checkbox + 占位设备名 meta（T12 时换真设备名）+ 居中 mono 键位提示
+- [ ] **AC4** i18n 补 `prep.deviceMic` / `prep.deviceSystem`（占位"内置麦克风" / "系统音频"），T12 替换真设备
+- [ ] **AC5** 手测：⌘⇧R 弹浮窗 → 浮窗 360×220 vibrancy 透 + dropdown 可展开 + cb 可勾 + close X / Esc / 取消按钮 都能 hide → 点开始 → main log 依旧 record:start
+- [ ] **AC6** CI 三件套全过
 
 ---
 

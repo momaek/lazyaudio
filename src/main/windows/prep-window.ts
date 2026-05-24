@@ -18,8 +18,11 @@ export function createPrepWindow(): BrowserWindow {
   if (instance && !instance.isDestroyed()) return instance
 
   const win = new BrowserWindow({
-    width: 520,
-    height: 360,
+    width: 360,
+    // 对话框本体 220(prerecord.jsx + app.css §6.4 mockup);多出来的 200 是 popover
+    // 展开时延伸到的透明区(模拟 macOS NSPopUpButton 弹出菜单超出窗口边界的行为)。
+    // body / html 在 prep.css 里 override 成透明 + 顶对齐,让对话框稳定在窗口顶部。
+    height: 420,
     show: false, // 常驻 hidden
     title: 'LazyAudio 录音前',
     resizable: false,
@@ -28,7 +31,11 @@ export function createPrepWindow(): BrowserWindow {
     fullscreenable: false,
     skipTaskbar: true, // 不在 dock / taskbar 占位
     alwaysOnTop: true,
-    frame: false, // 无系统 chrome,visual 由 renderer 自绘(02-design 决定)
+    frame: false, // 无系统 chrome,visual 由 renderer 自绘(02-design)
+    transparent: true, // 让 CSS backdrop-filter 透到桌面 = macOS vibrancy 效果
+    hasShadow: true,
+    roundedCorners: true,
+    backgroundColor: '#00000000', // 完全透明;实际背景由 .prerec 的 rgba bg 提供
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
