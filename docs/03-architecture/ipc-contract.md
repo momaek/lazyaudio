@@ -88,15 +88,16 @@ window.lazyaudio = {
 
 ### 2.1 命令（renderer → main）
 
-| 通道                            | 方向   | payload                                                            | 返回                                     | 说明                                                                                                                                                |
-| ------------------------------- | ------ | ------------------------------------------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `record:get-prep-defaults`      | invoke | `{}`                                                               | `{ defaults: { sessionType, sources } }` | prep window renderer 拉默认值。**`title` 由 renderer 本地拼**（依赖当前时刻，main 在浮窗显示瞬间返回的 title 到用户回车之间会过几秒，体验上反而旧） |
-| `record:start`                  | invoke | `{ sessionType, sources: { mic, system }, title }`                 | `{ recordingId, startedAt }`             | 主进程创建录音目录、开 writers、返回 id                                                                                                             |
-| `record:pause`                  | invoke | `{ recordingId }`                                                  | `{ ok: true }`                           |                                                                                                                                                     |
-| `record:resume`                 | invoke | `{ recordingId }`                                                  | `{ ok: true }`                           |                                                                                                                                                     |
-| `record:stop`                   | invoke | `{ recordingId }`                                                  | `{ ok: true }`                           | 不等 writer close 完，发后立即返回；后续靠事件感知                                                                                                  |
-| `record:request-system-sources` | invoke | `{}`                                                               | `{ sources: Array<{ id, name }> }`       | 主进程调 `desktopCapturer.getSources({ types: ['screen'] })`，传 id 给 renderer 喂 getUserMedia                                                     |
-| `record:report-warning`         | invoke | `{ recordingId, code: 'disk-slow'\|'pcm-dropouts'\|..., detail? }` | `{ ok }`                                 | renderer 检测到 PCM 丢帧 / writer ack 落后等 → 主进程汇总到 `meta.warnings` + 广播 `record:warning` 事件给所有窗口                                  |
+| 通道                            | 方向   | payload                                                            | 返回                                     | 说明                                                                                                                                                                                                |
+| ------------------------------- | ------ | ------------------------------------------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `record:get-prep-defaults`      | invoke | `{}`                                                               | `{ defaults: { sessionType, sources } }` | prep window renderer 拉默认值。**`title` 由 renderer 本地拼**（依赖当前时刻，main 在浮窗显示瞬间返回的 title 到用户回车之间会过几秒，体验上反而旧）                                                 |
+| `record:start`                  | invoke | `{ sessionType, sources: { mic, system }, title }`                 | `{ recordingId, startedAt }`             | 主进程创建录音目录、开 writers、返回 id                                                                                                                                                             |
+| `record:pause`                  | invoke | `{ recordingId }`                                                  | `{ ok: true }`                           |                                                                                                                                                                                                     |
+| `record:resume`                 | invoke | `{ recordingId }`                                                  | `{ ok: true }`                           |                                                                                                                                                                                                     |
+| `record:stop`                   | invoke | `{ recordingId }`                                                  | `{ ok: true }`                           | 不等 writer close 完，发后立即返回；后续靠事件感知                                                                                                                                                  |
+| `record:request-system-sources` | invoke | `{}`                                                               | `{ sources: Array<{ id, name }> }`       | 主进程调 `desktopCapturer.getSources({ types: ['screen'] })`，传 id 给 renderer 喂 getUserMedia                                                                                                     |
+| `record:report-warning`         | invoke | `{ recordingId, code: 'disk-slow'\|'pcm-dropouts'\|..., detail? }` | `{ ok }`                                 | renderer 检测到 PCM 丢帧 / writer ack 落后等 → 主进程汇总到 `meta.warnings` + 广播 `record:warning` 事件给所有窗口                                                                                  |
+| `record:hide-prep`              | invoke | `{}`                                                               | `{ ok: true }`                           | prep 浮窗 renderer 主动通知 main 隐藏自己（取消按钮 / Esc / start 成功后）。**显示**仍由 main 自己触发（不走 IPC）；**blur 自动 hide** 也仍在 main 端独立工作（防止用户点别处时浮窗滞留）。T11 落地 |
 
 > **prep window 是常驻隐藏的 BrowserWindow，组件实例只创建一次**：
 >
@@ -399,6 +400,7 @@ contextBridge.exposeInMainWorld('lazyaudio', {
     pause: (recordingId) => invoke('record:pause', { recordingId }),
     resume: (recordingId) => invoke('record:resume', { recordingId }),
     requestSystemSources: () => invoke('record:request-system-sources'),
+    hidePrep: () => invoke('record:hide-prep'),
     onState: (cb) => subscribe('record:state', cb),
     onTick: (cb) => subscribe('record:tick', cb),
     onWarning: (cb) => subscribe('record:warning', cb),
