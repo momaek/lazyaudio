@@ -19,8 +19,13 @@ export function openSettingsWindow(): BrowserWindow {
     height: 640,
     show: false,
     title: 'LazyAudio 设置',
-    minWidth: 760,
+    minWidth: 720, // design-brief §6.x:"最小 720×520"
     minHeight: 520,
+    fullscreenable: false, // design-brief §6.x:"不可全屏"
+    // §5.7 集成式 chrome:macOS fullSizeContentView + traffic light @ 16/18
+    // Windows titleBarOverlay 留 T70 release 阶段
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

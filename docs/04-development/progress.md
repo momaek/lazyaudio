@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-24
 > **当前里程碑**：M3（spike-012 另 session 在跑）
-> **当前焦点**：T11 录音前浮窗 UI ✅ 待 PR;下一候选 T12 音频采集 / T15 录音库 / T18 设置骨架（依赖 T10 ✅）
+> **当前焦点**：T10 main/settings 窗口 chrome §5.7 补漏 🔄;T11 prep mockup 对齐（另 session）;下一候选 T12 音频采集 / T15 录音库 / T18 设置骨架（依赖 T10 ✅）
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -79,20 +79,46 @@
 
 ## 速查面板
 
-| 维度                      | 数字                                            |
-| ------------------------- | ----------------------------------------------- |
-| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 21                                              |
-| 🔄 wip                    | 1（spike-012 另 session）                       |
-| ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 38                                              |
-| 本周燃尽                  | —                                               |
+| 维度                      | 数字                                                                   |
+| ------------------------- | ---------------------------------------------------------------------- |
+| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61**                        |
+| ✅ done                   | 21                                                                     |
+| 🔄 wip                    | 3（spike-012 另 session / T10 chrome fix / T11 mockup fix 另 session） |
+| ⛔ blocked                | 0                                                                      |
+| 🔲 todo                   | 38                                                                     |
+| 本周燃尽                  | —                                                                      |
 
 ---
 
 ## 1. 当前焦点（Active）
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
+
+### fix: T10 main / settings 窗口 chrome §5.7 补漏 🔄
+
+起始 2026-05-24 · 分支 `fix/T10-window-chrome`
+
+**背景**：T10 PR #15 主进程脚手架落地时,三个 BrowserWindow 的构造参数没参考 [`design-brief.md §5.7`](../02-design/design-brief.md) 的「集成式 chrome 全局规则」——main / settings 都漏了 `titleBarStyle: 'hiddenInset'` + `trafficLightPosition`,settings 还漏了 `fullscreenable: false` 且 `minWidth` 与 spec 不符。违反 CLAUDE.md「UI 实施基准」。prep 窗口的 `frame: false` 已对齐(§5.7「自绘 chrome」),不动。
+
+**偏差清单**（PR #15 vs design-brief.md §5.7 + §6.x 设置）：
+
+| 维度                          | 设计（§5.7 + §6.x）                | PR #15 实现                           | fix 后      |
+| ----------------------------- | ---------------------------------- | ------------------------------------- | ----------- |
+| main titleBarStyle            | hiddenInset（fullSizeContentView） | 默认（独立标题栏 + "LazyAudio" 标题） | hiddenInset |
+| main trafficLightPosition     | x:16 y:18                          | 默认（左上紧贴）                      | x:16 y:18   |
+| settings titleBarStyle        | hiddenInset                        | 默认                                  | hiddenInset |
+| settings trafficLightPosition | x:16 y:18                          | 默认                                  | x:16 y:18   |
+| settings fullscreenable       | false（spec 不可全屏）             | 缺（默认 true）                       | false       |
+| settings minWidth             | 720（spec 最小 720×520）           | 760                                   | 720         |
+
+**AC checkbox**：
+
+- [x] **AC1** `src/main/windows/main-window.ts` 加 `titleBarStyle: 'hiddenInset'` + `trafficLightPosition: { x: 16, y: 18 }`,留 Windows titleBarOverlay 给 T70 release(与 template icon 一起)的注释
+- [x] **AC2** `src/main/windows/settings-window.ts` 同 AC1 + `fullscreenable: false` + `minWidth: 760 → 720`
+- [ ] **AC3** 手测(`pnpm dev`):主窗口标题文字消失 + traffic light 浮在内容上方 16/18;⌘, 设置窗口同上 + 无全屏按钮 + 无法 drag 出全屏
+- [x] **AC4** CI 三件套:`pnpm lint` 0 errors(2 pre-existing T01 placeholder warning,与本 PR 无关) + `pnpm typecheck` pass + `pnpm test 4/4`
+
+---
 
 ### T11 — 录音前浮窗 UI ✅ 待 PR
 
