@@ -1,8 +1,8 @@
 # 开发进度（live）
 
 > **最后更新**：2026-05-24
-> **当前里程碑**：Pre-M3 → M3 过渡（spike-012 另 session 在跑;T10 本 session 起步）
-> **当前焦点**：T10 主进程脚手架 ✅ 待 PR;下一候选 T11 录音前浮窗 / T12 音频采集（依赖 T10）
+> **当前里程碑**：M3（spike-012 另 session 在跑）
+> **当前焦点**：T11 录音前浮窗 UI ✅ 待 PR;下一候选 T12 音频采集 / T15 录音库 / T18 设置骨架（依赖 T10 ✅）
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 20                                              |
+| ✅ done                   | 21                                              |
 | 🔄 wip                    | 1（spike-012 另 session）                       |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 39                                              |
+| 🔲 todo                   | 38                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,22 +94,23 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T10 — 主进程脚手架 ✅ 待 PR
+### T11 — 录音前浮窗 UI ✅ 待 PR
 
-起始 2026-05-24 · 完成 2026-05-24 · 分支 `feat/T10-main-scaffold`
+起始 2026-05-24 · 完成 2026-05-24 · 分支 `feat/T11-prep-popover`
 
-来源：[`development-plan.md` T10](./development-plan.md) M3 第一个 code task。
+来源：[`development-plan.md` T11](./development-plan.md) + [`information-architecture.md` §4.2](../02-design/information-architecture.md) + [`ipc-contract.md` §2.1](../03-architecture/ipc-contract.md)。
 
-**AC checkbox**（dev-plan T10 原 AC 只一句"点 tray 能弹 dropdown，⌘⇧R 能弹 prep 浮窗"，下面拆细）：
+**AC checkbox**（dev-plan T11 原 AC："⌘⇧R → 浮窗 100ms 内出现 → 选完 enter → IPC 触发 record:start"）：
 
-- [x] **AC1** lifecycle 拆 `lifecycle/single-instance.ts` + `lifecycle/before-quit.ts`（before-quit 给 T17 状态保护留 hook 点，T10 不实现录音退出阻断）
-- [x] **AC2** 三个窗口工厂落到 `windows/`：main-window（拆出）/ prep-window（**常驻 hidden** 520×360 frameless）/ settings-window（按需 880×640）
-- [x] **AC3** `menu/tray.ts`：Tray 实例 + 空闲态 5 项 dropdown；T10 阶段 icon 用 `nativeImage.createEmpty()` + `setTitle('LA')` 占位（proper template icon 留 T70）
-- [x] **AC4** `menu/app-menu.ts`：macOS app menu 标准骨架（About / Hide / Quit + Edit / View / Window / Help；Win/Linux setApplicationMenu(null) 清默认）
-- [x] **AC5** `shortcut/register.ts` + `shortcut/handler.ts`：`CommandOrControl+Shift+R` 注册；handler 当前永远 show prep（T12 接录音状态机时按 user-flows §2.2 双向语义改，TODO 已留）；app will-quit 时 `unregister`
-- [x] **AC6** `src/main/index.ts` 收成 slim orchestrator（env → single-instance → logger → before-quit handler → app.whenReady → ipc + app-menu + main-window + prep-window + tray + shortcut）
-- [x] **AC7** 手测（用户截图 3 张交叉验证）：menubar "LA" ✅ + dropdown 5 项 ✅ + ⌘⇧R 弹 prep 浮窗（frameless 520×360）✅ + 设置窗口 ✅（bonus）；before-quit log 触发 → ⌘Q 退出 ✅；3 个窗口期间 app 一直活着（隐含关主窗口不退）
-- [x] **AC8** `pnpm lint`（0 errors，3 pre-existing i18next warnings 与本 PR 无关）+ `pnpm typecheck`（pass）+ `pnpm test`（4/4 pass）；§4.2 T10 ✅ + 速查面板 wip 2 → 1 / done 19 → 20 / todo 40 → 39
+- [x] **AC1** `shared/ipc/record.ts` schema 实化：SessionType enum + Sources + PrepDefaults + StartArgs + StartResult + HidePrepArgs/Result；`channels.ts` 加 `record:hide-prep`（报备见 PR body）
+- [x] **AC2** `shared/types/api.ts` LazyAudioApi 加 `record` 域：getPrepDefaults / start / hidePrep
+- [x] **AC3** `src/preload/bridge/make-api.ts` 暴露 record bridge
+- [x] **AC4** `src/main/ipc/record.ts` 实装 3 handler：getPrepDefaults（hardcoded `general` + mic+system 全开）/ start（T11 仅 log + 返回 fake `{recordingId, startedAt}`，T13 接 orchestrator）/ hidePrep（调 hidePrepWindow）
+- [x] **AC5** `src/renderer/windows/prep/App.tsx` UI 实现：i18n 化（common.json 加 `prep.*` 块）+ 7 chip + mic/system toggle + 取消/开始按钮 + Enter/Esc 全局键 + autoFocus 在开始按钮 + visibilitychange 重置 submitting
+- [x] **AC6** title 在 renderer 拼（`{sessionType 中文} YYYY-MM-DD HH:mm`）— log 验证：`title: '通用 2026-05-24 22:42'`
+- [x] **AC7** `ipc-contract.md §2.1` 加 `record:hide-prep` 行 + §10 preload API 表加 `hidePrep: () => invoke('record:hide-prep')`
+- [x] **AC8** 手测（用户截图 + log 交叉验证）：⌘⇧R 弹浮窗 ✅，UI 渲染正确（chip / checkbox accent / 主按钮 focus 框）✅，点开始 → log `[T11 stub] record:start received { recordingId: 'stub-...', sessionType: 'general', sources: {mic:true,system:true}, title: '通用 2026-05-24 22:42' }` ✅，浮窗自动 hide ✅
+- [x] **AC9** CI 三件套：`pnpm lint` 0 errors（2 pre-existing warning 在 onboarding/settings T01 placeholder，prep 那 1 个被本 PR 消除）+ `pnpm typecheck` + `pnpm test 4/4`
 
 ---
 
@@ -166,7 +167,7 @@
 | ID   | 标题                   | 状态    | 分支 / PR              | 起         | 完         | 备注                                                 |
 | ---- | ---------------------- | ------- | ---------------------- | ---------- | ---------- | ---------------------------------------------------- |
 | T10  | 主进程脚手架           | ✅ done | feat/T10-main-scaffold | 2026-05-24 | 2026-05-24 | lifecycle+windows×3+menu/tray+shortcut;手测 3 截图过 |
-| T11  | 录音前浮窗（prep）     | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
+| T11  | 录音前浮窗（prep）     | ✅ done | feat/T11-prep-popover  | 2026-05-24 | 2026-05-24 | schema + IPC + UI 全过;手测截图 + log 双确认         |
 | T12  | 音频采集（renderer）   | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
 | T13  | WAV 流式落盘（main）   | 🔲 todo | —                      | —          | —          | 依赖 T12                                             |
 | T14  | mixdown                | 🔲 todo | —                      | —          | —          | 依赖 T13                                             |

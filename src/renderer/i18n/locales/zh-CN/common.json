@@ -26,6 +26,19 @@
     "lecture": "课程",
     "podcast": "播客"
   },
+  "prep": {
+    "title": "准备录音",
+    "sessionType": "会话类型",
+    "sources": "音源",
+    "mic": "麦克风",
+    "system": "系统音",
+    "start": "开始录音 →",
+    "starting": "启动中…",
+    "cancel": "取消",
+    "shortcutHint": "Enter 直接开始 · Esc 取消",
+    "errorNoSource": "麦克风和系统音至少要开一个",
+    "errorStartFailed": "启动失败:"
+  },
   "ping": {
     "loading": "调用 system:ping …",
     "fieldTsMs": "tsMs",
