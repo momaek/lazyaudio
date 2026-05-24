@@ -1,0 +1,6 @@
+# 让 pnpm 把 spike-012a 当独立 project root,不向上找主仓库的 pnpm-workspace.yaml。
+# 主仓库的 workspace 配置只放 settings 不放 packages,但 pnpm 10 仍会把那当 workspace root,
+# 导致 nested `pnpm install` 装到主仓库。本文件存在即可阻止向上查找。
+
+onlyBuiltDependencies:
+  - electron

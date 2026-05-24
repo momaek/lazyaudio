@@ -494,3 +494,64 @@ ASR mock 还原 Pass A 实际行为:每 250ms 推一帧,共 21 帧、4 个 segme
 - Pass A engine 输出契约新增硬性要求:每个 segment 在第一次发出时绑定 `startMs`,后续同段改写不变。
 - transcription-pipeline.md 要回写这条契约(本 PR 暂只在 tech-feasibility 写结论,03-architecture 改动留给 T35 实施 PR 一并做,避免现在引入 unused 字段)。
 - T35 AC 加一条:"hypothesis 反复改写期间,DOM mount 数 = 段数"(测试侧可用 mount counter 验)。
+
+---
+
+## spike-012a — Pass A + 录音并发 1h 资源压测（M2 arm64 本地）（2026-05-24）
+
+**状态**：⏳ TBD（POC 工作区就位，1h 压测数据待回灌）
+**POC 工作区**：[`scratch/spike-012a/`](../../scratch/spike-012a/)（代码 in tree，wav / monitor.jsonl / segments.jsonl / 模型不进 git）
+**测试环境**：M2 arm64 / macOS 26.5 Tahoe / Electron 42.2.0 / Node 22.22.3 / ad-hoc 签名 / sherpa-onnx-node 1.13.2
+**对接**：[`R8`](#风险登记表risk-register) Pass A + 录音并发性能预算 / [PRD §7.1](./prd.md#71-性能) / spike-011 / ADR-0004
+
+### 方法学
+
+复用 spike-005 audio-only ScreenCaptureKit + 双 AudioWorklet PCM tap + spike-011 silero-vad + sense-voice int8 加载链，搭一个跑得动 1h 的 Electron + utilityProcess pipeline，全程采样资源 + segment latency：
+
+1. **采集**（renderer）：`getUserMedia({audio:true})` 得 mic；`getDisplayMedia({video:false, audio:true})` 得 system loopback。两路接同一 `AudioContext({sampleRate: 16000})`（让 Chromium 自动 resample 到 16k mono），各走一个 AudioWorklet "tap" processor，累 12 个 128-sample block ≈ 96 ms 一批 → `postMessage` 给 main（transferable ArrayBuffer）。
+2. **落盘 + 混音 + 推 utility**（main）：收到 mic / system chunk 各自 append 到 `mic.wav` / `system.wav`（16-bit PCM mono 16k），同时按到达顺序 pair-wise sum + clamp 到 [-1, 1] → mixed mono Float32 → `passAProc.postMessage({type:'audio', pcm, frames})`。
+3. **Pass A utility**：`utilityProcess.fork()` 起 sherpa-onnx-node，启动期加载 `OfflineRecognizer`（sense-voice int8 2025-09-09，`numThreads:2`，`language:'zh'`，`useInverseTextNormalization:1`）+ `Vad`（silero-vad，`threshold:0.5`，`minSpeechDuration:0.25`，`minSilenceDuration:0.5`，`windowSize:512`，`sampleRate:16000`，`bufferSizeInSeconds:60`）。收 mixed PCM → 缓冲到 pending → 按 windowSize=512 喂 `vad.acceptWaveform(slice)` → 触发 endpoint `vad.front()` → 取 segment → `OfflineRecognizer` 推理 → `parentPort.postMessage` 出 `{ segmentId, startMs, endMs, durationMs, text, asrLatencyMs, vadToAsrLatencyMs }`。
+4. **monitor**（main）：每 5s 调 `app.getAppMetrics()` 拿每个 process 的 `percentCPUUsage` + `workingSetSize`，加 `process.memoryUsage()` 自身 RSS，写一行到 `monitor.jsonl`；segment 事件直接落 `segments.jsonl`。
+5. **跑法**：`DURATION_SECONDS=300 pnpm smoke`（5min 验骨架），`DURATION_SECONDS=3600 pnpm bench`（1h 压测）。`pnpm analyze` 读 jsonl，按 PRD §7.1 五项预算 + leak check（第 1-10min vs 第 51-60min RSS 平均偏移）逐条对照输出 pass/fail。
+
+### 测量数据（M2 arm64 1h 压测）
+
+⏳ **TBD**：等 1h 跑完回灌。占位表头：
+
+| 指标                                                       | 预算（PRD §7.1） | 实测 | 判定 |
+| ---------------------------------------------------------- | ---------------- | ---- | ---- |
+| RSS p95（main + renderer + GPU + utility 总和）            | < 2.5 GB         | TBD  | TBD  |
+| RSS leak check（1-10min vs 51-60min mean drift）           | < 5%             | TBD  | TBD  |
+| 主进程（Browser）CPU mean                                  | < 8%             | TBD  | TBD  |
+| utility（Pass A）CPU mean                                  | < 150%           | TBD  | TBD  |
+| Pass A RTF p95（asrLatencyMs / segDurationMs）             | < 0.1            | TBD  | TBD  |
+| 实时字幕延迟 p95（vadToAsrLatencyMs：endpoint → ASR done） | < 3000 ms        | TBD  | TBD  |
+
+辅助：segment 数、模型加载耗时、首 segment 出来 wall-clock。
+
+### 关键观察
+
+⏳ **TBD**：等数据回来后填。预留以下角度（写之前先看实测：哪些是惊喜 / 哪些是踩坑）：
+
+1. utility 进程隔离开销 vs spike-011 主线程跑（spike-011 主线程跑 RTF 0.016，本 spike 在 utility 跑 IPC overhead 多少）
+2. mixed = mic + sys 简单 sum 后 VAD endpoint 触发频率（是否需要调 threshold / minSpeechDuration）
+3. 1h 期间 RSS 是否平稳；leak 主要来源（pendingPCM buffer / utility 内部 / Electron 自身）
+4. `app.getAppMetrics()` 采样精度（5s 间隔够不够 / 是否需要 1s）
+5. macOS 14.4+ audio-only SCKit 在 1h 长期采集中的稳定性（是否会有 stream 中断）
+
+### Caveats
+
+- **单机型 M2 arm64**：Intel Mac / Win i5 复测推到 spike-012b（deferred-v0.x）。若 v0.x 公开测试期收到低配反馈破预算 → 触发 dev-plan §10.2 砍 Pass A 或 PRD §7.1 阈值调整。
+- **mixed = mic + sys 简单 sum**：production T14 mixdown 有更复杂的对齐策略（spike-005 部分拍板，起点对齐留 T13/T14）。本 spike 不验对齐质量，只验"并发 1h 跑得动"。
+- **VAD endpoint 依赖音频内容**：跑 smoke / bench 期间若环境静音 + 系统无声音输出，VAD 不会触发 segment，AC8 / AC9 拿不到数据。跑测前需保证电脑放点音频出来（音乐 / 视频 / 播客均可）。
+- **AudioContext sampleRate:16000 让 Chromium 自动 resample**：production 实现（T12 / T34）可能选 48k 采样 → main 端 downsample，不一定走本 spike 的路径；但资源预算结论应可迁移（utility 模型推理是大头，采集端 resample 开销 < 1% CPU）。
+- **monitor 间隔 5s**：CPU 瞬时尖峰（如模型短时 burst）可能被平均掉。1h 跑 720 个采样点对 mean / p95 已足够稳定。
+- **不在本 spike scope**：Pass A → Pass B 切换（T36）/ mixdown 质量（T14）/ segment id 稳定性（spike-013 已 done）/ WAV header 崩溃恢复（T15a）。
+
+### 决策
+
+⏳ **TBD**：等数据回来后填。可能三种结论：
+
+1. **全过**：M2 arm64 在 PRD §7.1 预算内跑得动 1h，Multi Pass 架构骨架按现状走 M4 实现；Intel/Win i5 复测推 spike-012b。
+2. **部分过 + 调整**：某一项轻微破预算（如 utility CPU 略超 150%），按 PRD §7.1 微调阈值 + commit msg 解释；架构不动。
+3. **关键项破预算**：内存 > 2.5 GB 或 RTF p95 > 0.1 → 触发 dev-plan §10.2 砍 Pass A 流程（PRD §4.1 F4.6-F4.9 → §4.3，PRD §7.1 内存改回 1.5 GB，03-architecture 单 ASR utility 拓扑，等等）。

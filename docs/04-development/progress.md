@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-24
 > **当前里程碑**：Pre-M3
-> **当前焦点**：02-design 屏 0 + LLM 模板 v0.1（🔄 待 PR）;剩 spike-012a 即可进 M3（12b 已 deferred-v0.x）
+> **当前焦点**：spike-012a Pass A + 录音并发 1h 资源压测（🔄）;最后一个 M3 准入项（12b 已 deferred-v0.x）
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -83,9 +83,9 @@
 | ------------------------- | ------------------------------------------------ |
 | 总任务（T + spike + ADR） | 4 + 10 + 4 = 18（pre-M3）/ 44 (M3-M7 T) = **62** |
 | ✅ done                   | 19                                               |
-| 🔄 wip                    | 0                                                |
+| 🔄 wip                    | 1                                                |
 | ⛔ blocked                | 0                                                |
-| 🔲 todo                   | 42                                               |
+| 🔲 todo                   | 41                                               |
 | 本周燃尽                  | —                                                |
 
 ---
@@ -94,26 +94,31 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### chore: 02-design 屏 0 + LLM 模板 v0.1 🔄 待 PR
+### spike-012a: Pass A + 录音并发 1h 资源压测 (M2 arm64) 🔄
 
-起始 2026-05-23 · 分支 `chore/02-design-screen0-llm-templates`
+起始 2026-05-24 · 分支 `spike/012a` · POC 工作区 `scratch/spike-012a/`
 
-来源：dev-plan §2.4 Pre-M3 退出条件 第 4 / 第 5 项（02-design 屏 0 + LLM 模板 prompt v0.1 至少 meeting / note）。
+来源：dev-plan §2.1 spike-012a（M3 准入硬门槛）。原版只一句"Pass A + 录音并发 1h 资源压测"，AC 按 PRD §7.1 性能预算 + spike-011/ADR-0004 拍板的 Pass A engine（silero-vad + sense-voice int8 短窗伪流式）细化（见报备说明）。
 
-**AC checkbox**（这两项 dev-plan 没列细化 AC，本 PR 自定 + 报备）：
+**AC checkbox**：
 
-- [x] **AC1** `02-design/screen-specs/onboarding.md` 在屏 1 之前加屏 0 全章节（目的 / 进入条件 / 区域 / 文案变体 mac+win+通用 / 行为 / 状态变体 / 边界 / Mockup 待画清单）
-- [x] **AC2** `02-design/user-flows.md` 流程 1.1 mermaid 加版本检查分叉到屏 0；§1.3 状态机加屏 0 行
-- [x] **AC3** `02-design/information-architecture.md` §6.1 步骤序列 + §6.2 表加屏 0
-- [x] **AC4** `02-design/llm-templates.md` 新建：输入约定 §1（含双轨 speaker / 长度截断 / sysmeta 元数据）+ meeting 完整模板 §2 + note 完整模板 §3 + 输出渲染约定 §4
-- [x] **AC5** `02-design/screen-specs/settings.md` Tab 4 把"待补"link 改成指向 llm-templates.md 锚点
-- [x] **AC6** `03-architecture/audio-capture.md §7.1` 移除"02-design 未补齐" callout，指向 02-design 已补章节
-- [x] **AC7** progress.md §1 清干净 + §4.1 Pre-M3 退出条件第 4 / 第 5 项打勾（这两项是 supporting deliverable，不在 spike/ADR/T 编号系统里，速查面板数字不动）
+- [ ] **AC1** POC 骨架就位：Electron 42 + audio-only SCKit（复用 spike-005 路径，main `setDisplayMediaRequestHandler` 回 `{audio:'loopback'}`，renderer `getDisplayMedia({video:false,audio:true})` + `getUserMedia({audio:true})`）+ Pass A utility process（fork sherpa-onnx-node + silero-vad + sense-voice int8，复用 spike-011 加载链）
+- [ ] **AC2** 5min smoke test 跑通：Pass A 出 ≥ 5 段 segment；monitor 采样 jsonl ≥ 60 行（每 5s 一行）；wav 落盘可播
+- [ ] **AC3** 1h 压测全程不挂：Electron 不崩、utility 不 OOM、monitor 持续采样到 ≥ 720 行
+- [ ] **AC4** 内存预算：RSS（main + renderer + utility 总和）p95 < 2.5 GB（PRD §7.1）
+- [ ] **AC5** 内存 leak check：第 1-10 min 平均 vs 第 51-60 min 平均偏移 < 5%
+- [ ] **AC6** 主进程 CPU 1h mean < 8%（PRD §7.1 "录音中 + Pass A 实时跑"）
+- [ ] **AC7** utility CPU 1h mean < 150%（PRD §7.1 streaming/短窗 ASR 1.5 线程）
+- [ ] **AC8** Pass A RTF p95 < 0.1（sense-voice 短窗推理时间 / 段时长）
+- [ ] **AC9** 实时字幕延迟 p95 < 3s（VAD endpoint → ASR result wall-clock）
+- [ ] **AC10** tech-feasibility §spike-012a 章节写完（方法学 / 数据 / Caveats / 决策）；若任一 AC4-AC9 破预算 → 触发 dev-plan §10.2 砍 Pass A 流程
 
 **报备说明**：
 
-- llm-templates.md 是新建文件（不算改 spec）；其余动的都是 spec 增量补齐（屏 0 是 audio-capture.md §7.1 早就要求加的，方向已定），settings.md Tab 4 只是把 stub 占位变实链接
-- 其他 3 个 LLM 模板（候选人评估 / 自我复盘 / 章节笔记）按 dev-plan §2.4 退出条件 "至少 meeting / note 两个" 推到 M5 T51 一并出 — 这部分本 PR 不做，llm-templates.md §0 表里标 ⏳ M5 T51
+- AC 细化超出 dev-plan spike-012a 原文（原只一句"Pass A + 录音并发 1h 资源压测"），按 PRD §7.1 性能预算 + spike-011/ADR-0004 引擎选型综合细化；不算改 spec，只是把宽泛的 spike 描述落到可验证的 checkbox
+- spike-012b（Intel Mac + Win i5 复测）已 deferred-v0.x，本 PR 不做
+- 顺手清：PR #13 漏更新本节（02-design 屏 0 stale 条目），本 PR commit msg 说明（CLAUDE.md §0.4 "改了别人没动的代码、修了 bug 但不是 AC 要的：commit msg 说明"）
+- POC 工作区代码 in tree，results / wav / 模型 / jsonl 不进 git（按 spike-005 / 011 惯例）
 
 ---
 
@@ -128,7 +133,7 @@
 | spike-005  | mic / system 漂移量化                          | ✅ done | 2026-05-22 | 2026-05-23 | 部分拍板:同 AudioContext 时钟同步 < 21μs/12s + audio-only SCKit 路径走通;mic 起点对齐推迟到 M3 T13/T14;tech-feasibility §spike-005 |
 | spike-010  | 快捷键 → 第一帧 PCM < 100/400 ms               | ✅ done | 2026-05-17 | 2026-05-17 | M2 arm64:A p95 46.4ms + B p95 235ms;tech-feasibility §spike-010                                                                    |
 | spike-011  | Pass A 引擎选型                                | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004           |
-| spike-012a | Pass A + 录音并发 1h 资源压测（M2 arm64 本地） | 🔲 todo | —          | —          | 1d；依赖 011；M3 准入硬门槛                                                                                                        |
+| spike-012a | Pass A + 录音并发 1h 资源压测（M2 arm64 本地） | 🔄 wip  | 2026-05-24 | —          | 1d；依赖 011；M3 准入硬门槛；分支 `spike/012a`                                                                                     |
 | spike-012b | spike-012a 在 Intel Mac + Win i5 复测          | 🔲 todo | —          | —          | ⏳ deferred-v0.x（无低配机；挂 M6 dogfood / 公开测试期反馈触发）                                                                   |
 | spike-013  | hypothesis → confirmed 替换 UI 稳定性          | ✅ done | 2026-05-17 | 2026-05-17 | B 策略(timestamp key)id 稳定率 100%;tech-feasibility §spike-013                                                                    |
 

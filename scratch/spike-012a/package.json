@@ -1,0 +1,28 @@
+{
+  "name": "spike-012a",
+  "version": "0.0.0",
+  "private": true,
+  "description": "spike-012a Pass A + 录音并发 1h 资源压测 (M2 arm64 本地)",
+  "main": "src/main.cjs",
+  "scripts": {
+    "models": "node scripts/download-models.cjs",
+    "smoke": "DURATION_SECONDS=300 electron .",
+    "bench": "DURATION_SECONDS=3600 electron .",
+    "analyze": "node scripts/analyze.cjs"
+  },
+  "devDependencies": {
+    "electron": "^42.2.0"
+  },
+  "dependencies": {
+    "sherpa-onnx-node": "^1.13.2"
+  },
+  "optionalDependencies": {
+    "sherpa-onnx-darwin-arm64": "^1.13.2",
+    "sherpa-onnx-darwin-x64": "^1.13.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}

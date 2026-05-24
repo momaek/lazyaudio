@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>spike-012a 1h 压测</title>
+    <style>
+      body {
+        font:
+          13px -apple-system,
+          system-ui,
+          sans-serif;
+        padding: 12px;
+        margin: 0;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 8px;
+        max-height: 380px;
+        overflow: auto;
+        font-size: 11px;
+        margin: 4px 0 0;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .stat {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>spike-012a Pass A + 录音并发 1h 资源压测</h2>
+    <p style="margin: 0 0 8px; color: #666">
+      主进程已根据 DURATION_SECONDS 决定跑多久 (smoke 300s / bench 3600s)。点
+      <b>开始</b> 后:启 mic + system loopback → 16k mono 100ms chunks 推 main → main fork Pass A
+      utility 跑 silero-vad + sense-voice。资源采样写 <code>monitor.jsonl</code>,segment 写
+      <code>segments.jsonl</code>。
+    </p>
+    <div class="row">
+      <button id="go">开始压测</button>
+      <span id="status" style="color: #888">idle</span>
+    </div>
+    <div class="stat" id="stat">mic: 0 chunks | sys: 0 chunks | duration: 0s</div>
+    <pre id="log"></pre>
+    <script>
+      // 关键决策:AudioContext 用 48k (跟 spike-005 一致;
+      // 16k AudioContext 在 Chromium 上 worklet input 全 0,踩坑过)。
+      // worklet 内部 decimate 3x → main 收到 16k Float32,直接喂 VAD/ASR。
+      const CAPTURE_SR = 48000
+      const TARGET_SR = 16000
+      const CHUNK_MS = 100
+
+      const log = (s) => {
+        const el = document.getElementById('log')
+        el.textContent += s + '\n'
+        el.scrollTop = el.scrollHeight
+        console.log(s)
+        window.spike.log(s)
+      }
+      const setStatus = (s) => (document.getElementById('status').textContent = s)
+      const setStat = (s) => (document.getElementById('stat').textContent = s)
+
+      // AudioWorklet:input 48k → decimate 3x → 16k → 1600 samples (100ms @ 16k) 一批 postMessage。
+      // 简单 decimate 不做 anti-aliasing filter;VAD/ASR 对 aliasing 不敏感,POC 可接受。
+      // 加 maxAbs 反馈防 16k AudioContext silent input 那种坑重现。
+      const WORKLET_SRC = `
+        class Tap extends AudioWorkletProcessor {
+          constructor() {
+            super()
+            this.out = new Float32Array(1600) // 100ms @ 16k
+            this.outIdx = 0
+            this.phase = 0
+            this.maxAbs = 0
+            this.blockCount = 0
+          }
+          process(inputs) {
+            const ch = inputs[0] && inputs[0][0]
+            if (ch && ch.length > 0) {
+              this.blockCount++
+              for (let i = 0; i < ch.length; i++) {
+                if (this.phase === 0) {
+                  const v = ch[i]
+                  this.out[this.outIdx++] = v
+                  const a = v < 0 ? -v : v
+                  if (a > this.maxAbs) this.maxAbs = a
+                  if (this.outIdx >= this.out.length) {
+                    this.port.postMessage(
+                      { pcm: this.out.buffer, frames: this.out.length, maxAbs: this.maxAbs },
+                      [this.out.buffer],
+                    )
+                    this.out = new Float32Array(1600)
+                    this.outIdx = 0
+                    this.maxAbs = 0
+                  }
+                }
+                this.phase = (this.phase + 1) % 3
+              }
+            }
+            return true
+          }
+        }
+        registerProcessor('tap', Tap)
+      `
+      const WORKLET_URL = URL.createObjectURL(
+        new Blob([WORKLET_SRC], { type: 'application/javascript' }),
+      )
+
+      async function setupCapture() {
+        log('  -> getUserMedia(mic)')
+        let micStream
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              sampleRate: CAPTURE_SR,
+              channelCount: 1,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+          })
+        } catch (e) {
+          throw new Error(`getUserMedia FAILED: ${e.name} / ${e.message}`)
+        }
+
+        log('  -> getDisplayMedia(audio-only loopback)')
+        let sysStream
+        try {
+          sysStream = await navigator.mediaDevices.getDisplayMedia({
+            video: false,
+            audio: true,
+          })
+        } catch (e) {
+          micStream.getTracks().forEach((t) => t.stop())
+          throw new Error(`getDisplayMedia FAILED: ${e.name} / ${e.message}`)
+        }
+        if (sysStream.getAudioTracks().length === 0) {
+          micStream.getTracks().forEach((t) => t.stop())
+          sysStream.getTracks().forEach((t) => t.stop())
+          throw new Error(`getDisplayMedia 没拿到 audio track`)
+        }
+
+        // 深度诊断:看 stream 自身是否 muted / has tracks
+        const micTrack = micStream.getAudioTracks()[0]
+        const sysTrack = sysStream.getAudioTracks()[0]
+        log(
+          `  mic track: label="${micTrack.label}" muted=${micTrack.muted} enabled=${micTrack.enabled} readyState=${micTrack.readyState}`,
+        )
+        log(`  mic settings: ${JSON.stringify(micTrack.getSettings())}`)
+        log(
+          `  sys track: label="${sysTrack.label}" muted=${sysTrack.muted} enabled=${sysTrack.enabled} readyState=${sysTrack.readyState}`,
+        )
+        log(`  sys settings: ${JSON.stringify(sysTrack.getSettings())}`)
+
+        const ctx = new AudioContext({ sampleRate: CAPTURE_SR, latencyHint: 'interactive' })
+        if (ctx.state !== 'running') await ctx.resume()
+        log(`  -> AudioContext sampleRate=${ctx.sampleRate} (decimate → ${TARGET_SR})`)
+        await ctx.audioWorklet.addModule(WORKLET_URL)
+
+        const micSrc = ctx.createMediaStreamSource(micStream)
+        const sysSrc = ctx.createMediaStreamSource(sysStream)
+        const micTap = new AudioWorkletNode(ctx, 'tap')
+        const sysTap = new AudioWorkletNode(ctx, 'tap')
+
+        let micChunks = 0
+        let sysChunks = 0
+        let micMaxAbs = 0
+        let sysMaxAbs = 0
+
+        micTap.port.onmessage = (e) => {
+          micChunks++
+          if (e.data.maxAbs > micMaxAbs) micMaxAbs = e.data.maxAbs
+          // 前 3 块 + 每 100 块 log 一次,确认信号活的
+          if (micChunks <= 3 || micChunks % 100 === 0) {
+            log(
+              `  mic chunk #${micChunks} frames=${e.data.frames} maxAbs=${e.data.maxAbs.toFixed(6)} peakSoFar=${micMaxAbs.toFixed(6)}`,
+            )
+          }
+          window.spike.pushChunk('mic', e.data.pcm, e.data.frames)
+        }
+        sysTap.port.onmessage = (e) => {
+          sysChunks++
+          if (e.data.maxAbs > sysMaxAbs) sysMaxAbs = e.data.maxAbs
+          if (sysChunks <= 3 || sysChunks % 100 === 0) {
+            log(
+              `  sys chunk #${sysChunks} frames=${e.data.frames} maxAbs=${e.data.maxAbs.toFixed(6)} peakSoFar=${sysMaxAbs.toFixed(6)}`,
+            )
+          }
+          window.spike.pushChunk('sys', e.data.pcm, e.data.frames)
+        }
+
+        micSrc.connect(micTap)
+        sysSrc.connect(sysTap)
+        // 强制 Chromium 给 worklet pump audio
+        const silentGain = ctx.createGain()
+        silentGain.gain.value = 0
+        micTap.connect(silentGain)
+        sysTap.connect(silentGain)
+        silentGain.connect(ctx.destination)
+
+        return {
+          stop: () => {
+            micTap.disconnect()
+            sysTap.disconnect()
+            micSrc.disconnect()
+            sysSrc.disconnect()
+            micStream.getTracks().forEach((t) => t.stop())
+            sysStream.getTracks().forEach((t) => t.stop())
+            ctx.close()
+          },
+          stats: () => ({ micChunks, sysChunks }),
+        }
+      }
+
+      async function run() {
+        document.getElementById('go').disabled = true
+        try {
+          const { durationSeconds, runDir } = await window.spike.startRecord()
+          log(`run dir: ${runDir}`)
+          log(`duration: ${durationSeconds}s`)
+          setStatus('starting capture')
+          const cap = await setupCapture()
+          setStatus(`recording (${durationSeconds}s)`)
+          const startT = performance.now()
+          const statTimer = setInterval(() => {
+            const { micChunks, sysChunks } = cap.stats()
+            const elapsed = ((performance.now() - startT) / 1000).toFixed(0)
+            setStat(`mic: ${micChunks} chunks | sys: ${sysChunks} chunks | elapsed: ${elapsed}s`)
+          }, 1000)
+
+          await new Promise((r) => setTimeout(r, durationSeconds * 1000))
+
+          clearInterval(statTimer)
+          setStatus('stopping')
+          cap.stop()
+          log('  -> capture stopped, notify main')
+          window.spike.recordDone()
+          setStatus('done')
+        } catch (e) {
+          setStatus('error')
+          log('FAILED: ' + (e && e.stack ? e.stack : String(e)))
+          window.spike.recordDone()
+        }
+      }
+
+      document.getElementById('go').addEventListener('click', run)
+    </script>
+  </body>
+</html>
