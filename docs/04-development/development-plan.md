@@ -79,19 +79,20 @@ PRD §10 给的是"理论目标日期"，实际节奏按 spike → M3 → M4 →
 
 ### 2.1 阻塞 spike（必须完成）
 
-| Spike         | 描述                                                          | 决策影响                                  | 预估    | 状态    |
-| ------------- | ------------------------------------------------------------- | ----------------------------------------- | ------- | ------- |
-| spike-001     | macOS 双轨录音                                                | M3 录音域可行性                           | 0.5 d   | ✅ done |
-| spike-002     | Windows 双轨录音                                              | M3 Windows 版本                           | 0.5 d   | ✅ done |
-| spike-003     | sherpa-onnx + Electron 转一段 wav                             | M4 转录域可行性                           | 0.5 d   | ✅ done |
-| spike-004     | macOS 签名 + 公证完整链                                       | M7 发布可行性                             | 1 d     | ✅ done |
-| spike-005     | mic / system 漂移量化                                         | 混音质量                                  | 0.5 d   | ⏳ TODO |
-| **spike-010** | 快捷键 → 第一帧 PCM < 100 / 400 ms                            | PRD §7.1 性能                             | 0.5 d   | ⏳ TODO |
-| **spike-011** | Pass A 引擎选型（streaming Zipformer vs VAD 短窗 SenseVoice） | Multi Pass 默认引擎 + 模型清单 + PRD §7.1 | **2 d** | ⏳ TODO |
-| **spike-012** | Pass A + 录音并发 1h 资源压测                                 | PRD §7.1 上限是否成立 / 是否降级          | 1 d     | ⏳ TODO |
-| **spike-013** | hypothesis → confirmed 替换 UI 稳定性                         | 详情区实现可行性                          | 0.5 d   | ⏳ TODO |
+| Spike          | 描述                                                          | 决策影响                                                                       | 预估    | 状态                                                             |
+| -------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------- |
+| spike-001      | macOS 双轨录音                                                | M3 录音域可行性                                                                | 0.5 d   | ✅ done                                                          |
+| spike-002      | Windows 双轨录音                                              | M3 Windows 版本                                                                | 0.5 d   | ✅ done                                                          |
+| spike-003      | sherpa-onnx + Electron 转一段 wav                             | M4 转录域可行性                                                                | 0.5 d   | ✅ done                                                          |
+| spike-004      | macOS 签名 + 公证完整链                                       | M7 发布可行性                                                                  | 1 d     | ✅ done                                                          |
+| spike-005      | mic / system 漂移量化                                         | 混音质量                                                                       | 0.5 d   | ⏳ TODO                                                          |
+| **spike-010**  | 快捷键 → 第一帧 PCM < 100 / 400 ms                            | PRD §7.1 性能                                                                  | 0.5 d   | ⏳ TODO                                                          |
+| **spike-011**  | Pass A 引擎选型（streaming Zipformer vs VAD 短窗 SenseVoice） | Multi Pass 默认引擎 + 模型清单 + PRD §7.1                                      | **2 d** | ⏳ TODO                                                          |
+| **spike-012a** | Pass A + 录音并发 1h 资源压测（M2 arm64 本地）                | PRD §7.1 内存 / CPU / RTF 预算实测；Multi Pass 是否在 v0.1 强制降级（M3 准入） | 1 d     | ⏳ TODO                                                          |
+| spike-012b     | spike-012a 在 Intel Mac + Win i5 复测                         | 低配机降级路径（Pass A 关闭 / 单 Pass 兜底）是否需要 v0.1 落代码               | 1 d     | ⏳ deferred-v0.x（无低配机；挂 M6 dogfood / 公开测试期反馈触发） |
+| **spike-013**  | hypothesis → confirmed 替换 UI 稳定性                         | 详情区实现可行性                                                               | 0.5 d   | ⏳ TODO                                                          |
 
-**关键依赖**：spike-011 的结果决定 M4 的默认下载模型（多 150 MB or not）+ 性能预算回灌 PRD §7.1。spike-012 决定 Multi Pass 是否在低配机降级。spike-013 决定 segment id 设计。**这三个不能在 M3 阶段平行做**——必须 pre-M3 拍板。
+**关键依赖**：spike-011 的结果决定 M4 的默认下载模型（多 150 MB or not）+ 性能预算回灌 PRD §7.1。spike-012a 决定 v0.1 在 M2 arm64 是否满足 PRD §7.1 预算（M3 准入硬门槛）；**spike-012b 因硬件不可得 deferred-v0.x**，低配机降级路径作为 Plan B 挂账（按 §10.2 砍 Pass A 流程预案），不阻塞 M3 进入。spike-013 决定 segment id 设计。**spike-011 / 012a / 013 不能在 M3 阶段平行做**——必须 pre-M3 拍板。
 
 ### 2.2 ADR
 
@@ -152,7 +153,7 @@ T06 [pre-M3]  日志框架
 
 进 M3 前：
 
-- [ ] spike-005 / 010 / 011 / 012 / 013 全部拍板
+- [ ] spike-005 / 010 / 011 / 012a / 013 全部拍板（spike-012b 因硬件约束 deferred-v0.x，不阻塞 M3 进入）
 - [ ] ADR-0001 / 0002 / 0003 写完
 - [ ] T01-T06 全部 done，CI 绿
 - [ ] 02-design 屏 0（macOS 版本检查）补完

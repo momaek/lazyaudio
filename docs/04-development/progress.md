@@ -1,8 +1,8 @@
 # 开发进度（live）
 
-> **最后更新**：2026-05-23
+> **最后更新**：2026-05-24
 > **当前里程碑**：Pre-M3
-> **当前焦点**：02-design 屏 0 + LLM 模板 v0.1（🔄 待 PR）;剩 spike-012 即可进 M3
+> **当前焦点**：02-design 屏 0 + LLM 模板 v0.1（🔄 待 PR）;剩 spike-012a 即可进 M3（12b 已 deferred-v0.x）
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -79,14 +79,14 @@
 
 ## 速查面板
 
-| 维度                      | 数字                                            |
-| ------------------------- | ----------------------------------------------- |
-| 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 19                                              |
-| 🔄 wip                    | 0                                               |
-| ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 41                                              |
-| 本周燃尽                  | —                                               |
+| 维度                      | 数字                                             |
+| ------------------------- | ------------------------------------------------ |
+| 总任务（T + spike + ADR） | 4 + 10 + 4 = 18（pre-M3）/ 44 (M3-M7 T) = **62** |
+| ✅ done                   | 19                                               |
+| 🔄 wip                    | 0                                                |
+| ⛔ blocked                | 0                                                |
+| 🔲 todo                   | 42                                               |
+| 本周燃尽                  | —                                                |
 
 ---
 
@@ -119,17 +119,18 @@
 
 ## 2. Pre-M3 — Spike
 
-| ID        | 标题                                  | 状态    | 起         | 完         | 备注 / PR                                                                                                                          |
-| --------- | ------------------------------------- | ------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| spike-001 | macOS 双轨录音                        | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
-| spike-002 | Windows 双轨录音                      | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
-| spike-003 | sherpa-onnx + Electron POC            | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
-| spike-004 | macOS 签名 + 公证链                   | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
-| spike-005 | mic / system 漂移量化                 | ✅ done | 2026-05-22 | 2026-05-23 | 部分拍板:同 AudioContext 时钟同步 < 21μs/12s + audio-only SCKit 路径走通;mic 起点对齐推迟到 M3 T13/T14;tech-feasibility §spike-005 |
-| spike-010 | 快捷键 → 第一帧 PCM < 100/400 ms      | ✅ done | 2026-05-17 | 2026-05-17 | M2 arm64:A p95 46.4ms + B p95 235ms;tech-feasibility §spike-010                                                                    |
-| spike-011 | Pass A 引擎选型                       | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004           |
-| spike-012 | Pass A + 录音并发 1h 资源压测         | 🔲 todo | —          | —          | 1d；依赖 011                                                                                                                       |
-| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | ✅ done | 2026-05-17 | 2026-05-17 | B 策略(timestamp key)id 稳定率 100%;tech-feasibility §spike-013                                                                    |
+| ID         | 标题                                           | 状态    | 起         | 完         | 备注 / PR                                                                                                                          |
+| ---------- | ---------------------------------------------- | ------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| spike-001  | macOS 双轨录音                                 | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-002  | Windows 双轨录音                               | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-003  | sherpa-onnx + Electron POC                     | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-004  | macOS 签名 + 公证链                            | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-005  | mic / system 漂移量化                          | ✅ done | 2026-05-22 | 2026-05-23 | 部分拍板:同 AudioContext 时钟同步 < 21μs/12s + audio-only SCKit 路径走通;mic 起点对齐推迟到 M3 T13/T14;tech-feasibility §spike-005 |
+| spike-010  | 快捷键 → 第一帧 PCM < 100/400 ms               | ✅ done | 2026-05-17 | 2026-05-17 | M2 arm64:A p95 46.4ms + B p95 235ms;tech-feasibility §spike-010                                                                    |
+| spike-011  | Pass A 引擎选型                                | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004           |
+| spike-012a | Pass A + 录音并发 1h 资源压测（M2 arm64 本地） | 🔲 todo | —          | —          | 1d；依赖 011；M3 准入硬门槛                                                                                                        |
+| spike-012b | spike-012a 在 Intel Mac + Win i5 复测          | 🔲 todo | —          | —          | ⏳ deferred-v0.x（无低配机；挂 M6 dogfood / 公开测试期反馈触发）                                                                   |
+| spike-013  | hypothesis → confirmed 替换 UI 稳定性          | ✅ done | 2026-05-17 | 2026-05-17 | B 策略(timestamp key)id 稳定率 100%;tech-feasibility §spike-013                                                                    |
 
 ---
 
@@ -159,7 +160,7 @@
 
 **Pre-M3 退出条件**（dev-plan §2.4 复核）：
 
-- [ ] spike-005 / 010 / 011 / 012 / 013 全部拍板（差 spike-012）
+- [ ] spike-005 / 010 / 011 / 012a / 013 全部拍板（差 spike-012a；spike-012b deferred-v0.x 不阻塞 M3）
 - [x] ADR-0001 / 0002 / 0003 写完
 - [x] T01-T06 全部 done，CI 绿
 - [x] 02-design 屏 0（macOS 版本检查）补完
@@ -272,6 +273,7 @@ _暂无周报记录。_
 
 ## 7. 修订历史
 
-| 日期       | 变更                                                        |
-| ---------- | ----------------------------------------------------------- |
-| 2026-05-17 | 初稿；从 development-plan.md 抽取所有 spike / ADR / T01-T74 |
+| 日期       | 变更                                                                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-17 | 初稿；从 development-plan.md 抽取所有 spike / ADR / T01-T74                                                                                  |
+| 2026-05-24 | spike-012 拆 → 12a（M2 arm64 本地，M3 准入）+ 12b（Intel Mac + Win i5 复测，deferred-v0.x）；原因：本机硬件只 M2 arm64，原版三档跑物理不可得 |

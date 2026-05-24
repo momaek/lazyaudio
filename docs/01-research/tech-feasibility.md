@@ -238,18 +238,19 @@ spike-005-track-sync/
 
 ## Spike 执行顺序建议
 
-| 顺序 | Spike                                                                                                                    | 阻塞下游                | 预估   |
-| ---- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ------ |
-| 1    | spike-001 macOS 双轨录音                                                                                                 | 整个产品                | 0.5 天 |
-| 2    | spike-003 sherpa-onnx 集成                                                                                               | 转录核心                | 0.5 天 |
-| 3    | spike-004 macOS 签名公证                                                                                                 | 发布                    | 1 天   |
-| 4    | spike-002 Windows 双轨录音                                                                                               | Windows 版本            | 0.5 天 |
-| 5    | spike-005 音轨同步量化                                                                                                   | 体验质量                | 0.5 天 |
-| 6    | **spike-011 Pass A 引擎选型**（VAD 短窗 SenseVoice vs streaming Zipformer / Paraformer，中文 CER + 延迟 + 内存三轴对比） | Multi Pass 架构定型     | 2 天   |
-| 7    | **spike-012 Pass A + 录音并发资源压测**（M1 / Intel Mac / Win i5 三档跑 1h，CPU / 内存 / 电平表手感）                    | Multi Pass 性能预算定型 | 1 天   |
-| 8    | **spike-013 hypothesis → confirmed 原地替换 UI 稳定性**（构造模拟数据，验证 segment id 稳定 + 阅读光标不跳行）           | 详情区 UI 实现          | 0.5 天 |
+| 顺序 | Spike                                                                                                                    | 阻塞下游                                | 预估                                                             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- | ---------------------------------------------------------------- |
+| 1    | spike-001 macOS 双轨录音                                                                                                 | 整个产品                                | 0.5 天                                                           |
+| 2    | spike-003 sherpa-onnx 集成                                                                                               | 转录核心                                | 0.5 天                                                           |
+| 3    | spike-004 macOS 签名公证                                                                                                 | 发布                                    | 1 天                                                             |
+| 4    | spike-002 Windows 双轨录音                                                                                               | Windows 版本                            | 0.5 天                                                           |
+| 5    | spike-005 音轨同步量化                                                                                                   | 体验质量                                | 0.5 天                                                           |
+| 6    | **spike-011 Pass A 引擎选型**（VAD 短窗 SenseVoice vs streaming Zipformer / Paraformer，中文 CER + 延迟 + 内存三轴对比） | Multi Pass 架构定型                     | 2 天                                                             |
+| 7    | **spike-012a Pass A + 录音并发资源压测**（M2 arm64 本地跑 1h，CPU / 内存 / RTF / 实时字幕延迟）                          | Multi Pass v0.1 性能预算定型（M3 准入） | 1 天                                                             |
+| 7'   | spike-012b 在 Intel Mac + Win i5 复测                                                                                    | 低配机降级路径是否需要 v0.1 落代码      | ⏳ deferred-v0.x（无低配机；挂 M6 dogfood / 公开测试期反馈触发） |
+| 8    | **spike-013 hypothesis → confirmed 原地替换 UI 稳定性**（构造模拟数据，验证 segment id 稳定 + 阅读光标不跳行）           | 详情区 UI 实现                          | 0.5 天                                                           |
 
-**总计约 7.5 天的技术验证**（Multi Pass 之前约 3 天，加 spike-011/012/013 共 3.5 天）。建议 spike-011/012/013 在 02-design 阶段并行，结果回灌 PRD §7.1 性能预算 + 03-architecture transcription-pipeline。
+**总计约 7.5 天的技术验证**（Multi Pass 之前约 3 天，加 spike-011/012a/013 共 3.5 天；spike-012b deferred-v0.x）。建议 spike-011/012a/013 在 02-design 阶段并行，结果回灌 PRD §7.1 性能预算 + 03-architecture transcription-pipeline。
 
 > **spike-011 是 Multi Pass 架构最关键的输入**：如果 streaming Zipformer 中文 CER 与 SenseVoice int8 差距 < 20%，走 streaming；否则 VAD 短窗 SenseVoice 保底。决策结果直接影响：默认下载模型清单、内存预算上限、Pass A utility 选型。
 
@@ -265,7 +266,7 @@ spike-005-track-sync/
 - [ ] spike-004 通过：完整签名 + 公证流程跑通至少一次（重要：不要拖到最后）
 - [x] spike-005 量化漂移：知道 mic/system 之间的典型偏移幅度（部分拍板 2026-05-23；详见 §spike-005）
 - [ ] **spike-011 拍板 Pass A 引擎**：streaming Zipformer / VAD 短窗 SenseVoice 二选一，CER + 延迟有量化数据
-- [ ] **spike-012 通过资源压测**：录音 + Pass A 并发 1h 在 M1 / Intel / Win i5 都满足 §7.1 预算
+- [ ] **spike-012a 通过资源压测**：录音 + Pass A 并发 1h 在 M2 arm64 满足 PRD §7.1 预算（内存 < 2.5 GB / 主进程 CPU < 8% / utility CPU < 150% / RTF ≤ 0.1 / 实时字幕 < 3s）；spike-012b（Intel Mac + Win i5）硬件不可得 deferred-v0.x，不阻塞 M3 进入
 - [ ] spike-013 量化 hypothesis 替换稳定性：segment id 在 90% 以上 hypothesis 周期内不变
 
 任何一个 spike 失败 → 回到本文档的 Plan B 重新评估，必要时回到 product-spec.md 调整需求。
@@ -299,7 +300,7 @@ spike-005-track-sync/
   - **A 路 hypothesis volatility** = 改写次数 / transition 总数（"改写"指当前 text 不是上一次的纯前缀扩展）
   - **rss 内存峰值** = `process.memoryUsage().rss` 跑分期间峰值
 - **节拍**：A 路按 100 ms chunk 喂,B 路按 VAD windowSize（512 samples）喂,均 `await setTimeout` 到下一个实时边界以模拟"边录边推"。
-- **硬件**：本机 Apple Silicon（darwin25.3.0 arm64），Node v20.13.1。Intel Mac / Windows 留给 spike-012 复测。
+- **硬件**：本机 Apple Silicon（darwin25.3.0 arm64），Node v20.13.1。Intel Mac / Windows 留给 spike-012b 复测（deferred-v0.x）。
 
 ### 测量数据（5 段 fixture 聚合）
 
@@ -323,11 +324,11 @@ spike-005-track-sync/
 
 ### Caveats（写在前面,免得后续误读）
 
-- **Sample size 仅 5 段**,统计置信度弱;但 CER 差距 2.66× 远超阈值,边际不影响结论。spike-012 用真实会议长音频在多机型复测时,数据点会扩到 ≥ 30 段。
+- **Sample size 仅 5 段**,统计置信度弱;但 CER 差距 2.66× 远超阈值,边际不影响结论。spike-012a 用真实会议长音频复测时,数据点会扩到 ≥ 30 段（spike-012b 多机型复测 deferred-v0.x）。
 - **Fixture 偏教学语料**:streaming-1/2/3 含较多英文字母拼读 + 中英切换,正是 streaming Zipformer 的短板（训练数据偏标准朗读),会议 / 笔记场景实际差距可能略小。但 sherpa-onnx-research §6.2 已指出 streaming Zipformer 整体精度本就低于 SenseVoice offline,定性结论不会翻转。
 - **Gold 不是绝对正确**:SenseVoice 把 "OS S" 识别成 "OOS"、"FREQUENT" 识别成 "FREQUNTL" — 影响 CER 绝对值,但因两路 POC 对同一 Gold 比较,**相对差距仍然可信**。
 - **B 路 segments 数偏少**:fixture 1/3/4/5 都只切出 1 段 — VAD threshold 0.5 + minSilenceDuration 0.5s 对短音频不敏感。实际录音中分段会更多,p95 段延迟可能轻微上升,但仍远低于 3s 上限。
-- **POC 跑在主线程**,T34 实现时 Pass A 跑在 utility process,需重新量化进程间通信开销;spike-012 覆盖。
+- **POC 跑在主线程**,T34 实现时 Pass A 跑在 utility process,需重新量化进程间通信开销;spike-012a 覆盖。
 
 ### 决策
 
@@ -341,7 +342,7 @@ spike-005-track-sync/
 
 ## spike-010 — 快捷键 → 第一帧 PCM 时延量化（2026-05-17）
 
-**状态**:✅ done(M2 arm64 单机数据;Intel/Win 待 spike-012 时补)
+**状态**:✅ done(M2 arm64 单机数据;Intel/Win 待 spike-012b 时补,deferred-v0.x)
 **POC 工作区**:[`scratch/spike-010/`](../../scratch/spike-010/)
 **PRD 对接**:[§7.1](./prd.md#71-性能) "快捷键到开始录音 < 500ms(包含浮窗显示)"
 **dev-plan 对接**:[T11](../04-development/development-plan.md#3-m3--骨架可跑) "浮窗 100ms 内出现 + 第一帧 PCM"
@@ -370,7 +371,7 @@ spike-005-track-sync/
 
 ### Caveats
 
-- **单机型数据**:M2 arm64 / macOS 14.x。Intel Mac / Win i5 未测(无机器)。spike-012 三档压测时同步补这两个平台的快捷键 → PCM 数据。Windows WASAPI loopback 路径下 B 段可能更慢(没 AudioWorklet 直通,要走 desktopCapturer)。
+- **单机型数据**:M2 arm64 / macOS 14.x。Intel Mac / Win i5 未测(无机器)。spike-012b 复测时同步补这两个平台的快捷键 → PCM 数据(deferred-v0.x)。Windows WASAPI loopback 路径下 B 段可能更慢(没 AudioWorklet 直通,要走 desktopCapturer)。
 - **A 段量的是 main 进程 `'show'` event**,**不是用户视觉感知**:OS compositor 还要一帧才把窗口合成到屏幕。但 16ms 是固定 OS 开销,加上去仍 < 100ms。
 - **A 段第一次和后续耗时差不大**(warmup 57ms vs round mean 34ms),说明 NSWindow show 路径没有大的冷启动开销。production 浮窗常驻 hidden 后,真实第一次快捷键 show 应在 50ms 内。
 - **B 段每轮都重新 getUserMedia + AudioContext**,模拟"按一次录一次"的最差路径。production 实际场景可能复用 AudioContext + 长期持有 stream(尤其录制中状态),那时第一帧延迟应更低。
@@ -382,7 +383,7 @@ spike-005-track-sync/
 
 - 浮窗**必须预创建常驻 hidden**(本测前提)。T11 实现按这个模式做。
 - AudioContext / AudioWorklet 首次加载有 ~60ms 额外开销,T12 可考虑在 app 启动后预加载一个空 AudioContext + worklet module,把首录延迟再砍掉(优化项,非必须)。
-- Intel Mac / Win i5 数据 ⏳ 等 spike-012 时补;如果任一平台破预算,触发 dev-plan §10.2 砍 scope(降级"录前预热"或调整 PRD §7.1 阈值)。
+- Intel Mac / Win i5 数据 ⏳ 等 spike-012b 复测时补(deferred-v0.x);如果 v0.x 公开测试期收到任一平台破预算反馈,触发 dev-plan §10.2 砍 scope(降级"录前预热"或调整 PRD §7.1 阈值)。
 
 ---
 

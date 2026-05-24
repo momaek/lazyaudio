@@ -182,7 +182,7 @@
 
 - Pass A 引擎具体选型（streaming Zipformer 或 VAD 短窗 SenseVoice）——spike-011 拍板
 - 默认下载模型清单——选 streaming Zipformer 则多加 ~150 MB
-- 性能预算具体数字（Pass A CPU 占用、延迟实测）——spike-012 量化后回灌 PRD §7.1
+- 性能预算具体数字（Pass A CPU 占用、延迟实测）——spike-012a 量化后回灌 PRD §7.1（spike-012b 多机型复测 deferred-v0.x）
 - design 高保真稿（hypothesis/confirmed 视觉、banner、Pass B progress）——design-system 已定 token，等设计稿落地
 
 ---
@@ -204,7 +204,7 @@
 2. **跑 spike-005**：mic / system 漂移量化（spike-001 / 002 / 003 / 004 已通过）
 3. **02-design 屏 0**（macOS 版本检查）+ LLM 模板 prompt v0.1
 4. **跑 spike-011**：Pass A 引擎选型——streaming Zipformer vs VAD 短窗 SenseVoice 中文 CER + 延迟 + 内存对比；拍板后回写 transcription-pipeline §2.1 默认引擎、data-model.md / settings 默认 modelKey、PRD §7.1 性能预算
-5. **跑 spike-012**：Pass A + 录音并发 1h 在 M1 / Intel Mac / Win i5 三档资源压测；不达标降级（Pass A 默认禁用 / 仅限高配机器）
+5. **跑 spike-012a**（M2 arm64 本地 1h 资源压测，M3 准入硬门槛）；spike-012b（Intel Mac + Win i5 复测）硬件不可得 deferred-v0.x，挂 M6 dogfood / 公开测试期反馈触发；不达标降级（Pass A 默认禁用 / 仅限高配机器）
 6. **跑 spike-013**：hypothesis → confirmed 原地替换 UI 稳定性；segment id 跨周期不变率 > 90%
 
 ### 进 M3 之前

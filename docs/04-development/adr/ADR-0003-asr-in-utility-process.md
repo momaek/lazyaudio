@@ -124,7 +124,7 @@ Electron 28+ 提供 `utilityProcess` —— 独立进程 + Chromium 服务模式
 ### 性能
 
 - 当前 spike-011 实测:SenseVoice 加载 ~455 MB,RTF 0.016,utility 内 numThreads = 2 已最优(sherpa-onnx-research §8.5)
-- spike-012(M1 / Intel / Win i5 三档复测)会验证 utility 隔离的开销 ≤ 10% — 数据回来后回写本 ADR
+- spike-012a 在 M2 arm64 验证 utility 隔离的开销 ≤ 10% — 数据回来后回写本 ADR(spike-012b 在 Intel / Win i5 三档复测 deferred-v0.x,挂 M6 dogfood / 公开测试期反馈触发)
 
 ## 风险与回退
 

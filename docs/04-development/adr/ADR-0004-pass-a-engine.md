@@ -74,7 +74,7 @@ GH release 文件存在但 1 GB,体积超 M4 预算 5×,直接淘汰。
 
 - **T31 模型下载**:默认下载清单 = SenseVoice int8 + Silero VAD(原 sherpa-onnx-research §5.4 的 CT-Transformer 标点也确认不进 v0.1,SenseVoice 自带标点)
 - **T32 / T34**:Pass A engine = `local-streaming-vad-shortwin`,Pass B engine = `local-sense-voice`,**两者共享 utility process 中的同一份 OfflineRecognizer 实例**
-- **T36 Pass A → Pass B 切换**:不再是"unload + spawn",改为"切换 window 模式";降级路径 spike-012 验证
+- **T36 Pass A → Pass B 切换**:不再是"unload + spawn",改为"切换 window 模式";降级路径 spike-012a 验证(M2 arm64;spike-012b 低配机复测 deferred-v0.x)
 - **`native/models/registry.json`**:只列 SenseVoice + Silero VAD,不再有 streaming Zipformer 条目
 
 ### 架构影响
@@ -85,6 +85,6 @@ GH release 文件存在但 1 GB,体积超 M4 预算 5×,直接淘汰。
 
 ### 风险
 
-- **小样本 caveat 已写在 tech-feasibility,spike-012 必须用真实会议 ≥ 30 段复测;数据如反转则按 dev-plan §10.2 砍 Pass A**
+- **小样本 caveat 已写在 tech-feasibility,spike-012a 必须用真实会议 ≥ 30 段复测;数据如反转则按 dev-plan §10.2 砍 Pass A**(spike-012b 多机型复测 deferred-v0.x)
 - 长无停顿语段(如朗读 / 单口相声):VAD 触发频率低,短窗变长 → 可能短暂超过 200 MB 短期内存峰值。T34 加 max-window-seconds 兜底,超时强制切段
 - B 路 Pass A 与 Pass B 视觉上仍会有"替换" — 用同一模型不会消除替换(因为 Pass B 看的是整句上下文,可能修正短窗误识)。spike-013 + 02-design 屏幕规范需要明确替换动效不刺眼。

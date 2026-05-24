@@ -374,18 +374,18 @@ v0.1 发布后 30 天观测（dogfood + 朋友圈小范围）：
 
 ## 11. 风险与缓解
 
-| 风险                                                            | 影响  | 缓解                                                                                 |
-| --------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------ |
-| macOS SIP 剥离 DYLD\_\*，签名包加载 sherpa-onnx 失败            | 🔴 高 | CI 必须做"签名+公证后启动"smoke test，不能只在 dev 验证                              |
-| CoreAudio Tap 在某些设备组合（蓝牙耳机 / 外接声卡）下行为不一致 | 🟡 中 | spike-001 中覆盖蓝牙耳机场景；Plan B：force ScreenCaptureKit fallback（需额外权限）  |
-| 模型下载在国内卡死                                              | 🟡 中 | hf-mirror / ModelScope / GitHub Releases 多源 fallback + 测速                        |
-| 自己写得太多功能、v0.1 发不出去                                 | 🟡 中 | 严格按 §4 范围；P1/P2 进 backlog 不进 v0.1                                           |
-| LLM 摘要质量不稳定 → 用户失望                                   | 🟡 中 | v0.1 把模板可改 prompt 暴露，让用户自己调；不承诺"AI 替你写会议纪要"                 |
-| 录音中 App 崩溃 → 文件损坏                                      | 🔴 高 | 边录边写 WAV 流（不缓存到 RAM 再 flush）；最坏情况只丢崩溃前几秒                     |
-| Pass A streaming 模型中文 CER 不够，hypothesis 跳变频繁         | 🟡 中 | spike-011 量化 streaming Zipformer vs VAD 短窗 SenseVoice；不达标走 VAD 短窗保底     |
-| 录音 + Pass A 并发吃满 CPU，电平表 / UI 卡                      | 🟡 中 | spike-012 在 M1 / Intel Mac / Win i5 三档实测；不达标降级（仅菜单栏模式不跑 Pass A） |
-| Pass A 与 Pass B 结果差异让用户觉得"又改了"                     | 🟡 中 | UI 不弹通知，原地刷新；segment id 稳定，阅读光标不跳行（spike-013）                  |
-| 内存 2.5 GB 在 8 GB 入门机器吃紧                                | 🟡 中 | Pass B 开跑前必须等 Pass A utility unload；不允许同时持有两份模型超 2s               |
+| 风险                                                            | 影响  | 缓解                                                                                                                                                                        |
+| --------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS SIP 剥离 DYLD\_\*，签名包加载 sherpa-onnx 失败            | 🔴 高 | CI 必须做"签名+公证后启动"smoke test，不能只在 dev 验证                                                                                                                     |
+| CoreAudio Tap 在某些设备组合（蓝牙耳机 / 外接声卡）下行为不一致 | 🟡 中 | spike-001 中覆盖蓝牙耳机场景；Plan B：force ScreenCaptureKit fallback（需额外权限）                                                                                         |
+| 模型下载在国内卡死                                              | 🟡 中 | hf-mirror / ModelScope / GitHub Releases 多源 fallback + 测速                                                                                                               |
+| 自己写得太多功能、v0.1 发不出去                                 | 🟡 中 | 严格按 §4 范围；P1/P2 进 backlog 不进 v0.1                                                                                                                                  |
+| LLM 摘要质量不稳定 → 用户失望                                   | 🟡 中 | v0.1 把模板可改 prompt 暴露，让用户自己调；不承诺"AI 替你写会议纪要"                                                                                                        |
+| 录音中 App 崩溃 → 文件损坏                                      | 🔴 高 | 边录边写 WAV 流（不缓存到 RAM 再 flush）；最坏情况只丢崩溃前几秒                                                                                                            |
+| Pass A streaming 模型中文 CER 不够，hypothesis 跳变频繁         | 🟡 中 | spike-011 量化 streaming Zipformer vs VAD 短窗 SenseVoice；不达标走 VAD 短窗保底                                                                                            |
+| 录音 + Pass A 并发吃满 CPU，电平表 / UI 卡                      | 🟡 中 | spike-012a 在 M2 arm64 实测（M3 准入）；Intel Mac / Win i5（spike-012b）硬件不可得 deferred-v0.x，挂 M6 dogfood / 公开测试期反馈触发；不达标降级（仅菜单栏模式不跑 Pass A） |
+| Pass A 与 Pass B 结果差异让用户觉得"又改了"                     | 🟡 中 | UI 不弹通知，原地刷新；segment id 稳定，阅读光标不跳行（spike-013）                                                                                                         |
+| 内存 2.5 GB 在 8 GB 入门机器吃紧                                | 🟡 中 | Pass B 开跑前必须等 Pass A utility unload；不允许同时持有两份模型超 2s                                                                                                      |
 
 ---
 
