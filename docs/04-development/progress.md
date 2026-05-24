@@ -1,8 +1,8 @@
 # 开发进度（live）
 
-> **最后更新**：2026-05-23
-> **当前里程碑**：Pre-M3
-> **当前焦点**：02-design 屏 0 + LLM 模板 v0.1（🔄 待 PR）;剩 spike-012 即可进 M3
+> **最后更新**：2026-05-24
+> **当前里程碑**：Pre-M3 → M3 过渡（spike-012 另 session 在跑;T10 本 session 起步）
+> **当前焦点**：T10 主进程脚手架 ✅ 待 PR;下一候选 T11 录音前浮窗 / T12 音频采集（依赖 T10）
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 19                                              |
-| 🔄 wip                    | 0                                               |
+| ✅ done                   | 20                                              |
+| 🔄 wip                    | 1（spike-012 另 session）                       |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 41                                              |
+| 🔲 todo                   | 39                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,26 +94,22 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### chore: 02-design 屏 0 + LLM 模板 v0.1 🔄 待 PR
+### T10 — 主进程脚手架 ✅ 待 PR
 
-起始 2026-05-23 · 分支 `chore/02-design-screen0-llm-templates`
+起始 2026-05-24 · 完成 2026-05-24 · 分支 `feat/T10-main-scaffold`
 
-来源：dev-plan §2.4 Pre-M3 退出条件 第 4 / 第 5 项（02-design 屏 0 + LLM 模板 prompt v0.1 至少 meeting / note）。
+来源：[`development-plan.md` T10](./development-plan.md) M3 第一个 code task。
 
-**AC checkbox**（这两项 dev-plan 没列细化 AC，本 PR 自定 + 报备）：
+**AC checkbox**（dev-plan T10 原 AC 只一句"点 tray 能弹 dropdown，⌘⇧R 能弹 prep 浮窗"，下面拆细）：
 
-- [x] **AC1** `02-design/screen-specs/onboarding.md` 在屏 1 之前加屏 0 全章节（目的 / 进入条件 / 区域 / 文案变体 mac+win+通用 / 行为 / 状态变体 / 边界 / Mockup 待画清单）
-- [x] **AC2** `02-design/user-flows.md` 流程 1.1 mermaid 加版本检查分叉到屏 0；§1.3 状态机加屏 0 行
-- [x] **AC3** `02-design/information-architecture.md` §6.1 步骤序列 + §6.2 表加屏 0
-- [x] **AC4** `02-design/llm-templates.md` 新建：输入约定 §1（含双轨 speaker / 长度截断 / sysmeta 元数据）+ meeting 完整模板 §2 + note 完整模板 §3 + 输出渲染约定 §4
-- [x] **AC5** `02-design/screen-specs/settings.md` Tab 4 把"待补"link 改成指向 llm-templates.md 锚点
-- [x] **AC6** `03-architecture/audio-capture.md §7.1` 移除"02-design 未补齐" callout，指向 02-design 已补章节
-- [x] **AC7** progress.md §1 清干净 + §4.1 Pre-M3 退出条件第 4 / 第 5 项打勾（这两项是 supporting deliverable，不在 spike/ADR/T 编号系统里，速查面板数字不动）
-
-**报备说明**：
-
-- llm-templates.md 是新建文件（不算改 spec）；其余动的都是 spec 增量补齐（屏 0 是 audio-capture.md §7.1 早就要求加的，方向已定），settings.md Tab 4 只是把 stub 占位变实链接
-- 其他 3 个 LLM 模板（候选人评估 / 自我复盘 / 章节笔记）按 dev-plan §2.4 退出条件 "至少 meeting / note 两个" 推到 M5 T51 一并出 — 这部分本 PR 不做，llm-templates.md §0 表里标 ⏳ M5 T51
+- [x] **AC1** lifecycle 拆 `lifecycle/single-instance.ts` + `lifecycle/before-quit.ts`（before-quit 给 T17 状态保护留 hook 点，T10 不实现录音退出阻断）
+- [x] **AC2** 三个窗口工厂落到 `windows/`：main-window（拆出）/ prep-window（**常驻 hidden** 520×360 frameless）/ settings-window（按需 880×640）
+- [x] **AC3** `menu/tray.ts`：Tray 实例 + 空闲态 5 项 dropdown；T10 阶段 icon 用 `nativeImage.createEmpty()` + `setTitle('LA')` 占位（proper template icon 留 T70）
+- [x] **AC4** `menu/app-menu.ts`：macOS app menu 标准骨架（About / Hide / Quit + Edit / View / Window / Help；Win/Linux setApplicationMenu(null) 清默认）
+- [x] **AC5** `shortcut/register.ts` + `shortcut/handler.ts`：`CommandOrControl+Shift+R` 注册；handler 当前永远 show prep（T12 接录音状态机时按 user-flows §2.2 双向语义改，TODO 已留）；app will-quit 时 `unregister`
+- [x] **AC6** `src/main/index.ts` 收成 slim orchestrator（env → single-instance → logger → before-quit handler → app.whenReady → ipc + app-menu + main-window + prep-window + tray + shortcut）
+- [x] **AC7** 手测（用户截图 3 张交叉验证）：menubar "LA" ✅ + dropdown 5 项 ✅ + ⌘⇧R 弹 prep 浮窗（frameless 520×360）✅ + 设置窗口 ✅（bonus）；before-quit log 触发 → ⌘Q 退出 ✅；3 个窗口期间 app 一直活着（隐含关主窗口不退）
+- [x] **AC8** `pnpm lint`（0 errors，3 pre-existing i18next warnings 与本 PR 无关）+ `pnpm typecheck`（pass）+ `pnpm test`（4/4 pass）；§4.2 T10 ✅ + 速查面板 wip 2 → 1 / done 19 → 20 / todo 40 → 39
 
 ---
 
@@ -167,20 +163,20 @@
 
 ### 4.2 M3 — 骨架可跑（T10-T20）
 
-| ID   | 标题                   | 状态    | 分支 / PR | 起  | 完  | 备注     |
-| ---- | ---------------------- | ------- | --------- | --- | --- | -------- |
-| T10  | 主进程脚手架           | 🔲 todo | —         | —   | —   | —        |
-| T11  | 录音前浮窗（prep）     | 🔲 todo | —         | —   | —   | 依赖 T10 |
-| T12  | 音频采集（renderer）   | 🔲 todo | —         | —   | —   | 依赖 T10 |
-| T13  | WAV 流式落盘（main）   | 🔲 todo | —         | —   | —   | 依赖 T12 |
-| T14  | mixdown                | 🔲 todo | —         | —   | —   | 依赖 T13 |
-| T15  | 录音库 v0.1            | 🔲 todo | —         | —   | —   | 依赖 T10 |
-| T15a | 崩溃恢复扫描           | 🔲 todo | —         | —   | —   | 依赖 T13 |
-| T16  | 详情区 - 播放器        | 🔲 todo | —         | —   | —   | 依赖 T15 |
-| T17  | 状态保护               | 🔲 todo | —         | —   | —   | 依赖 T13 |
-| T18  | 设置窗口骨架           | 🔲 todo | —         | —   | —   | 依赖 T10 |
-| T19  | CI 加 macOS smoke 测试 | 🔲 todo | —         | —   | —   | 依赖 T13 |
-| T20  | 权限引导（简版）       | 🔲 todo | —         | —   | —   | 依赖 T10 |
+| ID   | 标题                   | 状态    | 分支 / PR              | 起         | 完         | 备注                                                 |
+| ---- | ---------------------- | ------- | ---------------------- | ---------- | ---------- | ---------------------------------------------------- |
+| T10  | 主进程脚手架           | ✅ done | feat/T10-main-scaffold | 2026-05-24 | 2026-05-24 | lifecycle+windows×3+menu/tray+shortcut;手测 3 截图过 |
+| T11  | 录音前浮窗（prep）     | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
+| T12  | 音频采集（renderer）   | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
+| T13  | WAV 流式落盘（main）   | 🔲 todo | —                      | —          | —          | 依赖 T12                                             |
+| T14  | mixdown                | 🔲 todo | —                      | —          | —          | 依赖 T13                                             |
+| T15  | 录音库 v0.1            | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
+| T15a | 崩溃恢复扫描           | 🔲 todo | —                      | —          | —          | 依赖 T13                                             |
+| T16  | 详情区 - 播放器        | 🔲 todo | —                      | —          | —          | 依赖 T15                                             |
+| T17  | 状态保护               | 🔲 todo | —                      | —          | —          | 依赖 T13                                             |
+| T18  | 设置窗口骨架           | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
+| T19  | CI 加 macOS smoke 测试 | 🔲 todo | —                      | —          | —          | 依赖 T13                                             |
+| T20  | 权限引导（简版）       | 🔲 todo | —                      | —          | —          | 依赖 T10                                             |
 
 **M3 退出条件**：录音→停止→库→播放全程无报错；macOS + Windows 各自跑通；30min 长录音；CI smoke 过；PRD §7.1 性能 #1/#2/#5 测过。
 
