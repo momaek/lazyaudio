@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>spike-005 mic/system drift</title>
+    <style>
+      body {
+        font:
+          13px -apple-system,
+          system-ui,
+          sans-serif;
+        padding: 12px;
+        margin: 0;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 8px;
+        max-height: 380px;
+        overflow: auto;
+        font-size: 11px;
+        margin: 4px 0 0;
+      }
+      button {
+        font-size: 13px;
+        padding: 6px 10px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>spike-005 mic / system 漂移量化</h2>
+    <p style="margin: 0 0 8px; color: #666">
+      点 <b>开始 3 次 run</b>。每次：build reference → 同时 capture mic + system → 主进程 afplay 播
+      reference → 收完写两路 wav。结束跑 <code>pnpm analyze</code> 出报告。
+    </p>
+    <div class="row">
+      <button id="go">开始 3 次 run</button>
+      <span id="status" style="color: #888">idle</span>
+    </div>
+    <pre id="log"></pre>
+    <script>
+      const log = (s) => {
+        const el = document.getElementById('log')
+        el.textContent += s + '\n'
+        el.scrollTop = el.scrollHeight
+        console.log(s)
+      }
+      const setStatus = (s) => (document.getElementById('status').textContent = s)
+
+      // Worklet: 每个 128-sample block 把 PCM 数据原样 postMessage 回主线程
+      // 同时算 maxAbs 用于诊断信号是否为静音
+      const WORKLET_SRC = `
+        class Tap extends AudioWorkletProcessor {
+          process(inputs) {
+            const ch = inputs[0] && inputs[0][0]
+            if (ch && ch.length > 0) {
+              let maxAbs = 0
+              for (let i = 0; i < ch.length; i++) {
+                const a = ch[i] < 0 ? -ch[i] : ch[i]
+                if (a > maxAbs) maxAbs = a
+              }
+              const copy = new Float32Array(ch.length)
+              copy.set(ch)
+              this.port.postMessage({ pcm: copy.buffer, frames: ch.length, maxAbs }, [copy.buffer])
+            }
+            return true
+          }
+        }
+        registerProcessor('tap', Tap)
+      `
+      const WORKLET_URL = URL.createObjectURL(
+        new Blob([WORKLET_SRC], { type: 'application/javascript' }),
+      )
+
+      const SAMPLE_RATE = 48000
+
+      async function captureBoth(durationSec) {
+        log(`  -> getUserMedia(mic) …`)
+        let micStream
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              sampleRate: SAMPLE_RATE,
+              channelCount: 1,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+          })
+        } catch (e) {
+          throw new Error(`getUserMedia(mic) FAILED: ${e.name} / ${e.message}`)
+        }
+        log(`  -> getDisplayMedia(audio-only loopback) …`)
+        let sysStream
+        try {
+          // audio-only: video 是 false，请求 macOS 14.4+ 的 SystemAudioRecording 路径
+          // 对应 "System Audio Recording Only" 权限分组，不需要 Screen Recording
+          sysStream = await navigator.mediaDevices.getDisplayMedia({
+            video: false,
+            audio: true,
+          })
+        } catch (e) {
+          micStream.getTracks().forEach((t) => t.stop())
+          throw new Error(
+            `getDisplayMedia(audio-only) FAILED: ${e.name} / ${e.message}\n` +
+              `  -> 多半是 System Audio Recording 权限未给 / Electron 版本不支持。流程：\n` +
+              `     1) Cmd+Q 退出 Electron\n` +
+              `     2) 系统设置 → 隐私与安全性 → System Audio Recording Only → 加 Electron\n` +
+              `     3) 重新 pnpm bench`,
+          )
+        }
+        if (sysStream.getAudioTracks().length === 0) {
+          micStream.getTracks().forEach((t) => t.stop())
+          sysStream.getTracks().forEach((t) => t.stop())
+          throw new Error(
+            `getDisplayMedia 返回了 stream 但没有 audio track — system loopback 拿失败`,
+          )
+        }
+
+        const ctx = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' })
+        log(`  -> AudioContext state(initial): ${ctx.state}`)
+        if (ctx.state !== 'running') {
+          await ctx.resume()
+          log(`  -> AudioContext state(after resume): ${ctx.state}`)
+        }
+        await ctx.audioWorklet.addModule(WORKLET_URL)
+
+        const micChunks = []
+        const sysChunks = []
+        let micFrames = 0
+        let sysFrames = 0
+        let micMaxAbs = 0
+        let sysMaxAbs = 0
+        let micChunkCount = 0
+        let sysChunkCount = 0
+
+        const micSrc = ctx.createMediaStreamSource(micStream)
+        const sysSrc = ctx.createMediaStreamSource(sysStream)
+        const micTap = new AudioWorkletNode(ctx, 'tap')
+        const sysTap = new AudioWorkletNode(ctx, 'tap')
+
+        micTap.port.onmessage = (e) => {
+          micChunks.push(new Float32Array(e.data.pcm))
+          micFrames += e.data.frames
+          micChunkCount++
+          if (e.data.maxAbs > micMaxAbs) micMaxAbs = e.data.maxAbs
+        }
+        sysTap.port.onmessage = (e) => {
+          sysChunks.push(new Float32Array(e.data.pcm))
+          sysFrames += e.data.frames
+          sysChunkCount++
+          if (e.data.maxAbs > sysMaxAbs) sysMaxAbs = e.data.maxAbs
+        }
+
+        micSrc.connect(micTap)
+        sysSrc.connect(sysTap)
+        // 关键：把 tap 也"接到" destination（通过 0-gain），强制 Chromium
+        // 给 worklet node pump audio。某些 Chromium 版本上没有下游连接的 worklet
+        // 不会被调用 process()（或被调用时给的全是 silent buffer）
+        const silentGain = ctx.createGain()
+        silentGain.gain.value = 0
+        micTap.connect(silentGain)
+        sysTap.connect(silentGain)
+        silentGain.connect(ctx.destination)
+
+        const startT = performance.now()
+        // 给 worklet pipeline warmup 一点点（避免错过最初 chunks）
+        await new Promise((r) => setTimeout(r, 200))
+        log(`  -> capture running; trigger afplay …`)
+
+        // 触发 main 进程 afplay；不 await，让两路 capture 在播放的同时跑
+        const playPromise = window.spike.playReference()
+
+        await new Promise((r) => setTimeout(r, durationSec * 1000))
+
+        // teardown
+        micTap.disconnect()
+        sysTap.disconnect()
+        micSrc.disconnect()
+        sysSrc.disconnect()
+        micStream.getTracks().forEach((t) => t.stop())
+        sysStream.getTracks().forEach((t) => t.stop())
+        await ctx.close()
+
+        const playInfo = await playPromise
+        const totalMs = performance.now() - startT
+        log(
+          `  -> stop; capture ${(totalMs / 1000).toFixed(2)}s; mic chunks=${micChunkCount} frames=${micFrames} maxAbs=${micMaxAbs.toFixed(6)}; sys chunks=${sysChunkCount} frames=${sysFrames} maxAbs=${sysMaxAbs.toFixed(6)}; afplay exit=${playInfo.exitCode}`,
+        )
+        if (micMaxAbs === 0 && sysMaxAbs === 0) {
+          log(
+            `  ⚠️  两路 maxAbs 都为 0 — 信号未到 worklet。可能：mic muted / system audio 静音 / AudioContext sandbox 拦截`,
+          )
+        } else if (micMaxAbs === 0) {
+          log(`  ⚠️  mic 静音 (sys 正常) — 检查 mic 输入是否被静音 / 权限被收走`)
+        } else if (sysMaxAbs === 0) {
+          log(`  ⚠️  system 静音 (mic 正常) — getDisplayMedia loopback 没真拿到声音`)
+        }
+
+        // 串成一段连续 Float32Array
+        const flatten = (chunks, totalFrames) => {
+          const out = new Float32Array(totalFrames)
+          let off = 0
+          for (const c of chunks) {
+            out.set(c, off)
+            off += c.length
+          }
+          return out
+        }
+        return {
+          mic: flatten(micChunks, micFrames),
+          system: flatten(sysChunks, sysFrames),
+          micFrames,
+          sysFrames,
+        }
+      }
+
+      async function oneRun(runIndex) {
+        log(`\n=== run ${runIndex} ===`)
+        setStatus(`run ${runIndex}: build reference`)
+        const meta = await window.spike.buildReference()
+        log(
+          `  reference: ${meta.click.count} clicks @ ${meta.click.firstAtSec}s + ${meta.click.intervalSec}s 间隔, ${meta.recordSeconds}s 总长`,
+        )
+        setStatus(`run ${runIndex}: capturing`)
+        const cap = await captureBoth(meta.recordSeconds)
+        setStatus(`run ${runIndex}: saving`)
+        const saved = await window.spike.saveCapture({
+          runIndex,
+          mic: cap.mic.buffer,
+          system: cap.system.buffer,
+          micFrames: cap.micFrames,
+          sysFrames: cap.sysFrames,
+        })
+        log(`  saved:`)
+        log(`    mic   : ${saved.micPath}`)
+        log(`    system: ${saved.sysPath}`)
+        log(`    meta  : ${saved.metaPath}`)
+      }
+
+      async function main() {
+        document.getElementById('go').disabled = true
+        try {
+          for (let i = 1; i <= 3; i++) {
+            await oneRun(i)
+            if (i < 3) {
+              log(`\n  wait 1.5s before next run …`)
+              await new Promise((r) => setTimeout(r, 1500))
+            }
+          }
+          setStatus('done')
+          log('\nall runs done. main 进程会在 500ms 内退出；然后 pnpm analyze 看报告。')
+        } catch (e) {
+          setStatus('error')
+          log('FAILED: ' + (e && e.stack ? e.stack : String(e)))
+        }
+        window.spike.allDone()
+      }
+
+      document.getElementById('go').addEventListener('click', main)
+    </script>
+  </body>
+</html>

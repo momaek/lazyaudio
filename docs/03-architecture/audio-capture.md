@@ -63,6 +63,14 @@ const systemStream = await navigator.mediaDevices.getUserMedia({
 
 > `desktopCapturer.getSources` 只能在主进程调用，所以 renderer 通过 IPC 拿到 source id。这是 §6 IPC 协议要列出的第一组消息。
 
+> **⚠️ 实施时按 spike-005 结论走**（[tech-feasibility §spike-005](../01-research/tech-feasibility.md#spike-005--mic--system-漂移量化2026-05-23)）：
+> 上面代码示例（getUserMedia + `chromeMediaSourceId`）是早期 Chromium legacy 路径，spike-005 实测在 **macOS 14.4+ 推荐改走 audio-only ScreenCaptureKit**：
+>
+> - main: `session.defaultSession.setDisplayMediaRequestHandler((req, cb) => cb({ audio: 'loopback' }))`（**不**传 `useSystemPicker: true`，会被 TCC 短路）
+> - renderer: `navigator.mediaDevices.getDisplayMedia({ video: false, audio: true })`
+>
+> 好处：只需要 "System Audio Recording Only" 权限，不要 Screen Recording 全权限，用户授权门槛低。T12 实施时按这套写；§2.1 的代码示例本 PR 不重写，留 T12 实施 PR 一并清理（避免现在引入 dead code）。
+
 为什么不自己写 native addon：
 
 - Electron 已经把 CoreAudio Tap / WASAPI loopback 都包好了，自己写 = 两个平台的维护负担 + 签名复杂度
@@ -343,7 +351,7 @@ PRD §4.1 F3.1：**混音始终生成，分轨可关**。
 **注意**：
 
 - 简单 **平均** 而不是直接 sum，避免削顶
-- 不做对齐 / 漂移补偿；spike-005 量化漂移 < 50 ms（PRD §5 验证项），人耳基本不可察觉。一旦实测漂移超 100 ms 再补对齐逻辑。
+- 不做对齐 / 漂移补偿；spike-005（2026-05-23）已验证 M2 arm64 / macOS 26.5 下两路同 AudioContext capture 采样时钟严格同步（12s 内 mic 和 sys 总 frame 数完全一致，差 < 1/48000 ≈ 21 μs）。**起点对齐** 验证留到 T13/T14 真实录音场景做听感验证：30min mixed.wav 听感 mic 与 system 同步、无明显错位。一旦实测起点偏差超 100 ms 再补对齐逻辑（[`tech-feasibility.md §spike-005`](../01-research/tech-feasibility.md#spike-005--mic--system-漂移量化2026-05-23)）。
 - 用户在设置里关分轨时：mic.wav / system.wav 在合成完后删除
 
 ### 6.3 失败处理
@@ -503,7 +511,7 @@ app 启动后空闲时（idle callback）
 
 - [ ] spike-001：macOS 双轨录音 30s WAV 可播放 + 仅麦克风权限
 - [ ] spike-002：Windows 双轨录音 30s 不崩
-- [ ] spike-005：mic / system 漂移量化，典型值 < 50 ms
+- [x] spike-005：mic / system 漂移量化（部分拍板 2026-05-23；采样时钟 < 21μs / 12s；起点对齐留 T13/T14 验证）
 - [ ] spike-010（新增）：快捷键延迟两阶段——keydown → 浮窗 visible < 100 ms，浮窗 Enter → 第一帧 PCM 落盘 < 400 ms
 - [ ] AudioWorklet PCM tap 在 1h 录音中 CPU < 5%、内存不增长（开发阶段压测）
 

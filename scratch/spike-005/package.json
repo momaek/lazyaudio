@@ -1,0 +1,20 @@
+{
+  "name": "spike-005",
+  "version": "0.0.0",
+  "private": true,
+  "description": "spike-005 mic / system 漂移量化",
+  "main": "src/main.js",
+  "scripts": {
+    "bench": "electron .",
+    "analyze": "node src/analyze.mjs",
+    "smoke": "node src/smoke-analyze.mjs"
+  },
+  "devDependencies": {
+    "electron": "^42.2.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
