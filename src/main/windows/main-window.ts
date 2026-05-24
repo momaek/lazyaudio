@@ -18,6 +18,10 @@ export function createMainWindow(): BrowserWindow {
     height: 720,
     show: false,
     title: 'LazyAudio',
+    // §5.7 集成式 chrome:macOS fullSizeContentView + traffic light @ 16/18
+    // Windows titleBarOverlay 留 T70 release 阶段(与 template icon 一起)
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
       // preload 强制 CJS 输出(.js),sandbox: true 下 Electron 不支持 ESM preload
       preload: path.join(__dirname, '../preload/index.js'),
