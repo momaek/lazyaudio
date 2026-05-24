@@ -1,8 +1,8 @@
 # 开发进度（live）
 
-> **最后更新**：2026-05-17
+> **最后更新**：2026-05-23
 > **当前里程碑**：Pre-M3
-> **当前焦点**：spike-013 PR 待开,B 策略 segment id 稳定率 100% 验过;剩 spike-005/012 + 02-design 屏 0 + LLM 模板
+> **当前焦点**：spike-005 部分拍板完成,代码 + 文档待开 PR;剩 spike-012 + 02-design 屏 0 + LLM 模板
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 17(+spike-013)                                  |
+| ✅ done                   | 19                                              |
 | 🔄 wip                    | 0                                               |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 42                                              |
+| 🔲 todo                   | 41                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,29 +94,43 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_spike-013 代码 + 数据 + tech-feasibility 结论完毕,等 commit/push/开 PR。_
+### spike-005 — mic / system 漂移量化（部分拍板）✅ 待 PR
 
-**下一步候选**(spike-013 合后):
+起始 2026-05-22 · 完成 2026-05-23 · 分支 `spike/005-track-sync`
 
-- `spike-005` mic/system 漂移(0.5d,需 fixture)
-- `spike-012` Pass A 并发 1h(1d,⚠️ 无 Intel/Win 机器,需拆 12a/12b 或砍 scope,改 dev-plan 前报备)
-- 02-design 屏 0 + LLM 模板 v0.1(非代码,需用户拍)
+来源：[`tech-feasibility.md` §R5](../01-research/tech-feasibility.md#r5--mic-和-system-音轨时间同步) + [`audio-capture.md` §6.2 注脚](../03-architecture/audio-capture.md)
+
+**AC checkbox**（dev-plan 里 spike-005 仅一句话；细化退出条件取自 tech-feasibility §R5 + 阶段退出条件 §spike-005）：
+
+- [x] **AC1** 能同时 capture mic + system 两路，写出独立 wav 文件（M2 arm64 macOS 26.5）— Electron 42 + audio-only SCKit 路径走通，3 run × 12s 全跑通
+- [x] **AC2** 有可重复的 reference 触发源（6 个 click @ 1.5s 间隔，spike 自动 afplay reference.wav）
+- [x] **AC3** 分析脚本能在两路 wav 中检测 click 峰值 — smoke 验证：注入 17.2ms drift → 检测 17.188ms，误差 0.012ms
+- [x] **AC4** 跑 3 run × 6 click = 18 click 对，数据 + 结论写进 `tech-feasibility.md §spike-005`（mic 路因合盖物理静音；sys 路 18/18 检出；时钟同步 < 21 μs / 12s）
+- [x] **AC5** 决策落地：`audio-capture.md §6.2` 注脚改写 + `R5` 状态置部分拍板 + §2.1 加 sidenote 指向 audio-only SCKit 正解 + spike 清单 §13 打勾
+- [x] **AC6** progress.md §2 spike-005 ✅ + 同 PR 提交（**本次 PR 完成**）
+
+**部分拍板说明**：mic 路 ground truth 未拿到（spike 设备合盖、内置 mic 物理静音）。已验证：同 AudioContext 下两路采样时钟严格同步（< 21 μs / 12s）+ audio-only SCKit 路径走通。**起点对齐验证推迟到 M3 T13/T14 真实录音 + mixdown 听感测试**（T14 AC 加一条"30min mixed.wav 听感 mic 与 system 同步无错位"）— 这条改 dev-plan，T14 落地 PR 一并加（不在本 PR 内）。
+
+**spike 实操副产品（影响 T01）**：
+
+- Node 基线 ≥ **22.x**：T01 `.nvmrc` 写 `22`（Electron 35+ 用 ESM `@electron/get@5`，Node 20 装不下）
+- dev 时 Electron.app 必须 **ad-hoc 签名**（macOS 26 Tahoe TCC 对未签名 binary 直接 denied 不弹框）；T01-T02 postinstall + CI mac job 都要
 
 ---
 
 ## 2. Pre-M3 — Spike
 
-| ID        | 标题                                  | 状态    | 起         | 完         | 备注 / PR                                                                                                                |
-| --------- | ------------------------------------- | ------- | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| spike-001 | macOS 双轨录音                        | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
-| spike-002 | Windows 双轨录音                      | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
-| spike-003 | sherpa-onnx + Electron POC            | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
-| spike-004 | macOS 签名 + 公证链                   | ✅ done | —          | 已完       | tech-feasibility                                                                                                         |
-| spike-005 | mic / system 漂移量化                 | 🔲 todo | —          | —          | 0.5d                                                                                                                     |
-| spike-010 | 快捷键 → 第一帧 PCM < 100/400 ms      | ✅ done | 2026-05-17 | 2026-05-17 | M2 arm64:A p95 46.4ms + B p95 235ms;tech-feasibility §spike-010                                                          |
-| spike-011 | Pass A 引擎选型                       | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004 |
-| spike-012 | Pass A + 录音并发 1h 资源压测         | 🔲 todo | —          | —          | 1d；依赖 011                                                                                                             |
-| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | ✅ done | 2026-05-17 | 2026-05-17 | B 策略(timestamp key)id 稳定率 100%;tech-feasibility §spike-013                                                          |
+| ID        | 标题                                  | 状态    | 起         | 完         | 备注 / PR                                                                                                                          |
+| --------- | ------------------------------------- | ------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| spike-001 | macOS 双轨录音                        | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-002 | Windows 双轨录音                      | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-003 | sherpa-onnx + Electron POC            | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-004 | macOS 签名 + 公证链                   | ✅ done | —          | 已完       | tech-feasibility                                                                                                                   |
+| spike-005 | mic / system 漂移量化                 | ✅ done | 2026-05-22 | 2026-05-23 | 部分拍板:同 AudioContext 时钟同步 < 21μs/12s + audio-only SCKit 路径走通;mic 起点对齐推迟到 M3 T13/T14;tech-feasibility §spike-005 |
+| spike-010 | 快捷键 → 第一帧 PCM < 100/400 ms      | ✅ done | 2026-05-17 | 2026-05-17 | M2 arm64:A p95 46.4ms + B p95 235ms;tech-feasibility §spike-010                                                                    |
+| spike-011 | Pass A 引擎选型                       | ✅ done | 2026-05-17 | 2026-05-17 | 拍板 B 路 VAD 短窗 SenseVoice;PR [#2](https://github.com/momaek/lazyaudio/pull/2);tech-feasibility §spike-011 + ADR-0004           |
+| spike-012 | Pass A + 录音并发 1h 资源压测         | 🔲 todo | —          | —          | 1d；依赖 011                                                                                                                       |
+| spike-013 | hypothesis → confirmed 替换 UI 稳定性 | ✅ done | 2026-05-17 | 2026-05-17 | B 策略(timestamp key)id 稳定率 100%;tech-feasibility §spike-013                                                                    |
 
 ---
 

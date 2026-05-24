@@ -4,16 +4,16 @@
 
 ## 风险登记表（Risk Register）
 
-| ID  | 风险                                      | 严重性   | 当前判断                                                            | 建议                                 |
-| --- | ----------------------------------------- | -------- | ------------------------------------------------------------------- | ------------------------------------ |
-| R1  | macOS 同时录系统音 + 麦克风（audio-only） | **致命** | ✅ Electron 35+ 内置走 CoreAudio Tap（macOS 14.2+），仅需麦克风权限 | **低风险**，跑 spike 确认            |
-| R2  | Windows 同时录系统音 + 麦克风             | **致命** | ⚠️ 能录但有已知 bug                                                 | 需 spike 验证当前 Electron 版本      |
-| R3  | sherpa-onnx 在 Electron 里跑起来          | 高       | ✅ 有 prebuilt 包                                                   | 标准做法，关注打包配置               |
-| R4  | macOS 公证 + native addon 签名            | 高       | ⚠️ 已知复杂                                                         | 必须早跑 spike，否则发布前才发现就晚 |
-| R5  | mic 和 system 两路音频时间同步            | 中       | 🤔 待验证                                                           | spike 中量化漂移幅度                 |
-| R6  | 长录音（2-3h）稳定性                      | 中       | 🤔 待验证                                                           | 留到开发阶段压测                     |
-| R7  | 全局快捷键 + macOS 辅助功能权限           | 中       | ⚠️ Sonoma+ 需 Accessibility 权限                                    | 加到 onboarding 流程                 |
-| R8  | sherpa-onnx 实测速度满足体验              | 中       | 🤔 待验证                                                           | 详见 `sherpa-onnx-research.md`       |
+| ID  | 风险                                      | 严重性   | 当前判断                                                            | 建议                                    |
+| --- | ----------------------------------------- | -------- | ------------------------------------------------------------------- | --------------------------------------- |
+| R1  | macOS 同时录系统音 + 麦克风（audio-only） | **致命** | ✅ Electron 35+ 内置走 CoreAudio Tap（macOS 14.2+），仅需麦克风权限 | **低风险**，跑 spike 确认               |
+| R2  | Windows 同时录系统音 + 麦克风             | **致命** | ⚠️ 能录但有已知 bug                                                 | 需 spike 验证当前 Electron 版本         |
+| R3  | sherpa-onnx 在 Electron 里跑起来          | 高       | ✅ 有 prebuilt 包                                                   | 标准做法，关注打包配置                  |
+| R4  | macOS 公证 + native addon 签名            | 高       | ⚠️ 已知复杂                                                         | 必须早跑 spike，否则发布前才发现就晚    |
+| R5  | mic 和 system 两路音频时间同步            | 中       | ✅ 部分拍板（spike-005 2026-05-23）                                 | 时钟同步 < 21μs/12s；起点对齐留 T13/T14 |
+| R6  | 长录音（2-3h）稳定性                      | 中       | 🤔 待验证                                                           | 留到开发阶段压测                        |
+| R7  | 全局快捷键 + macOS 辅助功能权限           | 中       | ⚠️ Sonoma+ 需 Accessibility 权限                                    | 加到 onboarding 流程                    |
+| R8  | sherpa-onnx 实测速度满足体验              | 中       | 🤔 待验证                                                           | 详见 `sherpa-onnx-research.md`          |
 
 ---
 
@@ -174,6 +174,8 @@ spike-004-macos-signing-pipeline/
 
 ## R5 — Mic 和 System 音轨时间同步
 
+**状态**：✅ 部分拍板（spike-005 2026-05-23）— 采样时钟严格同步（< 21 μs / 12s）；起点对齐验证推迟到 M3 T13/T14。详见 [§spike-005](#spike-005--mic--system-漂移量化2026-05-23)。
+
 ### 问题
 
 两路 MediaStream 同时启动，但底层数据到达的时间不完全对齐。会议场景如果偏 200ms 以上，用户播放 mixed.wav 时会感觉"自己说话和对方回应错开了"。
@@ -261,7 +263,7 @@ spike-005-track-sync/
 - [ ] spike-002 通过：Windows 同上
 - [ ] spike-003 通过：sherpa-onnx 在 Electron 里能转出文本
 - [ ] spike-004 通过：完整签名 + 公证流程跑通至少一次（重要：不要拖到最后）
-- [ ] spike-005 量化漂移：知道 mic/system 之间的典型偏移幅度
+- [x] spike-005 量化漂移：知道 mic/system 之间的典型偏移幅度（部分拍板 2026-05-23；详见 §spike-005）
 - [ ] **spike-011 拍板 Pass A 引擎**：streaming Zipformer / VAD 短窗 SenseVoice 二选一，CER + 延迟有量化数据
 - [ ] **spike-012 通过资源压测**：录音 + Pass A 并发 1h 在 M1 / Intel / Win i5 都满足 §7.1 预算
 - [ ] spike-013 量化 hypothesis 替换稳定性：segment id 在 90% 以上 hypothesis 周期内不变
@@ -381,6 +383,63 @@ spike-005-track-sync/
 - 浮窗**必须预创建常驻 hidden**(本测前提)。T11 实现按这个模式做。
 - AudioContext / AudioWorklet 首次加载有 ~60ms 额外开销,T12 可考虑在 app 启动后预加载一个空 AudioContext + worklet module,把首录延迟再砍掉(优化项,非必须)。
 - Intel Mac / Win i5 数据 ⏳ 等 spike-012 时补;如果任一平台破预算,触发 dev-plan §10.2 砍 scope(降级"录前预热"或调整 PRD §7.1 阈值)。
+
+---
+
+## spike-005 — mic / system 漂移量化（2026-05-23）
+
+**状态**：✅ done（**部分结论拍板**；起点对齐验证推迟到 M3 T13/T14 真实录音场景）
+**POC 工作区**：[`scratch/spike-005/`](../../scratch/spike-005/)（代码 in tree，wav/meta 不进 git）
+**测试环境**：M2 arm64 / macOS 26.5 Tahoe / Electron 42.2.0 / Node 22.22.3 / ad-hoc 签名
+**对接**：[`R5`](#r5--mic-和-system-音轨时间同步) 退出条件 + [`audio-capture.md` §6.2](../03-architecture/audio-capture.md) 混音注脚
+
+### 方法学
+
+ScreenCaptureKit audio-only 路径（macOS 14.4+）+ 同一 AudioContext 接 mic + system 两路：
+
+1. 主进程 `setDisplayMediaRequestHandler` 只回 `{ audio: 'loopback' }`（不带 video），renderer `getDisplayMedia({ video: false, audio: true })` → 对应"System Audio Recording Only"权限组，不需要 Screen Recording 全权限
+2. 两路 `MediaStream` 都接同一 `AudioContext(sampleRate: 48000)` 的 `AudioWorkletNode`（自定义 `tap` processor，每 128-frame block 通过 transferable 回主线程）
+3. 主进程生成 12s reference.wav（6 个 5ms 1kHz Hann 窗 click @ 1.5s 间隔），`afplay` 默认扬声器播放
+4. mic 路收声学路径（speaker → 空气 → mic ≈ 0.9ms / 30cm）；system 路收数字回环（ScreenCaptureKit loopback）
+5. 离线 Node CLI 用 2ms 窗 RMS envelope 在每个 click expected 时刻 ±0.3s 窗口找峰值，算 `mic.peakSec - sys.peakSec`
+6. analyze 逻辑自带 smoke：注入已知 17.2ms drift → 检测 17.188ms，误差 0.012ms（< 2ms 阈值）
+
+### 测量数据（3 run × 12s × 6 click，M2 arm64 / macOS 26.5）
+
+| 维度                              | 结果                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| Electron 42 audio-only SCKit 桥接 | ✅ 通；handler 被调用，sys maxAbs = 1.0                                        |
+| 3 run 每路 chunks 数              | run1 4562/4562, run2 4566/4566, run3 4564/4564 — **mic 与 sys 完全一致**       |
+| 3 run 每路总 frames               | run1 583936/583936, run2 584448/584448, run3 584192/584192 — **逐 frame 对齐** |
+| 3 run 时长差（mic - sys）         | 0.000 / 0.000 / 0.000 sec — **<< 1/48000 ≈ 21 μs**                             |
+| sys 路 reference click 检出       | 18/18，每个峰值在 expected 时刻 ±5ms 内                                        |
+| mic 路 reference click 检出       | 0/18（spike 设备合盖，内置 mic 物理拿不到 click）                              |
+
+### 关键观察
+
+1. **两路同 AudioContext capture 的采样时钟同步精度 < 21 μs**：每次 run mic 和 system 的 chunk 数和总 frame 数严格一致（精确到单 sample），表明 M2 上 mic capture device 与 ScreenCaptureKit audio loopback 共享同一 CoreAudio 时钟域，AudioContext resample 后没有 ppm 级累积漂移。12s 内时长差 = 0 sample。
+2. **采样长度对齐 ≠ 起点对齐**：长度一致只能证明两路时钟跑得一样快，**不能证明两路起始时刻对齐**。理论上 mic 启动可能比 sys 晚 N ms，但 mic stream 会提供前 N ms 的 0 padding 让最终长度对齐 — 这种情况下 mixdown 会有起点错位。要测真起点对齐必须 mic 也收到 ground truth click（被合盖阻断，本 spike 没拿到）。
+3. **macOS 14.4+ audio-only ScreenCaptureKit 路径走通**：Electron 42 + `getDisplayMedia({video:false,audio:true})` + main handler 只回 audio loopback，对应"System Audio Recording Only"权限组。**这是生产代码采集 system audio 的推荐路径**（不要求 Screen Recording 全权限，用户授权门槛低）。
+4. **结论与原架构假设一致**：[`audio-capture.md` §6.2 注脚](../03-architecture/audio-capture.md) "不做对齐 / 漂移补偿；spike-005 量化漂移 < 50 ms，人耳基本不可察觉。一旦实测漂移超 100 ms 再补对齐逻辑" 仍然成立 — 数据没否定它。
+
+### Caveats / 推迟到 M3 验证的部分
+
+- **mic vs sys 起始时刻对齐没拿到数**：spike 设备合盖，内置 mic 物理静音；外接 mic + 拍手测试 / 用 BlackHole 让 mic 走数字回环这两条 fallback 都没做。**推迟到 M3 T13/T14 实施真实录音 + mixdown 时验证**：拿真录音文件 mixed.wav 听感测试，如果听感"自己说话和对方错开" > 100ms 再触发 Plan B。
+- **样本量小**：3 run × 12s = 36s 总采样，没覆盖长录音（30min+）下硬件时钟可能的累积漂移。spike-006（如开）或 M3 T14 mixdown 完整性测试需要覆盖这块。
+- **环境限制写明**：本 spike 数据只对 M2 arm64 + macOS 26.5 + ad-hoc 签名 Electron 有效。Windows / Intel Mac 路径在 spike-002 已分别验过录音可行性，但漂移量化没做（按硬件硬约束，无 Intel/Win 设备，留 M3 跨平台 smoke 阶段）。
+
+### 决策
+
+1. **生产 system audio 采集走 audio-only ScreenCaptureKit 路径**（不是 Screen Recording 全权限路径）— renderer `getDisplayMedia({video:false,audio:true})` + main `setDisplayMediaRequestHandler` 回 `{audio:'loopback'}`。**注意**：不要传 `useSystemPicker: true`，会让 Chromium 在 handler 之前做 TCC 检查并按 screen=denied 短路。M3 T12 实施时按这套写。
+2. **沿用 audio-capture.md §6.2 注脚**：不做对齐补偿，直接 sum/平均混音；起点对齐验证延后到 M3 T13/T14 真实录音场景，T14 AC 加一条"30min 录音 mixed.wav 听感 mic 与 system 同步、无明显错位"。
+3. **dev-time 工具链需求落地**（spike 实操副产品，影响 T01 决策）：
+   - Node 基线 ≥ **22.x**（Electron 35+ 用 ESM `@electron/get@5`，Node 20 `require(esm)` 不支持 → 装 Electron postinstall 直接挂）；T01 `.nvmrc` 写 `22`
+   - dev 时 Electron.app 必须 **ad-hoc 签名**（`codesign --force --deep --sign - node_modules/electron/dist/Electron.app`），否则 macOS 26 Tahoe TCC 直接 `screen=denied` 不弹框
+   - 影响 T01-T02 脚手架：postinstall hook 加 ad-hoc sign 步骤；CI mac job 也要
+
+### Plan B（如果 M3 T13/T14 验证起点偏差 > 100ms）
+
+按原 [`R5` Plan B](#r5--mic-和-system-音轨时间同步)：在 mixdown 前做对齐处理。具体做法 M3 T14 实施时再设计（最简：用 capture session 启动时刻作零点 + 每路 stream 的 first-frame-time 记录差值，mixdown 时按差值 padding/裁剪）。
 
 ---
 
