@@ -4,7 +4,7 @@
     "composite": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite/client"],
+    "types": ["vite/client", "audioworklet"],
     "outDir": "./out/types/web",
     "tsBuildInfoFile": "./out/types/web.tsbuildinfo"
   },

@@ -23,3 +23,15 @@ export const SETTINGS = {
   set: 'settings:set',
   changed: 'settings:changed',
 } as const
+
+// T12 — audio capture control 信令(main → capture-window renderer)
+// PCM 数据流走独立 MessagePort,不在这里;详见 audio-capture.md §4 + ipc-contract.md §2.3
+export const AUDIO = {
+  // main → capture renderer:启 capture(getUserMedia + getDisplayMedia,开始推 PCM)
+  startCapture: 'audio:start-capture',
+  // main → capture renderer:停 capture(tracks.stop + ctx.close + 发 track-close)
+  stopCapture: 'audio:stop-capture',
+  // main → capture renderer(webContents.postMessage):MessagePort 握手,
+  // payload 是 transferable [MessagePortMain],renderer 在 preload 里接住
+  port: 'audio-port',
+} as const

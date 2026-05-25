@@ -42,6 +42,7 @@ export default defineConfig({
           onboarding: resolve('src/renderer/onboarding.html'),
           settings: resolve('src/renderer/settings.html'),
           showcase: resolve('src/renderer/showcase.html'),
+          capture: resolve('src/renderer/capture.html'),
         },
       },
     },
