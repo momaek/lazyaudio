@@ -1,15 +1,11 @@
 // record domain IPC handlers
 //
-// T11 阶段实装 3 handler:
-// - record:get-prep-defaults → 返回 hardcoded 默认(general + mic + system 全开);
-//   T18 settings store 完成后改读 settings.recording.{lastSessionType, lastSourcesPerType}
-// - record:start → T11 仅 log + 返回 fake { recordingId, startedAt };真实创建录音目录 /
-//   开 writers / 启动 orchestrator 留 T13
-// - record:hide-prep → 调 hidePrepWindow();取消按钮 / Esc 走这条
-//
-// pause / resume / stop / tick / stateChanged 留 T13 / T17
+// T11 起 prep 浮窗的 3 handler(getPrepDefaults / start / hidePrep)。
+// T12 升级:start 改为真生成 recordingId + 走录音状态机 + IPC 通知 capture window
+//          启 capture;加 stop handler(走状态机 + 通知 capture window 停)。
+// pause / resume / tick / stateChanged 留 T13 / T17。
 
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import {
   CHANNEL,
   PrepDefaultsArgs,
@@ -19,9 +15,20 @@ import {
   HidePrepArgs,
   HidePrepResult,
 } from '@shared/ipc/record'
+import { AUDIO } from '@shared/ipc/channels'
 import { assertSchemaDev } from '../util/assert-schema'
 import { logger } from '../logger'
 import { hidePrepWindow } from '../windows/prep-window'
+import { getCaptureWindow } from '../windows/capture-window'
+import {
+  getStatus,
+  transitionToRecording,
+  transitionToIdle,
+  getRecorderState,
+} from '../audio/recorder-state'
+import { z } from 'zod'
+
+const StopArgs = z.object({}).optional()
 
 export function register(): void {
   ipcMain.handle(CHANNEL.getPrepDefaults, async (_event, rawArgs: unknown) => {
@@ -38,20 +45,60 @@ export function register(): void {
 
   ipcMain.handle(CHANNEL.start, async (_event, rawArgs: unknown) => {
     const args = StartArgs.parse(rawArgs)
-    // T11 stub:仅 log + 返回 fake id。T13 实施时这里调 orchestrator.start() 走真实路径。
-    const recordingId = `stub-${Date.now()}`
-    const startedAt = Date.now()
-    logger.info('[T11 stub] record:start received', {
-      recordingId,
+
+    if (getStatus() !== 'idle') {
+      throw new Error(`record:start ignored — current status = ${getStatus()}`)
+    }
+
+    const state = transitionToRecording({
+      sessionType: args.sessionType,
+      sources: args.sources,
+    })
+
+    logger.info('record:start → state machine → recording', {
+      recordingId: state.recordingId,
       sessionType: args.sessionType,
       sources: args.sources,
       title: args.title,
     })
-    // T11 阶段:prep 浮窗收到 start 成功后由 renderer 自己 invoke hidePrep 关浮窗;
-    // 不在 main 里强制 hide,避免和 renderer 的 UX 顺序(disable 按钮 / 短暂 loading)耦合死。
-    const result = { recordingId, startedAt }
+
+    // 通知 capture window 启 capture(T12)
+    const captureWin = getCaptureWindow()
+    if (!captureWin) {
+      // 极端情况:capture window 还没 ready / 已 closed → 状态回 idle 报错
+      transitionToIdle()
+      throw new Error('capture window not available')
+    }
+    captureWin.webContents.send(AUDIO.startCapture, {
+      recordingId: state.recordingId,
+      sources: args.sources,
+    })
+
+    const result = { recordingId: state.recordingId!, startedAt: state.startedAt! }
     assertSchemaDev(StartResult, result)
     return result
+  })
+
+  ipcMain.handle(CHANNEL.stop, async (_event, rawArgs: unknown) => {
+    StopArgs.parse(rawArgs)
+
+    const before = getRecorderState()
+    if (before.status === 'idle') {
+      logger.info('record:stop ignored — already idle')
+      return { ok: true }
+    }
+    const recordingId = before.recordingId
+
+    // 通知 capture window 停 capture
+    const captureWin = getCaptureWindow()
+    if (captureWin && recordingId) {
+      captureWin.webContents.send(AUDIO.stopCapture, { recordingId })
+    }
+
+    transitionToIdle()
+    logger.info('record:stop → state machine → idle', { recordingId })
+
+    return { ok: true }
   })
 
   ipcMain.handle(CHANNEL.hidePrep, async (_event, rawArgs: unknown) => {
@@ -61,4 +108,7 @@ export function register(): void {
     assertSchemaDev(HidePrepResult, result)
     return result
   })
+
+  // 防止 BrowserWindow 未 import 警告
+  void BrowserWindow
 }
