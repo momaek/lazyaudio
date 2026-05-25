@@ -26,6 +26,8 @@ import {
   transitionToIdle,
   getRecorderState,
 } from '../audio/recorder-state'
+import { RecordingSession } from '../recording/session'
+import { setCurrentSession, getCurrentSession } from '../recording'
 import { z } from 'zod'
 
 const StopArgs = z.object({}).optional()
@@ -62,10 +64,28 @@ export function register(): void {
       title: args.title,
     })
 
+    // T13:创建 RecordingSession(mkdir + 写 initial meta);writers 等 track-open 到达时创建
+    let session
+    try {
+      session = await RecordingSession.start({
+        id: state.recordingId!,
+        title: args.title,
+        sessionType: args.sessionType,
+        sources: args.sources,
+        startedAt: state.startedAt!,
+      })
+      setCurrentSession(session)
+    } catch (e) {
+      transitionToIdle()
+      throw new Error(`record:start: session.start failed: ${String(e)}`)
+    }
+
     // 通知 capture window 启 capture(T12)
     const captureWin = getCaptureWindow()
     if (!captureWin) {
       // 极端情况:capture window 还没 ready / 已 closed → 状态回 idle 报错
+      await session.stop().catch(() => {})
+      setCurrentSession(null)
       transitionToIdle()
       throw new Error('capture window not available')
     }
@@ -89,10 +109,19 @@ export function register(): void {
     }
     const recordingId = before.recordingId
 
-    // 通知 capture window 停 capture
+    // 通知 capture window 停 capture(让 worklet 发 track-close)
     const captureWin = getCaptureWindow()
     if (captureWin && recordingId) {
       captureWin.webContents.send(AUDIO.stopCapture, { recordingId })
+    }
+
+    // T13:等 track-close 路径走完(receiver 收到 track-close 调 session.closeTrack),
+    // 再 stop session 写 final meta。给 capture renderer 100ms teardown 时间,然后强行 stop。
+    const session = getCurrentSession()
+    if (session) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 200))
+      await session.stop().catch((e) => logger.error(`session.stop failed: ${String(e)}`))
+      setCurrentSession(null)
     }
 
     transitionToIdle()

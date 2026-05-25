@@ -11,6 +11,7 @@ import type { MessagePortMain } from 'electron'
 import type { TrackId } from '@shared/audio/messages'
 import { logger } from '../logger'
 import { onAudioPortReady } from './port'
+import { getCurrentSession } from '../recording'
 
 type TrackStat = {
   recordingId: string
@@ -105,6 +106,15 @@ function handleMessage(port: MessagePortMain, raw: unknown): void {
       `[audio] track-open ${key} ${msg.sampleRate}Hz × ${msg.channels}ch × ${msg.bitDepth}bit`,
     )
     startTickIfNeeded()
+    // T13:fork 给当前 session 让 WAV writer 接住这一路(同步建 entry,异步 open)
+    const session = getCurrentSession()
+    if (session && session.id === msg.recordingId) {
+      session.openTrackWriter(msg.trackId, msg.sampleRate, msg.channels, msg.bitDepth)
+    } else if (session) {
+      logger.warn(
+        `[audio] track-open for ${msg.recordingId} but current session is ${session.id}; ignoring`,
+      )
+    }
     return
   }
 
@@ -121,6 +131,11 @@ function handleMessage(port: MessagePortMain, raw: unknown): void {
       logger.warn(`[audio] seq gap on ${key}: expected ${stat.lastSeq + 1}, got ${msg.seq}`)
     }
     stat.lastSeq = msg.seq
+    // T13:fork PCM 给 session.writeTrack(fire-and-forget;Node fs.write 一般够快)
+    const session = getCurrentSession()
+    if (session && session.id === msg.recordingId) {
+      void session.writeTrack(msg.trackId, msg.pcm)
+    }
 
     // 每 50 帧(~5s)回一次 ack;太频繁没必要(背压本来就够)
     if (stat.chunksReceived % 50 === 0) {
@@ -153,6 +168,11 @@ function handleMessage(port: MessagePortMain, raw: unknown): void {
     )
     tracks.delete(key)
     stopTickIfNoTracks()
+    // T13:fork close 给 session
+    const session = getCurrentSession()
+    if (session && session.id === msg.recordingId) {
+      void session.closeTrack(msg.trackId, msg.reason)
+    }
     return
   }
 
