@@ -16,6 +16,7 @@ export default tseslint.config(
       'node_modules/**',
       '.local-userdata/**',
       '.vite/**',
+      '.claude/**', // claude code 本机运行时数据(worktrees / launch.json 等),不走 lint
       'scratch/**', // spike POC 代码,不走 lint(scratch/README 已声明非生产)
     ],
   },

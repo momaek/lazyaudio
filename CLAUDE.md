@@ -18,6 +18,18 @@
 2. 在 [`docs/04-development/development-plan.md`](./docs/04-development/development-plan.md) 找到目标 T / spike / ADR 的 AC
 3. 按 progress.md §0.3 end-of-work loop 收尾（更新状态、开 PR、用 `.github/pull_request_template.md`）
 
+## 写 UI / 改 UI 前必做
+
+任何涉及窗口、组件、样式、布局、交互、文案、图标的任务（包括「写个 React 组件」「调 CSS」「加按钮」「改浮窗」），**动手写代码前**必须按这个顺序读：
+
+1. `ls docs/02-design/ui-mockups/claude-design/project/` 找到对应屏幕的 jsx 原型（如 `prerecord.jsx` / `main-window.jsx` / `onboarding.jsx` / `settings.jsx` / `menubar.jsx` / `waveform.jsx`），读完再写
+2. 读 [`docs/02-design/screen-specs/`](./docs/02-design/screen-specs/) 里对应那份（`main-window-states.md` / `onboarding.md` / `settings.md` / `dialogs-notifications.md`）拿状态机和交互细节
+3. 读 [`docs/02-design/design-system.md`](./docs/02-design/design-system.md) 拿颜色 / 间距 / 字号 / radius / 动效 token；[`tokens.css`](./docs/02-design/ui-mockups/claude-design/project/tokens.css) 是 token 的源
+4. **不照搬 jsx 的 className 字面值**，但视觉与交互必须一致；要偏离 / 简化 / 用替代方案，**先告诉用户为啥，等同意再动**
+5. Pencil 稿（`local-pencil/`）已被 [`mockup-review.md`](./docs/02-design/mockup-review.md) 降级为参考，**不作为实施依据**，不要看
+
+如果 jsx 原型与 screen-specs 冲突：以 screen-specs 为准，并在 PR 里指出冲突让用户裁决。
+
 ## 第一次进项目的 bootstrap
 
 如果当前 session 没有上下文、用户还没指派任务：
@@ -47,7 +59,7 @@
 - **progress.md 与代码同 PR**：状态变更必须和触发它的代码改动在同一个 PR 里。
 - **AC 没全过不准 ✅**。详见 progress.md §0.2 DoD。
 - **不复制 AC**：progress.md 的 §1 checkbox 是工作区（PR 合并后清空），不是 AC 的副本。AC 单一信息源在 development-plan.md。
-- **UI 实施基准**：所有屏幕的视觉与交互按 [`docs/02-design/ui-mockups/claude-design/project/`](./docs/02-design/ui-mockups/claude-design/project/) 的 jsx 原型实施；token / 行为细节查 [`docs/02-design/design-system.md`](./docs/02-design/design-system.md) + [`docs/02-design/screen-specs/`](./docs/02-design/screen-specs/)；偏离 / 简化前先报备。Pencil 稿（`local-pencil/`）已被 [`mockup-review.md`](./docs/02-design/mockup-review.md) 降级为参考，**不作为实施依据**。
+- **UI 实施基准（强制）**：动手写任何 UI 代码前，**必须**先按上面「写 UI / 改 UI 前必做」那节读完 jsx 原型 + screen-specs + design-system。没读就写 = 返工。jsx 原型在 [`docs/02-design/ui-mockups/claude-design/project/`](./docs/02-design/ui-mockups/claude-design/project/)，是视觉与交互的唯一基准；偏离前先报备。
 - **改 spec 前先报备**：要改 dev-plan / PRD / 03-architecture / 02-design 任何文档，先告诉用户为啥要改，等同意再动。
 - **包管理用 pnpm**，不要 npm 或 yarn。
 - **不要主动写 README / \*.md** 文档，除非用户要求。
@@ -59,6 +71,7 @@
 | -------------------- | ----------------------------------------------------------------- |
 | 选下一个任务         | progress.md §1 候选                                               |
 | 任务怎么算完成       | progress.md §0.2 DoD                                              |
+| **写 / 改 UI**       | **本文「写 UI / 改 UI 前必做」节，必须读完 jsx + spec + tokens**  |
 | 写完代码怎么收尾     | progress.md §0.3 end-of-work loop                                 |
 | 遇到 blocker         | progress.md §0.4 + §5 登记                                        |
 | 时间不够要砍 scope   | development-plan.md §10.2                                         |
