@@ -3,3 +3,4 @@
 export * as System from './system'
 export * as Record from './record'
 export * as Settings from './settings'
+export * as Library from './library'

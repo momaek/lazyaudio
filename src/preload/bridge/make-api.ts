@@ -5,10 +5,11 @@
 // 否则 contextBridge 注入静默失败 → window.lazyaudio undefined。
 // CHANNEL 名从 @shared/ipc/channels(纯字符串常量,无 zod)拿;schema 留给 main / renderer 业务层。
 import { ipcRenderer } from 'electron'
-import { SYSTEM, RECORD, AUDIO } from '@shared/ipc/channels'
+import { SYSTEM, RECORD, AUDIO, LIBRARY } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
 import type { PrepDefaults, StartArgs, StartResult, HidePrepResult } from '@shared/ipc/record'
+import type { ListResult } from '@shared/ipc/library'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
 
@@ -23,6 +24,9 @@ export function makeApi(): LazyAudioApi {
       stop: () => invoke<{ ok: boolean }>(RECORD.stop, {}),
       hidePrep: () => invoke<HidePrepResult>(RECORD.hidePrep),
     },
+    library: {
+      list: () => invoke<ListResult>(LIBRARY.list, {}),
+    },
     audio: {
       // capture window 订阅 main 发的启 capture 信令
       onStartCapture: (cb) => {
@@ -35,6 +39,7 @@ export function makeApi(): LazyAudioApi {
         ipcRenderer.on(AUDIO.stopCapture, handler)
         return () => ipcRenderer.off(AUDIO.stopCapture, handler)
       },
+      reportCaptureFailed: (args) => ipcRenderer.send(AUDIO.captureFailed, args),
     },
   }
 }

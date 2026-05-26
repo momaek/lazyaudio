@@ -16,6 +16,7 @@ import {
   HidePrepResult,
 } from '@shared/ipc/record'
 import { AUDIO } from '@shared/ipc/channels'
+import { CaptureFailedArgs } from '@shared/audio/messages'
 import { assertSchemaDev } from '../util/assert-schema'
 import { logger } from '../logger'
 import { hidePrepWindow } from '../windows/prep-window'
@@ -32,6 +33,19 @@ import { runMixdown } from '../recording/mixer'
 import { z } from 'zod'
 
 const StopArgs = z.object({}).optional()
+
+async function failCurrentRecording(recordingId: string, reason: string): Promise<void> {
+  const session = getCurrentSession()
+  if (session && session.id === recordingId) {
+    await session.fail(reason).catch((e) => logger.error(`session.fail failed: ${String(e)}`))
+    setCurrentSession(null)
+  } else if (session) {
+    logger.warn(`capture failure for ${recordingId}, but current session is ${session.id}; ignored`)
+    return
+  }
+  transitionToIdle()
+  logger.warn('recording failed → state machine → idle', { recordingId, reason })
+}
 
 export function register(): void {
   ipcMain.handle(CHANNEL.getPrepDefaults, async (_event, rawArgs: unknown) => {
@@ -135,6 +149,13 @@ export function register(): void {
     logger.info('record:stop → state machine → idle', { recordingId })
 
     return { ok: true }
+  })
+
+  ipcMain.on(AUDIO.captureFailed, (event, rawArgs: unknown) => {
+    const args = CaptureFailedArgs.parse(rawArgs)
+    logger.error('audio:capture-failed', { recordingId: args.recordingId, message: args.message })
+    void failCurrentRecording(args.recordingId, `capture failed: ${args.message}`)
+    void event
   })
 
   ipcMain.handle(CHANNEL.hidePrep, async (_event, rawArgs: unknown) => {

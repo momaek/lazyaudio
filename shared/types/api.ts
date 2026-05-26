@@ -3,7 +3,8 @@
 
 import type { PingResult } from '../ipc/system'
 import type { PrepDefaults, StartArgs, StartResult, HidePrepResult } from '../ipc/record'
-import type { StartCaptureArgs, StopCaptureArgs } from '../audio/messages'
+import type { ListResult } from '../ipc/library'
+import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
   system: {
@@ -19,11 +20,17 @@ export interface LazyAudioApi {
     /** 取消按钮 / Esc 通知 main 隐藏 prep 浮窗 */
     hidePrep(): Promise<HidePrepResult>
   }
+  library: {
+    /** T15 录音库 v0.1:按日期分组返回 recordings 下的 meta 快照 */
+    list(): Promise<ListResult>
+  }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */
     onStartCapture(cb: (args: StartCaptureArgs) => void): () => void
     /** capture window 订阅:main 发"停 capture"信令(T12) */
     onStopCapture(cb: (args: StopCaptureArgs) => void): () => void
+    /** capture window 上报 getUserMedia / getDisplayMedia 失败 */
+    reportCaptureFailed(args: CaptureFailedArgs): void
   }
   // settings:T18 起补
 }

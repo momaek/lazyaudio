@@ -65,16 +65,10 @@ export function App(): React.JSX.Element {
         })
       } catch (e) {
         console.error('[capture] startCapture FAILED', e)
-        // 反馈 main(通过 port 发 track-close error 让 receiver 知道)
-        if (port) {
-          port.postMessage({
-            type: 'track-close',
-            recordingId: args.recordingId,
-            trackId: 'mic',
-            reason: 'error',
-            error: String(e),
-          })
-        }
+        window.lazyaudio.audio.reportCaptureFailed({
+          recordingId: args.recordingId,
+          message: e instanceof Error ? e.message : String(e),
+        })
       }
     }
 

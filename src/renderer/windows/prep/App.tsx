@@ -107,6 +107,25 @@ function ChevronDown(): React.JSX.Element {
   )
 }
 
+// 浏览器 enumerateDevices 拿到的 default 设备 label 常带 "Default - " / "默认 - " 前缀,
+// 视觉上和 jsx 原型("MacBook Pro Microphone")不一致 → 这里剥掉。
+function stripDefaultPrefix(label: string): string {
+  return label.replace(/^(Default|默认)\s*[-—]\s*/i, '').trim()
+}
+
+async function probeDefaultMicLabel(): Promise<string> {
+  if (!navigator.mediaDevices?.enumerateDevices) return ''
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices()
+    const inputs = devs.filter((d) => d.kind === 'audioinput')
+    // 优先 deviceId === 'default' 那条;否则取第一条 audioinput
+    const def = inputs.find((d) => d.deviceId === 'default') ?? inputs[0]
+    return def ? stripDefaultPrefix(def.label || '') : ''
+  } catch {
+    return ''
+  }
+}
+
 export function App(): React.JSX.Element {
   const { t } = useTranslation()
   const [sessionType, setSessionType] = useState<SessionType>('general')
@@ -115,7 +134,9 @@ export function App(): React.JSX.Element {
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [micDeviceLabel, setMicDeviceLabel] = useState<string>('')
   const dropdownWrapRef = useRef<HTMLDivElement>(null)
+  const submittingRef = useRef(false)
 
   // mount:拉默认值
   useEffect(() => {
@@ -131,13 +152,32 @@ export function App(): React.JSX.Element {
     })()
   }, [])
 
-  // 浮窗下次 show 时重置 submitting + 清错 + 关 dropdown
+  // 设备 label 探测:mount + 每次浮窗 show + 系统设备变更时刷新一遍。
+  // label 在 mic 权限未授予时是空串(Web 标准),保持空串让 UI fallback 到 i18n placeholder。
+  useEffect(() => {
+    let cancelled = false
+    async function refresh(): Promise<void> {
+      const label = await probeDefaultMicLabel()
+      if (!cancelled) setMicDeviceLabel(label)
+    }
+    void refresh()
+    const md = navigator.mediaDevices
+    md?.addEventListener?.('devicechange', refresh)
+    return () => {
+      cancelled = true
+      md?.removeEventListener?.('devicechange', refresh)
+    }
+  }, [])
+
+  // 浮窗下次 show 时重置 submitting + 清错 + 关 dropdown + 重探设备名
   useEffect(() => {
     function onVis(): void {
       if (document.visibilityState === 'visible') {
         setSubmitting(false)
+        submittingRef.current = false
         setErrorMsg(null)
         setDropdownOpen(false)
+        void probeDefaultMicLabel().then(setMicDeviceLabel)
       }
     }
     document.addEventListener('visibilitychange', onVis)
@@ -165,11 +205,12 @@ export function App(): React.JSX.Element {
   }, [])
 
   const handleStart = useCallback(async () => {
-    if (submitting) return
+    if (submittingRef.current) return
     if (!mic && !system) {
       setErrorMsg(t('prep.errorNoSource'))
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     setErrorMsg(null)
     try {
@@ -184,9 +225,10 @@ export function App(): React.JSX.Element {
       await window.lazyaudio.record.hidePrep()
     } catch (e) {
       setErrorMsg(t('prep.errorStartFailed') + ' ' + String(e))
+      submittingRef.current = false
       setSubmitting(false)
     }
-  }, [submitting, mic, system, sessionType, t])
+  }, [mic, system, sessionType, t])
 
   // 全局键盘:Esc 关 dropdown 优先,否则取消浮窗;Enter 提交
   useEffect(() => {
@@ -288,8 +330,10 @@ export function App(): React.JSX.Element {
             <span className={`cb ${mic ? 'is-on' : ''}`} aria-hidden>
               {mic && <CheckMark />}
             </span>
-            <span>{t('prep.mic')}</span>
-            <span className="meta">{t('prep.deviceMicPlaceholder')}</span>
+            <span className="src-label">{t('prep.mic')}</span>
+            <span className="meta" title={micDeviceLabel || t('prep.deviceMicPlaceholder')}>
+              {micDeviceLabel || t('prep.deviceMicPlaceholder')}
+            </span>
           </label>
           <label className="checkbox-row">
             <input
@@ -301,8 +345,10 @@ export function App(): React.JSX.Element {
             <span className={`cb ${system ? 'is-on' : ''}`} aria-hidden>
               {system && <CheckMark />}
             </span>
-            <span>{t('prep.system')}</span>
-            <span className="meta">{t('prep.deviceSystemPlaceholder')}</span>
+            <span className="src-label">{t('prep.system')}</span>
+            <span className="meta" title={t('prep.deviceSystemRoute')}>
+              {t('prep.deviceSystemRoute')}
+            </span>
           </label>
         </div>
       </div>

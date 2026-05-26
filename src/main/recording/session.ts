@@ -194,6 +194,12 @@ export class RecordingSession {
     }
   }
 
+  /** capture / writer 致命失败时调:记录失败原因后走 stop(),让 meta 标 failed-partial。 */
+  async fail(reason: string): Promise<void> {
+    this.pendingErrors.push(reason)
+    await this.stop()
+  }
+
   isStopped(): boolean {
     return this.stopped
   }

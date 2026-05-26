@@ -18,6 +18,10 @@ export const RECORD = {
   hidePrep: 'record:hide-prep',
 } as const
 
+export const LIBRARY = {
+  list: 'library:list',
+} as const
+
 export const SETTINGS = {
   get: 'settings:get',
   set: 'settings:set',
@@ -31,6 +35,8 @@ export const AUDIO = {
   startCapture: 'audio:start-capture',
   // main → capture renderer:停 capture(tracks.stop + ctx.close + 发 track-close)
   stopCapture: 'audio:stop-capture',
+  // capture renderer → main:采集启动失败(权限拒绝 / getDisplayMedia 失败等)
+  captureFailed: 'audio:capture-failed',
   // main → capture renderer(webContents.postMessage):MessagePort 握手,
   // payload 是 transferable [MessagePortMain],renderer 在 preload 里接住
   port: 'audio-port',

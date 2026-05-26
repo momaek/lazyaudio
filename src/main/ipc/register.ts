@@ -2,9 +2,11 @@
 import { register as registerSystem } from './system'
 import { register as registerRecord } from './record'
 import { register as registerSettings } from './settings'
+import { register as registerLibrary } from './library'
 
 export function registerIpc(): void {
   registerSystem()
   registerRecord()
   registerSettings()
+  registerLibrary()
 }

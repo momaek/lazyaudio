@@ -1,42 +1,34 @@
 /*
- * prep 浮窗专属样式 — 严格按 02-design/ui-mockups/claude-design/project/{prerecord.jsx,app.css §6.4} 实施
- *
- * 来源 mockup 用了 --text-strong / --text-muted / --text-subtle / --surface-raised /
- * --border-strong 这些 semantic var 我们 tokens.css 暂未提供;本文件用现有
- * --color-gray-* / --color-bg-l* / --color-accent / --color-border 替换。
- * 后续 design-system semantic token 落地后再统一回 var(--text-strong) 等。
- *
- * 深色覆盖走 .dark 选择器(配合 globals.css 的 @custom-variant)。
+ * prep 浮窗专属样式 — 按 ClaudeDesign prerecord.jsx + app.css §6.4 的布局实施。
+ * 这里是实际 Electron 360×220 BrowserWindow；背景改为不透明，避免背后内容干扰阅读。
  */
 
-/* ===== body / html ===== */
-/* override globals.css 的白色 body bg:本窗口要透明,让对话框周围(主要是下方
-   popover 展开区)露出 transparent: true 窗口下面的桌面。 */
 html,
 body {
-  background: transparent !important;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  overflow: visible;
+  overflow: hidden;
+  background: transparent !important;
 }
 
-/* ===== 浮窗容器:mockup .prerec(macOS vibrancy via backdrop-filter) ===== */
+body {
+  font-family: var(--font-sans);
+  color: var(--color-gray-900);
+}
+
+button {
+  font: inherit;
+}
+
 .prerec {
   position: relative;
-  width: 100%;
-  /* 固定 220:对应 mockup 360×220 对话框尺寸;窗口本身 360×420(prep-window.ts),
-     多出来的 200 留给 popover 展开延伸,不撑大对话框本体。 */
+  width: 360px;
   height: 220px;
-  flex: 0 0 220px;
   border-radius: 12px;
-  background: rgba(246, 246, 248, 0.72);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: var(--color-bg-l2);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow:
     0 0 0 0.5px rgba(0, 0, 0, 0.18),
     0 24px 60px -10px rgba(0, 0, 0, 0.28),
@@ -44,14 +36,13 @@ body {
   padding: 16px 20px 14px;
   display: flex;
   flex-direction: column;
-  color: var(--color-gray-900);
-  font-family: var(--font-sans);
   animation: prerec-in 100ms ease-out;
-  -webkit-app-region: drag; /* 整窗可拖,内部交互区域 no-drag */
+  -webkit-app-region: drag;
 }
 
 .dark .prerec {
-  background: rgba(38, 42, 48, 0.72);
+  background: var(--color-gray-800);
+  border-color: rgba(255, 255, 255, 0.08);
   color: var(--color-gray-50);
   box-shadow:
     0 0 0 0.5px rgba(255, 255, 255, 0.08),
@@ -70,7 +61,6 @@ body {
   }
 }
 
-/* ===== 关闭 X(右上) ===== */
 .prerec-close {
   position: absolute;
   top: 14px;
@@ -80,58 +70,63 @@ body {
   border-radius: 4px;
   background: transparent;
   border: 0;
-  color: var(--color-gray-600);
+  color: var(--color-gray-500);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   -webkit-app-region: no-drag;
 }
+
 .prerec-close:hover {
   background: rgba(0, 0, 0, 0.06);
   color: var(--color-gray-900);
 }
+
 .dark .prerec-close {
   color: var(--color-gray-400);
 }
+
 .dark .prerec-close:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--color-gray-50);
 }
 
-/* ===== 标题 ===== */
 .prerec-title {
   margin: 0 0 16px;
   padding-right: 28px;
   font-size: 17px;
+  line-height: 22px;
   font-weight: 600;
   color: var(--color-gray-950);
   letter-spacing: -0.01em;
   -webkit-app-region: no-drag;
 }
+
 .dark .prerec-title {
   color: var(--color-gray-50);
 }
 
-/* ===== Row(label + 内容,grid 64px 1fr) ===== */
 .prerec-row {
   display: grid;
-  grid-template-columns: 64px 1fr;
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: start;
   gap: 12px;
   margin-bottom: 12px;
   -webkit-app-region: no-drag;
 }
+
 .prerec-row .lbl {
   font-size: 12px;
+  line-height: 16px;
   color: var(--color-gray-600);
   padding-top: 7px;
 }
+
 .dark .prerec-row .lbl {
   color: var(--color-gray-400);
 }
 
-/* ===== 会话类型 dropdown 按钮 ===== */
 .type-select {
   height: 28px;
   width: 100%;
@@ -143,32 +138,37 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 13px;
+  line-height: 20px;
   color: var(--color-gray-900);
   cursor: pointer;
-  font-family: inherit;
+  -webkit-app-region: no-drag;
 }
+
 .dark .type-select {
   background: var(--color-bg-l2);
   border-color: var(--color-gray-700);
   color: var(--color-gray-50);
 }
+
 .type-select .type-glyph-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex: 0 0 8px;
 }
+
 .type-select .type-chevron {
   margin-left: auto;
   color: var(--color-gray-500);
 }
 
-/* dropdown popover(列表) — 浮在按钮下方 */
 .type-popover {
   position: absolute;
   z-index: 20;
   margin-top: 4px;
-  width: 188px; /* row 内容列宽,grid 64+12+x 约 = */
+  width: 100%;
+  max-height: 120px;
+  overflow-y: auto;
   border-radius: 8px;
   background: var(--color-bg-l1);
   border: 1px solid var(--color-gray-300);
@@ -180,10 +180,12 @@ body {
   flex-direction: column;
   -webkit-app-region: no-drag;
 }
+
 .dark .type-popover {
   background: var(--color-bg-l2);
   border-color: var(--color-gray-700);
 }
+
 .type-popover-item {
   display: inline-flex;
   align-items: center;
@@ -194,57 +196,85 @@ body {
   background: transparent;
   border: 0;
   font-size: 13px;
+  line-height: 20px;
   color: var(--color-gray-900);
   cursor: pointer;
-  font-family: inherit;
   text-align: left;
+  -webkit-app-region: no-drag;
 }
+
 .dark .type-popover-item {
   color: var(--color-gray-50);
 }
+
 .type-popover-item:hover {
   background: var(--color-bg-l2);
 }
+
 .dark .type-popover-item:hover {
   background: var(--color-bg-l3);
 }
-.type-popover-item .type-popover-check {
-  margin-left: auto;
-  color: var(--color-accent);
-  width: 12px;
-  height: 12px;
+
+.type-popover-item .type-glyph-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 8px;
 }
 
-/* ===== 音源 checkbox stack ===== */
+.type-popover-check {
+  margin-left: auto;
+  width: 12px;
+  height: 12px;
+  color: var(--color-accent);
+}
+
 .checkbox-stack {
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding-top: 4px;
 }
+
 .checkbox-row {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--color-gray-900);
   height: 22px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-gray-900);
   cursor: pointer;
+  -webkit-app-region: no-drag;
 }
+
 .dark .checkbox-row {
   color: var(--color-gray-50);
 }
+
+.checkbox-row .src-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .checkbox-row .meta {
   margin-left: auto;
+  min-width: 0;
+  flex: 0 1 auto;
   font-size: 11px;
+  line-height: 16px;
   color: var(--color-gray-500);
   font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .dark .checkbox-row .meta {
   color: var(--color-gray-400);
 }
 
-/* 自定义 cb(原生 <input type=checkbox> 隐藏,visual 全 .cb 接管) */
 .cb {
   width: 14px;
   height: 14px;
@@ -257,17 +287,18 @@ body {
   flex: 0 0 14px;
   color: transparent;
 }
+
 .dark .cb {
   background: var(--color-bg-l2);
   border-color: var(--color-gray-700);
 }
+
 .cb.is-on {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: #fff;
 }
 
-/* 隐藏原生 checkbox 但保留可访问性 */
 .cb-native {
   position: absolute;
   width: 0;
@@ -276,16 +307,15 @@ body {
   pointer-events: none;
 }
 
-/* ===== 错误条 ===== */
 .prerec-error {
   margin: -4px 0 8px;
-  padding: 0 0 0 64px; /* 与 .lbl 列对齐 */
+  padding-left: 76px;
   font-size: 11px;
+  line-height: 16px;
   color: var(--color-danger);
   -webkit-app-region: no-drag;
 }
 
-/* ===== 底部操作行 ===== */
 .prerec-actions {
   margin-top: auto;
   display: flex;
@@ -294,12 +324,13 @@ body {
   justify-content: flex-end;
   -webkit-app-region: no-drag;
 }
+
 .prerec-btn {
   height: 28px;
   padding: 0 12px;
   border-radius: 6px;
   font-size: 13px;
-  font-family: inherit;
+  line-height: 20px;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
@@ -311,53 +342,63 @@ body {
     border-color 0.12s,
     opacity 0.12s;
 }
+
 .prerec-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
+
 .prerec-btn.secondary {
   background: transparent;
   color: var(--color-gray-700);
   border-color: var(--color-gray-300);
 }
+
 .prerec-btn.secondary:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.04);
 }
+
 .dark .prerec-btn.secondary {
   color: var(--color-gray-200);
   border-color: var(--color-gray-700);
 }
+
 .dark .prerec-btn.secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.06);
 }
+
 .prerec-btn.primary {
   background: var(--color-accent);
   color: #fff;
   border-color: var(--color-accent);
 }
+
 .prerec-btn.primary:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-/* ===== 底部键位提示(居中 + mono) ===== */
 .prerec-hint {
   margin-top: 8px;
   text-align: center;
   font-size: 11px;
+  line-height: 16px;
   color: var(--color-gray-500);
   display: flex;
   justify-content: center;
   gap: 16px;
   -webkit-app-region: no-drag;
 }
+
 .dark .prerec-hint {
   color: var(--color-gray-400);
 }
+
 .prerec-hint .keys {
   font-family: var(--font-mono);
   color: var(--color-gray-600);
   margin-right: 4px;
 }
+
 .dark .prerec-hint .keys {
   color: var(--color-gray-300);
 }

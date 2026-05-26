@@ -76,6 +76,13 @@ export type WriterError = z.infer<typeof WriterError>
 export const MainToRenderer = z.discriminatedUnion('type', [WriterAck, WriterError])
 export type MainToRenderer = z.infer<typeof MainToRenderer>
 
+/** capture renderer → main:采集启动失败。普通 IPC,不用 MessagePort。 */
+export const CaptureFailedArgs = z.object({
+  recordingId: z.string(),
+  message: z.string(),
+})
+export type CaptureFailedArgs = z.infer<typeof CaptureFailedArgs>
+
 // ---- audio control IPC payload(常规 ipcMain.send,非 MessagePort) ----
 
 /** main → capture renderer:启 capture 指令 */

@@ -19,10 +19,7 @@ export function createPrepWindow(): BrowserWindow {
 
   const win = new BrowserWindow({
     width: 360,
-    // 对话框本体 220(prerecord.jsx + app.css §6.4 mockup);多出来的 200 是 popover
-    // 展开时延伸到的透明区(模拟 macOS NSPopUpButton 弹出菜单超出窗口边界的行为)。
-    // body / html 在 prep.css 里 override 成透明 + 顶对齐,让对话框稳定在窗口顶部。
-    height: 420,
+    height: 220,
     show: false, // 常驻 hidden
     title: 'LazyAudio 录音前',
     resizable: false,

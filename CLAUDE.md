@@ -25,10 +25,34 @@
 1. `ls docs/02-design/ui-mockups/claude-design/project/` 找到对应屏幕的 jsx 原型（如 `prerecord.jsx` / `main-window.jsx` / `onboarding.jsx` / `settings.jsx` / `menubar.jsx` / `waveform.jsx`），读完再写
 2. 读 [`docs/02-design/screen-specs/`](./docs/02-design/screen-specs/) 里对应那份（`main-window-states.md` / `onboarding.md` / `settings.md` / `dialogs-notifications.md`）拿状态机和交互细节
 3. 读 [`docs/02-design/design-system.md`](./docs/02-design/design-system.md) 拿颜色 / 间距 / 字号 / radius / 动效 token；[`tokens.css`](./docs/02-design/ui-mockups/claude-design/project/tokens.css) 是 token 的源
-4. **不照搬 jsx 的 className 字面值**，但视觉与交互必须一致；要偏离 / 简化 / 用替代方案，**先告诉用户为啥，等同意再动**
+4. **不照搬 jsx 的 className 字面值**，但视觉与交互必须一致。"偏离"分两种，**别混**：
+   - **视觉 / 交互偏离**（用户看得见的差别：尺寸、色、字、间距、按钮位置、状态机、文案）→ **先告诉用户为啥，等同意再动**
+   - **实现策略**（同样视觉、不同代码结构：窗口尺寸、popover 滚动 vs 溢出、token vs 字面值、DOM 嵌套、CSS 选择器组织）→ **直接做**，PR body 里说一句即可，**不算偏离 mockup**
 5. Pencil 稿（`local-pencil/`）已被 [`mockup-review.md`](./docs/02-design/mockup-review.md) 降级为参考，**不作为实施依据**，不要看
 
 如果 jsx 原型与 screen-specs 冲突：以 screen-specs 为准，并在 PR 里指出冲突让用户裁决。
+
+## 改 UI bug 前必做：先质疑结构
+
+修 UI bug 前，先问一遍：**这个 bug 是不是当前实现结构衍生出来的？**
+
+**结构问题的典型信号**（出现 ≥1 个就停下来）：
+
+- 需要**绕过 / 屏蔽 / 补偿**某个已有决策（典型：靠 `hasShadow: false` 抑制窗口本不该有的阴影）
+- 当前修法在打**前一个修法**的补丁（补丁深度 ≥ 2）
+- 修一个表象会引出下一个表象，像挤气球（修阴影 → 透出别窗 → 横向滚动 → ...）
+
+**步骤**：
+
+1. 找 bug 的**根**，不是表象。如果根是某个**实现决策**（不是 mockup 约束），把它显式写出来
+2. 给用户提两个方案：**A 改结构** / **B 在现有结构里打补丁**
+3. 默认推 A，除非 A 牵涉多文件 / 多模块
+4. 让用户选
+
+**反例**（T11 prep 浮窗这一轮）：用户反馈"对话框下方有幽灵阴影"。
+
+- ❌ 在「保留 360×420 透明 + 200px popover 缓冲区」前提下加 `hasShadow: false` → 衍生出"showcase 透出 / 横向 scrollbar / 阴影偏下"一连串补丁
+- ✅ 直接质疑"为啥窗口比对话框高 200px" → 砍缓冲区、窗口缩 220、popover 改 `max-height + overflow-y: auto` 内部滚动，一刀清
 
 ## 第一次进项目的 bootstrap
 
@@ -59,7 +83,7 @@
 - **progress.md 与代码同 PR**：状态变更必须和触发它的代码改动在同一个 PR 里。
 - **AC 没全过不准 ✅**。详见 progress.md §0.2 DoD。
 - **不复制 AC**：progress.md 的 §1 checkbox 是工作区（PR 合并后清空），不是 AC 的副本。AC 单一信息源在 development-plan.md。
-- **UI 实施基准（强制）**：动手写任何 UI 代码前，**必须**先按上面「写 UI / 改 UI 前必做」那节读完 jsx 原型 + screen-specs + design-system。没读就写 = 返工。jsx 原型在 [`docs/02-design/ui-mockups/claude-design/project/`](./docs/02-design/ui-mockups/claude-design/project/)，是视觉与交互的唯一基准；偏离前先报备。
+- **UI 实施基准（强制）**：动手写任何 UI 代码前，**必须**先按上面「写 UI / 改 UI 前必做」那节读完 jsx 原型 + screen-specs + design-system。没读就写 = 返工。jsx 原型在 [`docs/02-design/ui-mockups/claude-design/project/`](./docs/02-design/ui-mockups/claude-design/project/)，是**视觉与交互**的唯一基准；视觉 / 交互偏离前先报备，**改实现结构（同视觉、换代码）不算偏离，直接做**。修 UI bug 走「改 UI bug 前必做」那节，**先质疑结构再补丁**。
 - **改 spec 前先报备**：要改 dev-plan / PRD / 03-architecture / 02-design 任何文档，先告诉用户为啥要改，等同意再动。
 - **包管理用 pnpm**，不要 npm 或 yarn。
 - **不要主动写 README / \*.md** 文档，除非用户要求。
@@ -72,6 +96,7 @@
 | 选下一个任务         | progress.md §1 候选                                               |
 | 任务怎么算完成       | progress.md §0.2 DoD                                              |
 | **写 / 改 UI**       | **本文「写 UI / 改 UI 前必做」节，必须读完 jsx + spec + tokens**  |
+| **修 UI bug**        | **本文「改 UI bug 前必做：先质疑结构」节，别先打补丁**            |
 | 写完代码怎么收尾     | progress.md §0.3 end-of-work loop                                 |
 | 遇到 blocker         | progress.md §0.4 + §5 登记                                        |
 | 时间不够要砍 scope   | development-plan.md §10.2                                         |
