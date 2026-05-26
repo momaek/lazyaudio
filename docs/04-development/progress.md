@@ -1,8 +1,8 @@
 # 开发进度（live）
 
-> **最后更新**：2026-05-25
+> **最后更新**：2026-05-26
 > **当前里程碑**：M3（spike-012 另 session 在跑）
-> **当前焦点**：T13 WAV 流式落盘 ✅ 待 PR;下一候选 T14 mixdown / T15 录音库 / T17 状态保护 / T18 设置骨架
+> **当前焦点**：—（T13 已合 #21,在选下一个任务;候选 T14 mixdown / T15 录音库 / T17 状态保护 / T18 设置骨架）
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -85,7 +85,7 @@
 | ✅ done                   | 23                                              |
 | 🔄 wip                    | 1（spike-012 另 session）                       |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 38                                              |
+| 🔲 todo                   | 37                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,36 +94,7 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T13 — WAV 流式落盘（main）✅ 待 PR
-
-起始 2026-05-25 · 完成 2026-05-25 · 分支 `feat/T13-wav-writer`
-
-来源：[`development-plan.md` T13](./development-plan.md) + [`audio-capture.md` §5](../03-architecture/audio-capture.md) + [`data-model.md` §1-§2](../03-architecture/data-model.md)。dev-plan 原 AC：「30min 录音 → mic.wav / system.wav 可用 Audacity 播；崩溃 SIGKILL 后还能恢复」。
-
-**架构决策**：
-
-- **ULID 替换 UUID**：T12 用 `crypto.randomUUID()`,data-model §1.2 明确要 ULID(自带时间前缀 + 单调 + 按目录名排 = 按创建时间排)。本 T 改 recorder-state.ts 用 ulid 包。
-- **WavStreamWriter**(audio-capture §5.1):open 写 44-byte header 占位 → write 直接 fs.write append(不缓存) → 每 30s pwrite 回填 size → close 最终回填。崩溃恢复留接口(完整 recovery 扫描留 T15a;T13 保证 header 周期 flush 让"已落盘部分大部分时间立即可播放")。
-- **RecordingSession**(audio-capture §5.1):每个 recordingId 一个 session,持 micWriter + systemWriter + meta,按 track 路由。
-- **meta.json 原子写**(data-model §1.4 / §2):`meta.json.tmp` + rename 避免半写态。T13 实现 minimum 字段(id / startedAt / endedAt / durationMs / sources / audioFiles / status),T15/T15a 补完。
-- **receiver fork**:T12 receiver 只统计字节,T13 加 hook 让 chunk 同步 fork 给 session.writeTrack。
-- **recordings/{id}/ 目录**:`app.getPath('userData')/recordings/{id}/`,start 时 mkdir -p。
-
-**AC checkbox**：
-
-- [x] **AC1** 装 `ulid`;`recorder-state.ts` 把 randomUUID → ulid()
-- [x] **AC2** `src/main/recording/paths.ts`:getRecordingsDir + getRecordingDir + ensureDir
-- [x] **AC3** `src/main/recording/wav-writer.ts`:class WavStreamWriter(open/write/flushHeader/close;30s setInterval flush)
-- [x] **AC4** `src/main/recording/meta-store.ts`:原子写 meta.json(.tmp + rename),create/update/finalize 三调用点
-- [x] **AC5** `shared/recording/meta.ts`:RecordingMeta schema v1 minimum 字段(id/schemaVersion/appVersion/title/sessionType/startedAt/endedAt?/durationMs/sources/audioFiles/status/pauseSegments?)
-- [x] **AC6** `src/main/recording/session.ts`:class RecordingSession(start/openTrackWriter/writeTrack/closeTrack/stop)
-- [x] **AC7** `src/main/audio/receiver.ts` 改:fork 到 session;track-open → openTrackWriter / chunk → writeTrack / track-close → closeTrack;全 track close 后 session.stop
-- [x] **AC8** `src/main/ipc/record.ts` 改:record:start 创建 session + start;record:stop 等 session.stop 完成
-- [x] **AC9** `src/main/recording/index.ts`:currentSession getter/setter 共享
-- [x] **AC10** `autotest.ts` 升级:跑完后 stat recordings/{id}/mic.wav size ≈ 期望 + meta.json status=done
-- [x] **AC11** 手测(LAZY_AUTOTEST=1):recordings/{id}/ 看到 mic.wav / system.wav / meta.json;afplay mic.wav 能播;file mic.wav 报 RIFF WAVE PCM 16-bit
-- [x] **AC12** 崩溃恢复 minimum:dev 中 SIGKILL Electron 后,mic.wav 仍能 afplay(header size 落后 ≤ 30s 但 PCM 完整)— 完整 recovery 留 T15a
-- [x] **AC13** CI 三件套全过
+_暂无 wip。下一候选见顶部「当前焦点」一行。_
 
 ---
 
@@ -177,20 +148,20 @@
 
 ### 4.2 M3 — 骨架可跑（T10-T20）
 
-| ID   | 标题                   | 状态    | 分支 / PR              | 起         | 完         | 备注                                                                       |
-| ---- | ---------------------- | ------- | ---------------------- | ---------- | ---------- | -------------------------------------------------------------------------- |
-| T10  | 主进程脚手架           | ✅ done | feat/T10-main-scaffold | 2026-05-24 | 2026-05-24 | lifecycle+windows×3+menu/tray+shortcut;手测 3 截图过                       |
-| T11  | 录音前浮窗（prep）     | ✅ done | feat/T11-prep-popover  | 2026-05-24 | 2026-05-24 | schema + IPC + UI 全过;手测截图 + log 双确认                               |
-| T12  | 音频采集（renderer）   | ✅ done | feat/T12-audio-capture | 2026-05-25 | 2026-05-25 | capture window + worklet + MessagePort 全通;autotest drift +0.71%;含状态机 |
-| T13  | WAV 流式落盘（main）   | ✅ done | feat/T13-wav-writer    | 2026-05-25 | 2026-05-25 | WavStreamWriter + RecordingSession;30s flush;autotest mic+sys wav 可播     |
-| T14  | mixdown                | 🔲 todo | —                      | —          | —          | 依赖 T13                                                                   |
-| T15  | 录音库 v0.1            | 🔲 todo | —                      | —          | —          | 依赖 T10                                                                   |
-| T15a | 崩溃恢复扫描           | 🔲 todo | —                      | —          | —          | 依赖 T13                                                                   |
-| T16  | 详情区 - 播放器        | 🔲 todo | —                      | —          | —          | 依赖 T15                                                                   |
-| T17  | 状态保护               | 🔲 todo | —                      | —          | —          | 依赖 T13                                                                   |
-| T18  | 设置窗口骨架           | 🔲 todo | —                      | —          | —          | 依赖 T10                                                                   |
-| T19  | CI 加 macOS smoke 测试 | 🔲 todo | —                      | —          | —          | 依赖 T13                                                                   |
-| T20  | 权限引导（简版）       | 🔲 todo | —                      | —          | —          | 依赖 T10                                                                   |
+| ID   | 标题                   | 状态    | 分支 / PR                                                                | 起         | 完         | 备注                                                                       |
+| ---- | ---------------------- | ------- | ------------------------------------------------------------------------ | ---------- | ---------- | -------------------------------------------------------------------------- |
+| T10  | 主进程脚手架           | ✅ done | feat/T10-main-scaffold                                                   | 2026-05-24 | 2026-05-24 | lifecycle+windows×3+menu/tray+shortcut;手测 3 截图过                       |
+| T11  | 录音前浮窗（prep）     | ✅ done | feat/T11-prep-popover                                                    | 2026-05-24 | 2026-05-24 | schema + IPC + UI 全过;手测截图 + log 双确认                               |
+| T12  | 音频采集（renderer）   | ✅ done | feat/T12-audio-capture                                                   | 2026-05-25 | 2026-05-25 | capture window + worklet + MessagePort 全通;autotest drift +0.71%;含状态机 |
+| T13  | WAV 流式落盘（main）   | ✅ done | feat/T13-wav-writer ([#21](https://github.com/momaek/lazyaudio/pull/21)) | 2026-05-25 | 2026-05-25 | WavStreamWriter + RecordingSession;30s flush;autotest mic+sys wav 可播     |
+| T14  | mixdown                | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                   |
+| T15  | 录音库 v0.1            | 🔲 todo | —                                                                        | —          | —          | 依赖 T10                                                                   |
+| T15a | 崩溃恢复扫描           | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                   |
+| T16  | 详情区 - 播放器        | 🔲 todo | —                                                                        | —          | —          | 依赖 T15                                                                   |
+| T17  | 状态保护               | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                   |
+| T18  | 设置窗口骨架           | 🔲 todo | —                                                                        | —          | —          | 依赖 T10                                                                   |
+| T19  | CI 加 macOS smoke 测试 | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                   |
+| T20  | 权限引导（简版）       | 🔲 todo | —                                                                        | —          | —          | 依赖 T10                                                                   |
 
 **M3 退出条件**：录音→停止→库→播放全程无报错；macOS + Windows 各自跑通；30min 长录音；CI smoke 过；PRD §7.1 性能 #1/#2/#5 测过。
 
