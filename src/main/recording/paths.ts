@@ -27,6 +27,11 @@ export function getAudioFilePath(recordingId: string, trackId: 'mic' | 'system')
   return path.join(getRecordingDir(recordingId), `${trackId}.wav`)
 }
 
+/** T14 — mixed.wav 输出路径 */
+export function getMixedFilePath(recordingId: string): string {
+  return path.join(getRecordingDir(recordingId), 'mixed.wav')
+}
+
 export function getMetaFilePath(recordingId: string): string {
   return path.join(getRecordingDir(recordingId), 'meta.json')
 }

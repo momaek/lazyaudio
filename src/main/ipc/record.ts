@@ -28,6 +28,7 @@ import {
 } from '../audio/recorder-state'
 import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
+import { runMixdown } from '../recording/mixer'
 import { z } from 'zod'
 
 const StopArgs = z.object({}).optional()
@@ -121,7 +122,13 @@ export function register(): void {
     if (session) {
       await new Promise<void>((resolve) => setTimeout(resolve, 200))
       await session.stop().catch((e) => logger.error(`session.stop failed: ${String(e)}`))
+      const finishedId = session.id
       setCurrentSession(null)
+      // T14:fire-and-forget mixdown(meta.mixStatus 已在 stop 里设 'pending')。
+      // 不 await — 用户停止后录音应立刻进库,混音异步在后台跑(audio-capture §6.0)。
+      void runMixdown(finishedId).catch((e) =>
+        logger.error(`mixdown unhandled: ${String(e)}`, { recordingId: finishedId }),
+      )
     }
 
     transitionToIdle()
