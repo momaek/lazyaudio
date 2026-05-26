@@ -94,46 +94,7 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-### T14 — mixdown 🔄
-
-起始 2026-05-26 · 分支 `feat/T14-mixdown`
-
-来源:[`development-plan.md` T14](./development-plan.md) + [`audio-capture.md` §6](../03-architecture/audio-capture.md) + [`data-model.md` §2.1 audioFiles.mixed / mixStatus](../03-architecture/data-model.md)。dev-plan 原 AC:「mixed.wav 播放,mic 和 system 听感同步」。
-
-**架构决策**:
-
-- **离线合成**(audio-capture §6.1):录完 stop 后异步跑;不实时混(避免跨 worklet 同步、一路崩污染合成)。
-- **独立子状态机** `mixStatus`(audio-capture §6.0):pending → running → done / failed / skipped。**不**阻塞主 `status: done`(stop 后立即可见在库)。
-- **算法**(audio-capture §6.2):mic mono → 复制到 L/R;system stereo as-is;mix = clamp((mic + sys_L)/2, ...), clamp((mic + sys_R)/2, ...)。
-- **mic 可能 stereo**(macOS 内置 mic,T12 已 doc):若 mic.channels=2 直接 L+L, R+R。
-- **零漂移补偿**:spike-005 数据 < 21 μs / 12s,简单 sample-by-sample 求和。长度不齐(意外断流)取 min(mic_frames, sys_frames)。
-- **流式读+写**:不全量 readFile(30min mic.wav = 172 MB,sys.wav = 344 MB);按 64 KB chunk 流式读 mic + sys 同步推进,clamp 后写 mixed.wav。
-- **失败处理**(audio-capture §6.3):mixed = undefined + meta.warnings.push('mix-failed');不影响主 status='done'。
-- **触发位置**:session.stop 写完 final meta 后,**不**等 mix 完成就 resolve;由 ipc/record.ts(以及 autotest)在 await session.stop() 后 fire-and-forget 调 `runMixdown(id)`。
-
-**Schema 变更**(shared/recording/meta.ts):
-
-- 加 `mixStatus: 'pending' | 'running' | 'done' | 'failed' | 'skipped'`
-- 加 `warnings?: Array<{ code, at, detail? }>`(data-model §1.5)
-- v1 增量字段,不破坏旧 meta(zod optional / default)
-
-**AC checkbox**:
-
-- [x] **AC1** `shared/recording/meta.ts`:加 `mixStatus` + `Warning` schema + `warnings`(全 optional 向后兼容);schemaVersion 维持 1
-- [x] **AC2** `src/main/recording/mixer.ts`:`runMixdown(recordingId)` 完整流程 — readMeta → patch mixStatus=running → openTrack(mic) / openTrack(sys) → 流式 FRAMES_PER_CHUNK=4096 推进 → WavStreamWriter 写 mixed.wav → writeMeta 含 audioFiles.mixed + mixStatus=done。+ `getMixedFilePath` 加进 paths.ts
-- [x] **AC3** 边界:single source(`mic && sys` 分支)直接 stereo 化不平均;`mic.channels===1` 复制到 L/R(mono→LR);`mic.channels===2` 同 ch 平均(macOS 内置 mic stereo 情况);length mismatch → `min(micFrames, sysFrames)` + `>1ms` 偏差 logger.warn
-- [x] **AC4** session.stop:final meta 写入前根据 `audioFiles.mic / system` 是否存在初始化 `mixStatus = hasAnyAudio ? 'pending' : 'skipped'`
-- [x] **AC5** `ipc/record.ts` stop handler:`await session.stop()` 后 `void runMixdown(finishedId).catch(...)`(fire-and-forget,不阻塞 IPC 返回)
-- [x] **AC6** mixer try/catch:失败路径 `patchMeta({ mixStatus: 'failed' })` + `appendWarning('mix-failed', errMsg)` + `fs.unlink(mixedPath)` 清残留;主 status='done' 不动
-- [x] **AC7** autotest 升级:`await runMixdown(id)`(autotest 同步等)+ fs.stat mixed.wav + 输出 meta.mixStatus / mixed.bytes
-- [x] **AC8** 手测(LAZY_AUTOTEST=1)输出:
-  - `file mixed.wav` → `RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, stereo 48000 Hz` ✓
-  - `mixed.wav` 1824044 bytes(44 header + 456000 frames × 2ch × 2 byte = 1824000 PCM)✓
-  - meta.json:`mixStatus: "done"` + `audioFiles.mixed.bytes = 1824000` ✓
-  - `afplay -t 1 mixed.wav` exit 0 ✓
-  - **听感同步留待 user 确认**(autotest 10s 录的是环境噪声,听感价值有限;PR review 时建议跑 30s 真实带语音录音听一下)
-  - **额外发现**:autotest 实测 mic 比 sys 多 4800 frames(~100ms),刚好踩 audio-capture §6.2 「>100ms 补对齐」的阈值边缘。原因是 mic getUserMedia 比 sys desktopCapturer 启动早。当前 trim-to-min 实现 OK,但如果听感觉得 mic 早 100ms 明显,需要起一个 follow-up T(可能 T14a「mic/system 起点对齐」)
-- [x] **AC9** CI 三件套全过:`pnpm typecheck` 全绿;`pnpm lint` 0 errors(2 个 T01 遗留 i18next warnings 与本 T 无关);`pnpm test` 4 passed
+_暂无 wip。下一候选见顶部「当前焦点」一行。_
 
 ---
 
