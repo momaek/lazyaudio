@@ -180,6 +180,10 @@ export class RecordingSession {
     } else {
       this.meta.status = 'done'
     }
+    // T14:mixStatus 初始态。两路都无 → skipped(没东西可混);否则 pending,
+    // 由调用方 fire-and-forget 调 runMixdown(id) 推进 → running → done/failed。
+    const hasAnyAudio = !!this.meta.audioFiles.mic || !!this.meta.audioFiles.system
+    this.meta.mixStatus = hasAnyAudio ? 'pending' : 'skipped'
     try {
       await writeMeta(this.meta)
       logger.info(

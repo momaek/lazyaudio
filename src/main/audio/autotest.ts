@@ -22,8 +22,9 @@ import {
 import { getCaptureWindow } from '../windows/capture-window'
 import { RecordingSession } from '../recording/session'
 import { getCurrentSession, setCurrentSession } from '../recording'
-import { getRecordingDir, getAudioFilePath } from '../recording/paths'
+import { getRecordingDir, getAudioFilePath, getMixedFilePath } from '../recording/paths'
 import { readMeta } from '../recording/meta-store'
+import { runMixdown } from '../recording/mixer'
 
 const ENABLED = process.env['LAZY_AUTOTEST'] === '1'
 const START_DELAY_MS = 5000 // app ready 后等 5s 再启 capture(给 capture window load + port handshake)
@@ -94,11 +95,14 @@ export function maybeRunAutotest(): void {
           transitionToIdle()
 
           // T13 验:wav 文件存在 + size 合理 + meta.status=done
+          // T14 验:在 autotest 里同步 await runMixdown(产品路径是 fire-and-forget;
+          //   autotest 需要同步确证 mixed.wav 存在,所以直接 await 取代隐式 stop hook)
           if (before.recordingId) {
             const id = before.recordingId
             const dir = getRecordingDir(id)
             const micPath = getAudioFilePath(id, 'mic')
             const sysPath = getAudioFilePath(id, 'system')
+            const mixedPath = getMixedFilePath(id)
             try {
               const micStat = await fs.stat(micPath)
               const sysStat = await fs.stat(sysPath)
@@ -108,8 +112,20 @@ export function maybeRunAutotest(): void {
               logger.info(`  mic.wav:   ${micStat.size} bytes`)
               logger.info(`  system.wav: ${sysStat.size} bytes`)
               logger.info(
-                `  meta:      status=${meta?.status} durationMs=${meta?.durationMs} ` +
+                `  meta:      status=${meta?.status} mixStatus=${meta?.mixStatus} ` +
+                  `durationMs=${meta?.durationMs} ` +
                   `mic.bytes=${meta?.audioFiles.mic?.bytes} sys.bytes=${meta?.audioFiles.system?.bytes}`,
+              )
+
+              // T14:autotest 同步 await mixdown(产品里是 fire-and-forget,这里要拿到结果验)
+              logger.info('[autotest] running mixdown...')
+              await runMixdown(id)
+              const mixedStat = await fs.stat(mixedPath).catch(() => null)
+              const metaAfterMix = await readMeta(id)
+              logger.info(
+                `  mixed.wav: ${mixedStat ? `${mixedStat.size} bytes` : 'MISSING'} ` +
+                  `(meta.mixStatus=${metaAfterMix?.mixStatus} ` +
+                  `mixed.bytes=${metaAfterMix?.audioFiles.mixed?.bytes})`,
               )
             } catch (e) {
               logger.error(`[autotest] post-stop fs check failed: ${String(e)}`)
