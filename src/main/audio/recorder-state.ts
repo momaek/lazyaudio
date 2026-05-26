@@ -8,7 +8,7 @@
 // - record:start / record:stop IPC handler 拿当前 recordingId
 // - 防重(已 recording 时再调 start 报错)
 
-import { randomUUID } from 'node:crypto'
+import { ulid } from 'ulid'
 import type { SessionType, Sources } from '@shared/ipc/record'
 
 export type RecorderStatus = 'idle' | 'preparing' | 'recording' | 'stopping'
@@ -51,7 +51,8 @@ export function transitionToRecording(args: {
   }
   state = {
     status: 'recording',
-    recordingId: randomUUID(),
+    // ULID (data-model §1.2):26 字符,前 10 字符是 ms 时间戳 base32,按目录名排 = 按创建时间排
+    recordingId: ulid(),
     sessionType: args.sessionType,
     sources: args.sources,
     startedAt: Date.now(),
