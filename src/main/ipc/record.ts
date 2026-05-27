@@ -30,6 +30,7 @@ import {
 import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
 import { runMixdown } from '../recording/mixer'
+import { purgeRecordingTracks } from '../audio/receiver'
 import { z } from 'zod'
 
 const StopArgs = z.object({}).optional()
@@ -43,6 +44,9 @@ async function failCurrentRecording(recordingId: string, reason: string): Promis
     logger.warn(`capture failure for ${recordingId}, but current session is ${session.id}; ignored`)
     return
   }
+  // 兜底:即使 renderer 在 catch 里补了 track-close,异常路径(端口断 / postMessage 抛)
+  // 也可能漏发;main 端这里强清一遍 receiver 的 tracks map,避免孤儿 tick。
+  purgeRecordingTracks(recordingId)
   transitionToIdle()
   logger.warn('recording failed → state machine → idle', { recordingId, reason })
 }

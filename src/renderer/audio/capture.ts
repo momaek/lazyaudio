@@ -27,6 +27,9 @@ interface TrackHandle {
   node: AudioWorkletNode
   channels: number
   seq: number
+  /** 是否已经向 main 发过 track-open(首帧到达时置 true);失败 teardown 时只对
+   *  已 open 的 track 补发 track-close,避免 receiver 打 "track-close for unknown" 警告。 */
+  trackOpened: boolean
 }
 
 export interface CaptureSession {
@@ -93,9 +96,9 @@ async function attachTrack(
     node,
     channels: 0, // 首帧确定
     seq: 0,
+    trackOpened: false,
   }
 
-  let trackOpened = false
   node.port.onmessage = (e) => {
     const data = e.data as
       | {
@@ -110,7 +113,7 @@ async function attachTrack(
     if (!data || data.type !== 'chunk') return
 
     // 首帧拿到 channels 后发 track-open
-    if (!trackOpened) {
+    if (!handle.trackOpened) {
       handle.channels = data.channels
       port.postMessage({
         type: 'track-open',
@@ -120,7 +123,7 @@ async function attachTrack(
         channels: data.channels,
         bitDepth: 16,
       })
-      trackOpened = true
+      handle.trackOpened = true
       log(`track-open sent: ${trackId} ${SAMPLE_RATE}Hz × ${data.channels}ch`)
     }
 
@@ -199,7 +202,23 @@ export async function startCapture(args: {
     }
   } catch (e) {
     // 部分打开失败 → 全 teardown,抛
+    // 关键:对已经发过 track-open 的 handle 必须补发 track-close,否则 main 端 receiver
+    // 的 tracks map 会留孤儿条目(tick 日志一直打 "1 chunks 19200 bytes / Ns"),
+    // session 的 WAV writer fd 也得等到 session.stop() 兜底才关。
     session.tracks.forEach((h) => {
+      if (h.trackOpened) {
+        try {
+          args.port.postMessage({
+            type: 'track-close',
+            recordingId: args.recordingId,
+            trackId: h.trackId,
+            reason: 'error',
+          })
+        } catch (postErr) {
+          console.warn('[capture] track-close on error path failed', postErr)
+        }
+      }
+      h.node.port.onmessage = null
       h.node.disconnect()
       h.src.disconnect()
       h.stream.getTracks().forEach((t) => t.stop())

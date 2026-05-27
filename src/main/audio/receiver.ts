@@ -12,6 +12,7 @@ import type { TrackId } from '@shared/audio/messages'
 import { logger } from '../logger'
 import { onAudioPortReady } from './port'
 import { getCurrentSession } from '../recording'
+import { recoverRecordingsOnStartup } from '../recording/recovery'
 
 type TrackStat = {
   recordingId: string
@@ -180,12 +181,39 @@ function handleMessage(port: MessagePortMain, raw: unknown): void {
 }
 
 export function startAudioReceiver(): void {
+  void recoverRecordingsOnStartup().catch((e) =>
+    logger.warn(`startup recovery failed: ${String(e)}`),
+  )
   onAudioPortReady((port) => {
     logger.info('[audio] receiver attached to port')
     port.on('message', (event) => {
       handleMessage(port, event.data)
     })
   })
+}
+
+/** 兜底清理:capture 失败(audio:capture-failed)路径下,renderer 可能没机会
+ *  补发 track-close(端口已挂 / 异常路径漏发等)。main 端走 failCurrentRecording
+ *  时调一下这里,把该 recordingId 的所有孤儿 track 从 tracks map 清掉,避免
+ *  tick 日志永远打 "mic: 1 chunks, 19200 bytes / Ns" 这种残留。
+ *
+ *  不在这里关 WAV writer — 那是 session.fail() → session.stop() 兜底 close 的活
+ *  (session.ts:159-173),职责分离。 */
+export function purgeRecordingTracks(recordingId: string): void {
+  let removed = 0
+  for (const [key, stat] of tracks) {
+    if (stat.recordingId !== recordingId) continue
+    const elapsedSec = (Date.now() - stat.openedAtMs) / 1000
+    logger.warn(
+      `[audio] purge orphan track ${key}: ${stat.chunksReceived} chunks, ` +
+        `${stat.bytesReceived} bytes / ${elapsedSec.toFixed(2)}s (no track-close arrived)`,
+    )
+    tracks.delete(key)
+    removed++
+  }
+  if (removed > 0) {
+    stopTickIfNoTracks()
+  }
 }
 
 /** 测试/工具用:取某 recording 的所有 track 累计 */

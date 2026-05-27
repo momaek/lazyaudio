@@ -1,8 +1,8 @@
 # 开发进度（live）
 
-> **最后更新**：2026-05-26
-> **当前里程碑**：M3（spike-012 另 session 在跑）
-> **当前焦点**：T14 mixdown ✅ 待 PR;下一候选 T15 录音库 / T15a 崩溃恢复扫描 / T17 状态保护 / T18 设置骨架
+> **最后更新**：2026-05-27
+> **当前里程碑**：M3
+> **当前焦点**：T15 已随 `4294789` 直推；当前推进 T15a 崩溃恢复扫描；下一候选 T16 详情播放器 / T17 状态保护
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 44 (M3-M7 T) = **61** |
-| ✅ done                   | 24                                              |
-| 🔄 wip                    | 1（spike-012 另 session）                       |
+| ✅ done                   | 25                                              |
+| 🔄 wip                    | 1（T15a）                                       |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 36                                              |
+| 🔲 todo                   | 35                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,7 +94,12 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
-_暂无 wip。下一候选见顶部「当前焦点」一行。_
+- [ ] T15a 崩溃恢复扫描：录音中异常退出后，重启可在库里看到 partial 录音
+  - 验证：待跑手测 SIGKILL / 自动化可行时补日志
+- [ ] T15a 崩溃恢复扫描：未关闭 WAV header 按真实文件大小修正，已落盘部分可播放
+  - 验证：待跑手测 / 单测
+- [ ] T15a 崩溃恢复扫描：meta.json.tmp 不残留
+  - 验证：待跑手测 / 单测
 
 ---
 
@@ -155,8 +160,8 @@ _暂无 wip。下一候选见顶部「当前焦点」一行。_
 | T12  | 音频采集（renderer）   | ✅ done | feat/T12-audio-capture                                                   | 2026-05-25 | 2026-05-25 | capture window + worklet + MessagePort 全通;autotest drift +0.71%;含状态机      |
 | T13  | WAV 流式落盘（main）   | ✅ done | feat/T13-wav-writer ([#21](https://github.com/momaek/lazyaudio/pull/21)) | 2026-05-25 | 2026-05-25 | WavStreamWriter + RecordingSession;30s flush;autotest mic+sys wav 可播          |
 | T14  | mixdown                | ✅ done | feat/T14-mixdown                                                         | 2026-05-26 | 2026-05-26 | 离线合成 mixed.wav;独立 mixStatus 不阻塞主 status;autotest mixed.wav 1.8MB 可播 |
-| T15  | 录音库 v0.1            | 🔲 todo | —                                                                        | —          | —          | 依赖 T10                                                                        |
-| T15a | 崩溃恢复扫描           | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                        |
+| T15  | 录音库 v0.1            | ✅ done | main `4294789`                                                           | 2026-05-27 | 2026-05-27 | library:list + 主窗口左侧列表;typecheck/lint/test 通过;随修复录音浮窗一并直推   |
+| T15a | 崩溃恢复扫描           | 🔄 wip  | —                                                                        | 2026-05-27 | —          | 依赖 T13                                                                        |
 | T16  | 详情区 - 播放器        | 🔲 todo | —                                                                        | —          | —          | 依赖 T15                                                                        |
 | T17  | 状态保护               | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                        |
 | T18  | 设置窗口骨架           | 🔲 todo | —                                                                        | —          | —          | 依赖 T10                                                                        |
