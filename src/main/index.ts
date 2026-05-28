@@ -14,8 +14,12 @@ import { registerToggleRecord, unregisterAllShortcuts } from './shortcut/registe
 import { setupAudioPort, teardownAudioPort } from './audio/port'
 import { startAudioReceiver } from './audio/receiver'
 import { maybeRunAutotest } from './audio/autotest'
+import { registerMediaScheme, registerMediaProtocol } from './media/protocol'
 
 app.setName('LazyAudio')
+
+// scheme 须在 app ready 前注册为 privileged(T16 录音音频流式协议)
+registerMediaScheme()
 
 if (!acquireSingleInstanceLock()) {
   app.quit()
@@ -25,6 +29,7 @@ if (!acquireSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     registerIpc()
+    registerMediaProtocol()
     installAppMenu()
 
     // T12 — system audio loopback via ScreenCaptureKit audio-only path(spike-005 验过)

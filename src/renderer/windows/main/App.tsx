@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LibraryEntry, LibraryGroup } from '@shared/ipc/library'
+import { mediaUrl } from '@shared/ipc/channels'
 import type { SessionType, RecorderSnapshot, Sources } from '@shared/ipc/record'
 import '../../styles/globals.css'
 import './main.css'
@@ -182,6 +183,7 @@ function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX
           <span>{sourcePreview(entry)}</span>
         </span>
       </header>
+      <Player entry={entry} />
       <div className="detail-stage">
         <h2>{t('common:library.detailTitle')}</h2>
         <p>{t('common:library.detailHint')}</p>
@@ -364,6 +366,223 @@ function LiveWaveform(): React.JSX.Element {
         )
       })}
     </svg>
+  )
+}
+
+// T16 — 可播放的波形条:装饰 bars(非真实 PCM 峰值)+ 已播段染 accent + playhead + 点击/拖动 seek。
+function PlaybackWaveform({
+  progress,
+  onSeek,
+  disabled,
+}: {
+  progress: number
+  onSeek: (fraction: number) => void
+  disabled: boolean
+}): React.JSX.Element {
+  const bars = 200
+  const height = 48
+  const arr = useMemo(() => {
+    const out: number[] = []
+    let seed = 1337
+    for (let i = 0; i < bars; i++) {
+      seed = (seed * 9301 + 49297) % 233280
+      const r = seed / 233280
+      out.push(Math.max(0.12, Math.pow(r, 1.2)))
+    }
+    return out
+  }, [])
+  const ref = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+
+  const seekAt = useCallback(
+    (clientX: number) => {
+      const el = ref.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      // 减去左右各 16px padding,映射到 canvas 实际宽度
+      const inner = rect.width - 32
+      if (inner <= 0) return
+      const frac = (clientX - rect.left - 16) / inner
+      onSeek(Math.max(0, Math.min(1, frac)))
+    },
+    [onSeek],
+  )
+
+  return (
+    <div
+      className={`wf wf-playable${disabled ? ' is-disabled' : ''}`}
+      ref={ref}
+      onPointerDown={(e) => {
+        if (disabled) return
+        dragging.current = true
+        e.currentTarget.setPointerCapture(e.pointerId)
+        seekAt(e.clientX)
+      }}
+      onPointerMove={(e) => {
+        if (dragging.current) seekAt(e.clientX)
+      }}
+      onPointerUp={(e) => {
+        dragging.current = false
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        } catch {
+          /* pointer 已释放 */
+        }
+      }}
+    >
+      <svg
+        className="wf-canvas"
+        viewBox={`0 0 ${bars * 4} ${height}`}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {arr.map((v, i) => {
+          const h = Math.max(1, v * (height - 4))
+          const y = (height - h) / 2
+          const played = i / bars <= progress
+          return (
+            <rect
+              key={i}
+              x={i * 4 + 1}
+              y={y}
+              width={2}
+              height={h}
+              rx={1}
+              fill={played ? 'var(--color-accent)' : 'var(--color-gray-300)'}
+            />
+          )
+        })}
+      </svg>
+      <div
+        className="wf-playhead"
+        style={{ left: `calc(16px + (100% - 32px) * ${Math.max(0, Math.min(1, progress))})` }}
+      />
+    </div>
+  )
+}
+
+// T16 — 详情区播放器(选中已完成录音时显示)。
+// 范围(用户拍板):play/pause + 波形 seek + ±15s 跳转 功能化;倍速按钮渲染但静态占位(归后续);
+// 波形为装饰(非真实 PCM 峰值)。音频经 main 的 lazyaudio-media:// 协议流式提供(支持 Range)。
+function Player({ entry }: { entry: LibraryEntry }): React.JSX.Element {
+  const { t } = useTranslation()
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [currentMs, setCurrentMs] = useState(0)
+  const [durationMs, setDurationMs] = useState(entry.durationMs)
+  const [unavailable, setUnavailable] = useState(false)
+  const src = mediaUrl(entry.id)
+
+  // 切到另一条录音:重置播放态(<audio> src 变了)
+  useEffect(() => {
+    setPlaying(false)
+    setCurrentMs(0)
+    setDurationMs(entry.durationMs)
+    setUnavailable(false)
+  }, [entry.id, entry.durationMs])
+
+  const effectiveDurationSec = useCallback((): number => {
+    const el = audioRef.current
+    if (el && Number.isFinite(el.duration) && el.duration > 0) return el.duration
+    return durationMs / 1000
+  }, [durationMs])
+
+  const togglePlay = useCallback(() => {
+    const el = audioRef.current
+    if (!el) return
+    if (el.paused) el.play().catch(() => setUnavailable(true))
+    else el.pause()
+  }, [])
+
+  const skip = useCallback(
+    (deltaSec: number) => {
+      const el = audioRef.current
+      if (!el) return
+      const dur = effectiveDurationSec()
+      el.currentTime = Math.max(0, Math.min(dur, el.currentTime + deltaSec))
+    },
+    [effectiveDurationSec],
+  )
+
+  const seekToFraction = useCallback(
+    (fraction: number) => {
+      const el = audioRef.current
+      if (!el) return
+      const dur = effectiveDurationSec()
+      if (dur > 0) el.currentTime = Math.max(0, Math.min(dur, fraction * dur))
+    },
+    [effectiveDurationSec],
+  )
+
+  const progress = durationMs > 0 ? Math.min(1, currentMs / durationMs) : 0
+
+  return (
+    <>
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration
+          if (Number.isFinite(d) && d > 0) setDurationMs(d * 1000)
+        }}
+        onTimeUpdate={(e) => setCurrentMs(e.currentTarget.currentTime * 1000)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onError={() => setUnavailable(true)}
+      />
+      <PlaybackWaveform progress={progress} onSeek={seekToFraction} disabled={unavailable} />
+      <div className={`pc${unavailable ? ' is-disabled' : ''}`}>
+        <button
+          type="button"
+          className="pc-play"
+          onClick={togglePlay}
+          disabled={unavailable}
+          title={playing ? t('common:pause') : t('common:library.play')}
+          aria-label={playing ? t('common:pause') : t('common:library.play')}
+        >
+          {playing ? <PauseIcon /> : <PlayIcon />}
+        </button>
+        <div className="pc-time">
+          <span className="now">{formatDuration(currentMs)}</span>
+          <span className="sep">{t('common:library.playerTimeSep')}</span>
+          <span className="total">{formatDuration(durationMs)}</span>
+        </div>
+        <div className="pc-right">
+          <button
+            type="button"
+            className="pc-btn"
+            onClick={() => skip(-15)}
+            disabled={unavailable}
+            title={t('common:library.playerSkipBack')}
+          >
+            <SkipBackIcon />
+            <span>{t('common:library.playerSkip')}</span>
+          </button>
+          <button
+            type="button"
+            className="pc-btn"
+            disabled
+            title={t('common:library.playerSpeedSoon')}
+          >
+            <span>{t('common:library.playerSpeed')}</span>
+            <ChevronDownIcon />
+          </button>
+          <button
+            type="button"
+            className="pc-btn"
+            onClick={() => skip(15)}
+            disabled={unavailable}
+            title={t('common:library.playerSkipForward')}
+          >
+            <span>{t('common:library.playerSkip')}</span>
+            <SkipForwardIcon />
+          </button>
+        </div>
+      </div>
+      {unavailable ? <div className="pc-error">{t('common:library.playerUnavailable')}</div> : null}
+    </>
   )
 }
 
