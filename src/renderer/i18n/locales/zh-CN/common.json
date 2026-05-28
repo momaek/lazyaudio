@@ -11,6 +11,67 @@
   "more": "更多",
   "save": "保存",
   "settings": "设置",
+  "settingsPage": {
+    "comingSoon": "即将支持",
+    "nav": {
+      "general": "通用",
+      "recording": "录音",
+      "engine": "转录引擎",
+      "templates": "LLM 模板",
+      "shortcuts": "快捷键",
+      "privacy": "隐私",
+      "about": "关于"
+    },
+    "general": {
+      "title": "通用",
+      "subtitle": "App 启动、外观、默认行为",
+      "sectionStartup": "启动与窗口",
+      "sectionAppearance": "外观",
+      "sectionDefaults": "默认会话类型",
+      "openAtLogin": "开机自启",
+      "openAtLoginHelper": "登录时自动启动并隐藏到菜单栏",
+      "closeBehavior": "关闭主窗口时",
+      "closeMinimize": "最小化到菜单栏",
+      "closeQuit": "退出 App",
+      "showOnLaunch": "启动时显示主窗口",
+      "showOnLaunchHelper": "关闭时仅菜单栏，需手动调出",
+      "trayClick": "单击菜单栏图标",
+      "trayMenu": "显示菜单",
+      "trayRecord": "直接开始录音",
+      "trayWindow": "显示主窗口",
+      "theme": "主题",
+      "language": "App 语言",
+      "languageZh": "简体中文",
+      "listDensity": "列表密度",
+      "defaultSessionType": "录前默认会话类型",
+      "skipPrep": "快捷键跳过录音前浮窗",
+      "skipPrepHelper": "启用后用上次配置直接开录"
+    },
+    "theme": {
+      "light": "亮",
+      "dark": "暗",
+      "system": "跟随系统"
+    },
+    "density": {
+      "compact": "紧凑",
+      "comfortable": "宽松"
+    },
+    "defaultSession": {
+      "last": "上次使用"
+    },
+    "shortcuts": {
+      "title": "快捷键",
+      "subtitle": "全局快捷键 — 在任何 app 中都能触发",
+      "sectionGlobal": "全局快捷键",
+      "toggleRecord": "开始 / 停止录音",
+      "toggleRecordSub": "空闲时开始，录音中停止",
+      "modify": "修改",
+      "cancel": "取消",
+      "capturing": "按下新的组合键…",
+      "hint": "点击「修改」后按下新组合键 · 必须含至少一个修饰键 · Esc 取消",
+      "moreSoon": "更多快捷键（暂停 / 显示主窗口 / 快速笔记）将随对应功能补齐"
+    }
+  },
   "showcase": {
     "title": "LazyAudio · Design Tokens Showcase",
     "modeAuto": "auto",
