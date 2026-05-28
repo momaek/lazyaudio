@@ -27,6 +27,8 @@ import {
   transitionToIdle,
   getRecorderState,
 } from '../audio/recorder-state'
+import { broadcastRecorderState, getRecorderSnapshot } from '../audio/recorder-broadcast'
+import { RecorderSnapshot, GetStateArgs } from '@shared/ipc/record'
 import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
 import { runMixdown } from '../recording/mixer'
@@ -48,6 +50,7 @@ async function failCurrentRecording(recordingId: string, reason: string): Promis
   // 也可能漏发;main 端这里强清一遍 receiver 的 tracks map,避免孤儿 tick。
   purgeRecordingTracks(recordingId)
   transitionToIdle()
+  broadcastRecorderState()
   logger.warn('recording failed → state machine → idle', { recordingId, reason })
 }
 
@@ -96,6 +99,7 @@ export function register(): void {
       setCurrentSession(session)
     } catch (e) {
       transitionToIdle()
+      broadcastRecorderState()
       throw new Error(`record:start: session.start failed: ${String(e)}`)
     }
 
@@ -106,12 +110,16 @@ export function register(): void {
       await session.stop().catch(() => {})
       setCurrentSession(null)
       transitionToIdle()
+      broadcastRecorderState()
       throw new Error('capture window not available')
     }
     captureWin.webContents.send(AUDIO.startCapture, {
       recordingId: state.recordingId,
       sources: args.sources,
     })
+
+    // 状态机已进 recording → 广播给主窗口渲染"录音中"UI
+    broadcastRecorderState()
 
     const result = { recordingId: state.recordingId!, startedAt: state.startedAt! }
     assertSchemaDev(StartResult, result)
@@ -150,9 +158,17 @@ export function register(): void {
     }
 
     transitionToIdle()
+    broadcastRecorderState()
     logger.info('record:stop → state machine → idle', { recordingId })
 
     return { ok: true }
+  })
+
+  ipcMain.handle(CHANNEL.getState, async (_event, rawArgs: unknown) => {
+    GetStateArgs.parse(rawArgs)
+    const snapshot = getRecorderSnapshot()
+    assertSchemaDev(RecorderSnapshot, snapshot)
+    return snapshot
   })
 
   ipcMain.on(AUDIO.captureFailed, (event, rawArgs: unknown) => {

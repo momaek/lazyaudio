@@ -13,6 +13,8 @@ export const RECORD = {
   stop: 'record:stop',
   tick: 'record:tick',
   stateChanged: 'record:state-changed',
+  // renderer(主窗口)mount 时拉一次当前录音状态;之后靠 stateChanged 增量更新
+  getState: 'record:get-state',
   // T11 新增:prep 浮窗的取消按钮 / Esc 通过 IPC 通知 main 隐藏;
   // blur 自动 hide 仍在 main 端独立工作。ipc-contract.md §2.1 同步加。
   hidePrep: 'record:hide-prep',
