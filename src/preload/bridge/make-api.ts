@@ -8,7 +8,13 @@ import { ipcRenderer } from 'electron'
 import { SYSTEM, RECORD, AUDIO, LIBRARY } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
-import type { PrepDefaults, StartArgs, StartResult, HidePrepResult } from '@shared/ipc/record'
+import type {
+  PrepDefaults,
+  StartArgs,
+  StartResult,
+  HidePrepResult,
+  RecorderSnapshot,
+} from '@shared/ipc/record'
 import type { ListResult } from '@shared/ipc/library'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
@@ -23,6 +29,12 @@ export function makeApi(): LazyAudioApi {
       start: (args: StartArgs) => invoke<StartResult>(RECORD.start, args),
       stop: () => invoke<{ ok: boolean }>(RECORD.stop, {}),
       hidePrep: () => invoke<HidePrepResult>(RECORD.hidePrep),
+      getState: () => invoke<RecorderSnapshot>(RECORD.getState, {}),
+      onStateChanged: (cb) => {
+        const handler = (_e: unknown, snapshot: RecorderSnapshot): void => cb(snapshot)
+        ipcRenderer.on(RECORD.stateChanged, handler)
+        return () => ipcRenderer.off(RECORD.stateChanged, handler)
+      },
     },
     library: {
       list: () => invoke<ListResult>(LIBRARY.list, {}),

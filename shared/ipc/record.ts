@@ -66,3 +66,22 @@ export const HidePrepResult = z.object({
   ok: z.boolean(),
 })
 export type HidePrepResult = z.infer<typeof HidePrepResult>
+
+// ---- record:get-state / record:state-changed ----
+// 录音状态机的可序列化快照。main 在每次状态转换后 broadcast(record:state-changed),
+// renderer(主窗口)mount 时也可主动拉一次(record:get-state)。
+// 字段与 main/audio/recorder-state.ts 的 RecorderState 对齐,只去掉非可序列化部分(本就都是基本类型)。
+export const RecorderStatus = z.enum(['idle', 'preparing', 'recording', 'stopping'])
+export type RecorderStatus = z.infer<typeof RecorderStatus>
+
+export const RecorderSnapshot = z.object({
+  status: RecorderStatus,
+  recordingId: z.string().nullable(),
+  sessionType: SessionType.nullable(),
+  sources: Sources.nullable(),
+  startedAt: z.number().int().nullable(), // ms epoch
+})
+export type RecorderSnapshot = z.infer<typeof RecorderSnapshot>
+
+export const GetStateArgs = z.object({}).optional()
+export type GetStateArgs = z.infer<typeof GetStateArgs>

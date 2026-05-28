@@ -2,7 +2,13 @@
 // renderer 在 src/renderer/global.d.ts 把 window.lazyaudio: LazyAudioApi 注册成全局类型。
 
 import type { PingResult } from '../ipc/system'
-import type { PrepDefaults, StartArgs, StartResult, HidePrepResult } from '../ipc/record'
+import type {
+  PrepDefaults,
+  StartArgs,
+  StartResult,
+  HidePrepResult,
+  RecorderSnapshot,
+} from '../ipc/record'
 import type { ListResult } from '../ipc/library'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
@@ -19,6 +25,10 @@ export interface LazyAudioApi {
     stop(): Promise<{ ok: boolean }>
     /** 取消按钮 / Esc 通知 main 隐藏 prep 浮窗 */
     hidePrep(): Promise<HidePrepResult>
+    /** 主窗口 mount 时拉一次当前录音状态快照 */
+    getState(): Promise<RecorderSnapshot>
+    /** 订阅录音状态变更广播(main 每次状态转换后发);返回取消订阅函数 */
+    onStateChanged(cb: (snapshot: RecorderSnapshot) => void): () => void
   }
   library: {
     /** T15 录音库 v0.1:按日期分组返回 recordings 下的 meta 快照 */

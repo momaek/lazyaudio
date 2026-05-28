@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LibraryEntry, LibraryGroup } from '@shared/ipc/library'
-import type { SessionType } from '@shared/ipc/record'
+import type { SessionType, RecorderSnapshot, Sources } from '@shared/ipc/record'
 import '../../styles/globals.css'
 import './main.css'
 
@@ -43,6 +43,13 @@ function formatTimeOfDay(ts: number): string {
   const d = new Date(ts)
   const pad = (n: number): string => String(n).padStart(2, '0')
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// 与 prep 浮窗一致:`{类型} YYYY-MM-DD HH:mm`(录音标题不在 snapshot 里,按 startedAt 复原)
+function formatTitleTimestamp(ts: number): string {
+  const d = new Date(ts)
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function sourcePreview(entry: LibraryEntry): string {
@@ -97,10 +104,12 @@ function LibrarySidebar({
   groups,
   selectedId,
   onSelect,
+  recording,
 }: {
   groups: LibraryGroup[]
   selectedId: string | null
   onSelect: (entry: LibraryEntry) => void
+  recording: RecordingInfo | null
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -122,13 +131,14 @@ function LibrarySidebar({
         </button>
       </div>
 
-      {groups.length === 0 ? (
+      {groups.length === 0 && !recording ? (
         <div className="lib-list-empty">
           <div>{t('common:library.emptyTitle')}</div>
           <div>{t('common:library.emptyHint')}</div>
         </div>
       ) : (
         <div className="lib-list">
+          {recording && <RecordingListItem info={recording} />}
           {groups.map((group) => (
             <div key={group.label}>
               <div className="lib-group-head">{group.label}</div>
@@ -180,10 +190,337 @@ function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX
   )
 }
 
+type RecordingInfo = {
+  sessionType: SessionType
+  sources: Sources
+  startedAt: number
+  elapsedMs: number
+}
+
+// ---- 录音中详情面板用到的图标(取自 ui-mockups/.../icons.jsx,1.5 stroke / 12-16 viewBox) ----
+function PlayIcon(): React.JSX.Element {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+      <path d="M3 1.5v9l8-4.5L3 1.5z" />
+    </svg>
+  )
+}
+function PauseIcon(): React.JSX.Element {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+      <rect x="3" y="2" width="2.2" height="8" rx="0.5" />
+      <rect x="6.8" y="2" width="2.2" height="8" rx="0.5" />
+    </svg>
+  )
+}
+function StopIcon(): React.JSX.Element {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+      <rect x="2.5" y="2.5" width="7" height="7" rx="1" />
+    </svg>
+  )
+}
+function SkipBackIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M11 4.5 5 8l6 3.5V4.5z" />
+      <path d="M5 4v8" />
+    </svg>
+  )
+}
+function SkipForwardIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 4.5 11 8l-6 3.5V4.5z" />
+      <path d="M11 4v8" />
+    </svg>
+  )
+}
+function ChevronDownIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m3 4.5 3 3 3-3" />
+    </svg>
+  )
+}
+function TemplateIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="2" width="8" height="8" rx="1" />
+      <path d="M2 4.8h8M5 4.8v5.2" />
+    </svg>
+  )
+}
+function CopyIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="5" y="5" width="8.5" height="9" rx="1.5" />
+      <path d="M10.5 5V3.5A1 1 0 0 0 9.5 2.5h-6A1 1 0 0 0 2.5 3.5v7A1 1 0 0 0 3.5 11.5H5" />
+    </svg>
+  )
+}
+
+function sessionLabelText(t: (k: string) => string, type: SessionType): string {
+  return t(`common:${SESSION_I18N_KEY[type]}`)
+}
+
+function sourcesText(t: (k: string) => string, sources: Sources): string {
+  const parts: string[] = []
+  if (sources.mic) parts.push(t('common:library.sourceMic'))
+  if (sources.system) parts.push(t('common:library.sourceSystem'))
+  return parts.join(' + ')
+}
+
+// 录音中波形(装饰性,非真实 PCM 振幅)。确定性伪随机,与 mockup LiveWaveform 一致。
+function LiveWaveform(): React.JSX.Element {
+  const bars = 220
+  const height = 48
+  const arr = useMemo(() => {
+    const out: number[] = []
+    let seed = 4421
+    for (let i = 0; i < bars; i++) {
+      seed = (seed * 9301 + 49297) % 233280
+      const r = seed / 233280
+      const recency = i / bars
+      const env = 0.3 + 0.6 * recency
+      const local = 0.3 + 0.8 * Math.pow(r, 1.3)
+      const pocket = i % 53 < 3 ? 0.3 : 1
+      out.push(Math.max(0.08, env * local * pocket))
+    }
+    return out
+  }, [])
+  return (
+    <svg
+      className="wf-canvas"
+      viewBox={`0 0 ${bars * 4} ${height}`}
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      {arr.map((v, i) => {
+        const h = Math.max(1, v * (height - 4))
+        const y = (height - h) / 2
+        const isHead = i > bars - 8
+        return (
+          <rect
+            key={i}
+            x={i * 4 + 1}
+            y={y}
+            width={2}
+            height={h}
+            rx={1}
+            fill="var(--color-record)"
+            opacity={isHead ? 0.95 : 0.6}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
+// 录音中详情面板(screen-specs §状态3 §3 / mockup §6.3.5)。
+// 偏离备注:暂停按钮目前无功能(pause 状态机属 T17);波形为装饰、转录/摘要为占位(与 mockup 一致)。
+function DetailRecording({
+  info,
+  onStop,
+}: {
+  info: RecordingInfo
+  onStop: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const sessionLabel = sessionLabelText(t, info.sessionType)
+  const title = `${sessionLabel} ${formatTitleTimestamp(info.startedAt)}`
+  const templateLabel = t('common:library.summaryTemplate', { type: sessionLabel })
+  return (
+    <section className="detail">
+      <header className="dh">
+        <span className="dh-title">{title}</span>
+        <span className="type-badge" data-type={SESSION_UI_TYPE[info.sessionType]}>
+          {sessionLabel}
+        </span>
+        <span className="dh-meta">
+          <span className="dh-rec-time">
+            <span className="record-dot" />
+            <span className="dh-rec-clock">{formatDuration(info.elapsedMs)}</span>
+          </span>
+          <span className="dot-sep" />
+          <span>{sourcesText(t, info.sources)}</span>
+        </span>
+        <div className="dh-actions">
+          <button
+            type="button"
+            className="btn-rec-pause"
+            disabled
+            title={t('common:library.pauseSoon')}
+          >
+            <PauseIcon />
+            {t('common:pause')}
+          </button>
+          <button type="button" className="btn-rec-stop" onClick={onStop}>
+            <StopIcon />
+            {t('common:library.recordingStop')}
+          </button>
+        </div>
+      </header>
+
+      <div className="wf">
+        <LiveWaveform />
+      </div>
+
+      <div className="pc is-disabled">
+        <button type="button" className="pc-play" aria-hidden>
+          <PlayIcon />
+        </button>
+        <div className="pc-time">
+          <span className="now">{t('common:library.playerNoTime')}</span>
+          <span className="sep">{t('common:library.playerTimeSep')}</span>
+          <span className="total">{formatDuration(info.elapsedMs)}</span>
+        </div>
+        <div className="pc-right">
+          <button type="button" className="pc-btn">
+            <SkipBackIcon />
+            <span>{t('common:library.playerSkip')}</span>
+          </button>
+          <button type="button" className="pc-btn">
+            <span>{t('common:library.playerSpeed')}</span>
+            <ChevronDownIcon />
+          </button>
+          <button type="button" className="pc-btn">
+            <span>{t('common:library.playerSkip')}</span>
+            <SkipForwardIcon />
+          </button>
+        </div>
+      </div>
+
+      <div className="tx-summary">
+        <div className="tx">
+          <div className="tx-head">
+            {t('common:library.transcript')}
+            <div className="tx-head-right">{t('common:library.transcriptAutoStart')}</div>
+          </div>
+          <div className="tx-placeholder">
+            <div className="skeleton-stack">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div className="sk-row" key={i}>
+                  <div className="sk-bar" style={{ width: 32, height: 8 }} />
+                  <div className="sk-bar" style={{ width: 14, height: 8, borderRadius: '50%' }} />
+                  <div className="sk-bar" style={{ width: `${60 + ((i * 7) % 36)}%` }} />
+                </div>
+              ))}
+            </div>
+            <div className="hint">{t('common:library.transcriptPlaceholder')}</div>
+          </div>
+        </div>
+
+        <div className="tx-divider" />
+
+        <div className="sm is-disabled">
+          <div className="sm-head">
+            {t('common:library.summary')}
+            <span className="template">
+              <TemplateIcon />
+              {templateLabel}
+            </span>
+          </div>
+          <div className="sm-placeholder">
+            <div className="icon-box">
+              <TemplateIcon />
+            </div>
+            <div className="hint hint-strong">{t('common:library.summaryAfterStop')}</div>
+            <div className="hint">
+              {t('common:library.summaryTemplateHint', { type: sessionLabel })}
+            </div>
+          </div>
+          <div className="sm-actions">
+            <button type="button" className="btn btn-secondary btn-compact">
+              <TemplateIcon />
+              {t('common:library.changeTemplate')}
+            </button>
+            <button type="button" className="btn btn-secondary btn-compact">
+              <CopyIcon />
+              {t('common:library.copy')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// 列表顶部置顶的"录音中"项(screen-specs §状态3 §2);不可被选中。
+function RecordingListItem({ info }: { info: RecordingInfo }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div className="lib-item is-recording" data-type={SESSION_UI_TYPE[info.sessionType]}>
+      <span className="lib-item-dot" />
+      <div className="lib-item-title">
+        <b>{sessionLabelText(t, info.sessionType)}</b>
+        <span className="rec-tag">{t('common:library.recordingTag')}</span>
+      </div>
+      <div className="lib-item-dur">{formatDuration(info.elapsedMs)}</div>
+      <div className="lib-item-preview">
+        {t('common:library.recordingPreview', { sources: sourcesText(t, info.sources) })}
+      </div>
+    </div>
+  )
+}
+
 export function App(): React.JSX.Element {
   const { t } = useTranslation()
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [recState, setRecState] = useState<RecorderSnapshot | null>(null)
+  const [nowTs, setNowTs] = useState<number>(() => Date.now())
+  const recStatusRef = useRef<RecorderSnapshot['status'] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -201,6 +538,70 @@ export function App(): React.JSX.Element {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // 录音停止后刷新列表(不改当前选中),让刚录完的那条进库
+  const refetchLibrary = useCallback(() => {
+    window.lazyaudio.library
+      .list()
+      .then((result) => setState({ kind: 'ready', groups: result.groups, total: result.total }))
+      .catch(() => {
+        /* 刷新失败不打断 UI;下次手动重开窗口会重试 */
+      })
+  }, [])
+
+  // 拉一次当前录音状态 + 订阅状态变更;recording → 非 recording 时刷新列表
+  useEffect(() => {
+    let cancelled = false
+    window.lazyaudio.record
+      .getState()
+      .then((snap) => {
+        if (cancelled) return
+        recStatusRef.current = snap.status
+        setRecState(snap)
+      })
+      .catch(() => {
+        /* 拿不到状态就当 idle */
+      })
+    const off = window.lazyaudio.record.onStateChanged((snap) => {
+      const wasRecording = recStatusRef.current === 'recording'
+      recStatusRef.current = snap.status
+      setRecState(snap)
+      if (wasRecording && snap.status !== 'recording') refetchLibrary()
+    })
+    return () => {
+      cancelled = true
+      off()
+    }
+  }, [refetchLibrary])
+
+  // 录音中本地 1s 计时(时长从 startedAt 推,不依赖 main 端 tick)
+  useEffect(() => {
+    if (recState?.status !== 'recording') return
+    setNowTs(Date.now())
+    const id = setInterval(() => setNowTs(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [recState?.status])
+
+  const recordingInfo = useMemo<RecordingInfo | null>(() => {
+    if (
+      recState?.status !== 'recording' ||
+      !recState.sessionType ||
+      !recState.sources ||
+      recState.startedAt == null
+    ) {
+      return null
+    }
+    return {
+      sessionType: recState.sessionType,
+      sources: recState.sources,
+      startedAt: recState.startedAt,
+      elapsedMs: Math.max(0, nowTs - recState.startedAt),
+    }
+  }, [recState, nowTs])
+
+  const handleStop = useCallback(() => {
+    window.lazyaudio.record.stop().catch((e) => console.warn('record.stop failed', e))
   }, [])
 
   const selectedEntry = useMemo(() => {
@@ -231,8 +632,13 @@ export function App(): React.JSX.Element {
           groups={state.groups}
           selectedId={selectedId}
           onSelect={(entry) => setSelectedId(entry.id)}
+          recording={recordingInfo}
         />
-        <DetailPlaceholder entry={selectedEntry} />
+        {recordingInfo ? (
+          <DetailRecording info={recordingInfo} onStop={handleStop} />
+        ) : (
+          <DetailPlaceholder entry={selectedEntry} />
+        )}
       </div>
     </main>
   )
