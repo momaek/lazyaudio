@@ -74,7 +74,12 @@
     "playerNoTime": "—:—",
     "playerTimeSep": "/",
     "playerSkip": "15s",
-    "playerSpeed": "1.0×"
+    "playerSpeed": "1.0×",
+    "play": "播放",
+    "playerSkipBack": "后退 15 秒",
+    "playerSkipForward": "前进 15 秒",
+    "playerSpeedSoon": "倍速调节即将支持",
+    "playerUnavailable": "音频文件不可用"
   },
   "ping": {
     "loading": "调用 system:ping …",

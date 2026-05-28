@@ -24,6 +24,20 @@ export const LIBRARY = {
   list: 'library:list',
 } as const
 
+// T16 — 录音音频的自定义流式协议(main 注册 protocol.handle,renderer 拿来喂 <audio>)。
+// renderer 在 webSecurity: true 下不能直接 file:// 读录音目录;走这个 scheme 由 main
+// 解析最佳轨道(mixed > mic > system)、做路径穿越防护后流式吐文件(支持 Range → 可拖动)。
+// URL 形如 `lazyaudio-media://recording/<recordingId>`。
+export const MEDIA = {
+  scheme: 'lazyaudio-media',
+  host: 'recording',
+} as const
+
+/** 给定 recordingId 拼出播放用的媒体 URL(renderer / main 共用,避免散落字符串拼接) */
+export function mediaUrl(recordingId: string): string {
+  return `${MEDIA.scheme}://${MEDIA.host}/${encodeURIComponent(recordingId)}`
+}
+
 export const SETTINGS = {
   get: 'settings:get',
   set: 'settings:set',
