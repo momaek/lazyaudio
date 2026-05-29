@@ -65,16 +65,11 @@ jobs:
   # signed+notarized package + 录真实 PCM 的完整 smoke 留 T70(依赖打包链 + 签名 secrets,
   # 且 CI 标准 runner 无音频设备 / 无 TCC)。
   build-mac:
-    name: build-mac (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            arch: arm64
-          - os: macos-13
-            arch: x64
-    runs-on: ${{ matrix.os }}
+    # 只跑 arm64(v0.1 主平台 / M3 退出条件只要 macOS arm64)。x64 mac runner(macos-13)
+    # 此账号排不到队(实测等 >1.5h),且 mac x64 按退出条件非必需 → 留 T70 release 验
+    # (那时有打包链 + 签名 secrets)。
+    name: build-mac (arm64)
+    runs-on: macos-latest
     timeout-minutes: 20
     env:
       # 覆盖顶部全局 SKIP：这个 job 要起 Electron 跑启动 smoke，必须下 binary。
