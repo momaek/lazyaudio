@@ -3,6 +3,7 @@
 
 import path from 'node:path'
 import { BrowserWindow } from 'electron'
+import { handleMainWindowClose } from '../lifecycle/state-protection'
 
 let instance: BrowserWindow | null = null
 
@@ -33,6 +34,9 @@ export function createMainWindow(): BrowserWindow {
   })
 
   win.once('ready-to-show', () => win.show())
+
+  // T17 状态保护:录音中关窗仅最小化(不停录);非录音按 T18「关闭主窗口时」设置走
+  win.on('close', (event) => handleMainWindowClose(win, event))
 
   win.on('closed', () => {
     instance = null
