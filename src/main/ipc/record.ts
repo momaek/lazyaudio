@@ -5,7 +5,7 @@
 //          启 capture;加 stop handler(走状态机 + 通知 capture window 停)。
 // pause / resume / tick / stateChanged 留 T13 / T17。
 
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, dialog } from 'electron'
 import {
   CHANNEL,
   PrepDefaultsArgs,
@@ -33,9 +33,34 @@ import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
 import { runMixdown } from '../recording/mixer'
 import { purgeRecordingTracks } from '../audio/receiver'
+import { getMicStatus, requestMic, isMicGranted, openMicSettings } from '../permission/mic'
 import { z } from 'zod'
 
 const StopArgs = z.object({}).optional()
+
+// T20 — 录音前麦克风权限 gate(dialogs-notifications.md D5)。
+// 返回 true = 已授权可继续;false = 未授权(已弹提示),record:start 应中止。
+async function ensureMicPermission(): Promise<boolean> {
+  let status = getMicStatus()
+  if (status === 'not-determined') {
+    status = await requestMic() // 弹系统授权框(仅 not-determined 有效)
+  }
+  if (isMicGranted(status)) return true
+
+  // denied / restricted / 用户在系统框点了拒绝:弹 D5 引导去系统设置
+  logger.warn('record:start blocked — mic permission not granted', { status })
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning',
+    buttons: ['稍后', '打开系统设置'],
+    defaultId: 1,
+    cancelId: 0,
+    message: '需要麦克风权限',
+    detail:
+      'LazyAudio 没有麦克风权限，无法开始录音。请到「系统设置 → 隐私与安全性 → 麦克风」开启 LazyAudio。',
+  })
+  if (choice === 1) await openMicSettings()
+  return false
+}
 
 async function failCurrentRecording(recordingId: string, reason: string): Promise<void> {
   const session = getCurrentSession()
@@ -69,6 +94,11 @@ export function register(): void {
 
   ipcMain.handle(CHANNEL.start, async (_event, rawArgs: unknown) => {
     const args = StartArgs.parse(rawArgs)
+
+    // T20:录音前麦克风权限 gate。没授权 → 弹提示 + 中止(不进录音状态机,避免"瞬间 partial")
+    if (!(await ensureMicPermission())) {
+      throw new Error('record:start blocked — microphone permission not granted')
+    }
 
     if (getStatus() !== 'idle') {
       throw new Error(`record:start ignored — current status = ${getStatus()}`)

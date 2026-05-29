@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-29
 > **当前里程碑**：M3
-> **当前焦点**：T17 状态保护（实现完成 + 逻辑单测过，⌘W/killall/退出确认手测 gated T20）；T16a / T15a 手测收尾同 gated 在 T20；下一候选 T19 CI smoke / T20 权限引导
+> **当前焦点**：T20 权限引导（实现完成 + 逻辑单测过，待无权限 mac 手测弹窗/跳转）；T17 / T16a / T15a 手测收尾随 T20 一起做；下一候选 T19 CI smoke
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -83,9 +83,9 @@
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 45 (M3-M7 T) = **62** |
 | ✅ done                   | 27                                              |
-| 🔄 wip                    | 3（T15a / T16a / T17）                          |
+| 🔄 wip                    | 4（T15a / T16a / T17 / T20）                    |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 32                                              |
+| 🔲 todo                   | 31                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -94,6 +94,10 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
+- [x] T20 权限引导：主进程检测麦克风权限 + 录音前 gate（denied/restricted 弹 D5 提示 + not-determined 触发系统授权）
+  - 验证：`needsMicSettingsPrompt`/`isMicGranted`/deep link 单测；record:start 已接 gate。permission IPC（get/request/openSettings）已通
+- [ ] T20 权限引导：无权限 mac 上触发录音 → 看到「需要麦克风权限」提示 → 点「打开系统设置」跳隐私页（真·手测）
+  - 验证：待手测（可 `tccutil reset Microphone com.lazyaudio.app` 或系统设置里关 LazyAudio 麦克风后，按 ⌘⇧R 开录）
 - [x] T17 状态保护：录音中关主窗口 → 仅最小化（不停录）；非录音按 T18「关闭主窗口时」设置
   - 验证：`decideCloseAction` 单测（录音中即使设置 quit 也 →minimize）；main-window close handler 已接入。实际 ⌘W 手测 gated T20
 - [ ] T17 状态保护：录音中按 ⌘W 不停（真·手测）
@@ -167,21 +171,21 @@
 
 ### 4.2 M3 — 骨架可跑（T10-T20）
 
-| ID   | 标题                    | 状态    | 分支 / PR                                                                | 起         | 完         | 备注                                                                                                                                          |
-| ---- | ----------------------- | ------- | ------------------------------------------------------------------------ | ---------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| T10  | 主进程脚手架            | ✅ done | feat/T10-main-scaffold                                                   | 2026-05-24 | 2026-05-24 | lifecycle+windows×3+menu/tray+shortcut;手测 3 截图过                                                                                          |
-| T11  | 录音前浮窗（prep）      | ✅ done | feat/T11-prep-popover                                                    | 2026-05-24 | 2026-05-24 | schema + IPC + UI 全过;手测截图 + log 双确认                                                                                                  |
-| T12  | 音频采集（renderer）    | ✅ done | feat/T12-audio-capture                                                   | 2026-05-25 | 2026-05-25 | capture window + worklet + MessagePort 全通;autotest drift +0.71%;含状态机                                                                    |
-| T13  | WAV 流式落盘（main）    | ✅ done | feat/T13-wav-writer ([#21](https://github.com/momaek/lazyaudio/pull/21)) | 2026-05-25 | 2026-05-25 | WavStreamWriter + RecordingSession;30s flush;autotest mic+sys wav 可播                                                                        |
-| T14  | mixdown                 | ✅ done | feat/T14-mixdown                                                         | 2026-05-26 | 2026-05-26 | 离线合成 mixed.wav;独立 mixStatus 不阻塞主 status;autotest mixed.wav 1.8MB 可播                                                               |
-| T15  | 录音库 v0.1             | ✅ done | main `4294789`                                                           | 2026-05-27 | 2026-05-27 | library:list + 主窗口左侧列表;typecheck/lint/test 通过;随修复录音浮窗一并直推                                                                 |
-| T15a | 崩溃恢复扫描            | 🔄 wip  | —                                                                        | 2026-05-27 | —          | 依赖 T13                                                                                                                                      |
-| T16  | 详情区 - 播放器         | ✅ done | feat/T16-player ([#25](https://github.com/momaek/lazyaudio/pull/25))     | 2026-05-28 | 2026-05-28 | Player(play/pause/波形seek/±15s)+ lazyaudio-media:// 流式协议(media-src CSP);手测截图播到末尾确认                                             |
-| T16a | 录音中状态 UI（最小版） | 🔄 wip  | —                                                                        | 2026-05-28 | —          | state-changed 广播 + 录音中横条 + 置顶列表项;不含暂停/电平表/波形                                                                             |
-| T17  | 状态保护                | 🔄 wip  | feat/T17-state-protection                                                | 2026-05-29 | —          | 实现完成:close→最小化/退出 + 退出确认 dialog + capture崩溃→partial;decideCloseAction 单测过;⌘W/killall/弹窗 真手测 gated T20。栈在 T18(#26)上 |
-| T18  | 设置窗口骨架            | ✅ done | feat/T18-settings ([#26](https://github.com/momaek/lazyaudio/pull/26))   | 2026-05-29 | 2026-05-29 | settings-store(原子持久化)+ safeStorage 预留 + 通用/快捷键 tab;改快捷键 live re-register;AC 两半各有单测(reload roundtrip + applyEffects)     |
-| T19  | CI 加 macOS smoke 测试  | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                                                                                      |
-| T20  | 权限引导（简版）        | 🔲 todo | —                                                                        | —          | —          | 依赖 T10                                                                                                                                      |
+| ID   | 标题                    | 状态    | 分支 / PR                                                                | 起         | 完         | 备注                                                                                                                                                |
+| ---- | ----------------------- | ------- | ------------------------------------------------------------------------ | ---------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T10  | 主进程脚手架            | ✅ done | feat/T10-main-scaffold                                                   | 2026-05-24 | 2026-05-24 | lifecycle+windows×3+menu/tray+shortcut;手测 3 截图过                                                                                                |
+| T11  | 录音前浮窗（prep）      | ✅ done | feat/T11-prep-popover                                                    | 2026-05-24 | 2026-05-24 | schema + IPC + UI 全过;手测截图 + log 双确认                                                                                                        |
+| T12  | 音频采集（renderer）    | ✅ done | feat/T12-audio-capture                                                   | 2026-05-25 | 2026-05-25 | capture window + worklet + MessagePort 全通;autotest drift +0.71%;含状态机                                                                          |
+| T13  | WAV 流式落盘（main）    | ✅ done | feat/T13-wav-writer ([#21](https://github.com/momaek/lazyaudio/pull/21)) | 2026-05-25 | 2026-05-25 | WavStreamWriter + RecordingSession;30s flush;autotest mic+sys wav 可播                                                                              |
+| T14  | mixdown                 | ✅ done | feat/T14-mixdown                                                         | 2026-05-26 | 2026-05-26 | 离线合成 mixed.wav;独立 mixStatus 不阻塞主 status;autotest mixed.wav 1.8MB 可播                                                                     |
+| T15  | 录音库 v0.1             | ✅ done | main `4294789`                                                           | 2026-05-27 | 2026-05-27 | library:list + 主窗口左侧列表;typecheck/lint/test 通过;随修复录音浮窗一并直推                                                                       |
+| T15a | 崩溃恢复扫描            | 🔄 wip  | —                                                                        | 2026-05-27 | —          | 依赖 T13                                                                                                                                            |
+| T16  | 详情区 - 播放器         | ✅ done | feat/T16-player ([#25](https://github.com/momaek/lazyaudio/pull/25))     | 2026-05-28 | 2026-05-28 | Player(play/pause/波形seek/±15s)+ lazyaudio-media:// 流式协议(media-src CSP);手测截图播到末尾确认                                                   |
+| T16a | 录音中状态 UI（最小版） | 🔄 wip  | —                                                                        | 2026-05-28 | —          | state-changed 广播 + 录音中横条 + 置顶列表项;不含暂停/电平表/波形                                                                                   |
+| T17  | 状态保护                | 🔄 wip  | feat/T17-state-protection                                                | 2026-05-29 | —          | 实现完成:close→最小化/退出 + 退出确认 dialog + capture崩溃→partial;decideCloseAction 单测过;⌘W/killall/弹窗 真手测 gated T20。栈在 T18(#26)上       |
+| T18  | 设置窗口骨架            | ✅ done | feat/T18-settings ([#26](https://github.com/momaek/lazyaudio/pull/26))   | 2026-05-29 | 2026-05-29 | settings-store(原子持久化)+ safeStorage 预留 + 通用/快捷键 tab;改快捷键 live re-register;AC 两半各有单测(reload roundtrip + applyEffects)           |
+| T19  | CI 加 macOS smoke 测试  | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                                                                                            |
+| T20  | 权限引导（简版）        | 🔄 wip  | feat/T20-permissions                                                     | 2026-05-29 | —          | 麦克风权限检测 + record:start gate(D5 dialog + 打开系统设置 deep link)+ permission IPC;纯判定单测过;无权限 mac 弹窗/跳转真手测待做。栈在 T17(#28)上 |
 
 **M3 退出条件**：录音→停止→库→播放全程无报错；macOS + Windows 各自跑通；30min 长录音；CI smoke 过；PRD §7.1 性能 #1/#2/#5 测过。
 
