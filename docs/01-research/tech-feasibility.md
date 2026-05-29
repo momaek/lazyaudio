@@ -4,16 +4,16 @@
 
 ## 风险登记表（Risk Register）
 
-| ID  | 风险                                      | 严重性   | 当前判断                                                            | 建议                                    |
-| --- | ----------------------------------------- | -------- | ------------------------------------------------------------------- | --------------------------------------- |
-| R1  | macOS 同时录系统音 + 麦克风（audio-only） | **致命** | ✅ Electron 35+ 内置走 CoreAudio Tap（macOS 14.2+），仅需麦克风权限 | **低风险**，跑 spike 确认               |
-| R2  | Windows 同时录系统音 + 麦克风             | **致命** | ⚠️ 能录但有已知 bug                                                 | 需 spike 验证当前 Electron 版本         |
-| R3  | sherpa-onnx 在 Electron 里跑起来          | 高       | ✅ 有 prebuilt 包                                                   | 标准做法，关注打包配置                  |
-| R4  | macOS 公证 + native addon 签名            | 高       | ⚠️ 已知复杂                                                         | 必须早跑 spike，否则发布前才发现就晚    |
-| R5  | mic 和 system 两路音频时间同步            | 中       | ✅ 部分拍板（spike-005 2026-05-23）                                 | 时钟同步 < 21μs/12s；起点对齐留 T13/T14 |
-| R6  | 长录音（2-3h）稳定性                      | 中       | 🤔 待验证                                                           | 留到开发阶段压测                        |
-| R7  | 全局快捷键 + macOS 辅助功能权限           | 中       | ⚠️ Sonoma+ 需 Accessibility 权限                                    | 加到 onboarding 流程                    |
-| R8  | sherpa-onnx 实测速度满足体验              | 中       | 🤔 待验证                                                           | 详见 `sherpa-onnx-research.md`          |
+| ID  | 风险                                      | 严重性   | 当前判断                                                                                                                                     | 建议                                    |
+| --- | ----------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| R1  | macOS 同时录系统音 + 麦克风（audio-only） | **致命** | ✅ Electron 39+ 默认走 CoreAudio Tap（macOS 14.2+），仅需麦克风权限（35 回退 SCKit 误索屏幕权限，见 §Electron 版本要求 + ADR-0001 实测订正） | **低风险**，已 spike 确认               |
+| R2  | Windows 同时录系统音 + 麦克风             | **致命** | ⚠️ 能录但有已知 bug                                                                                                                          | 需 spike 验证当前 Electron 版本         |
+| R3  | sherpa-onnx 在 Electron 里跑起来          | 高       | ✅ 有 prebuilt 包                                                                                                                            | 标准做法，关注打包配置                  |
+| R4  | macOS 公证 + native addon 签名            | 高       | ⚠️ 已知复杂                                                                                                                                  | 必须早跑 spike，否则发布前才发现就晚    |
+| R5  | mic 和 system 两路音频时间同步            | 中       | ✅ 部分拍板（spike-005 2026-05-23）                                                                                                          | 时钟同步 < 21μs/12s；起点对齐留 T13/T14 |
+| R6  | 长录音（2-3h）稳定性                      | 中       | 🤔 待验证                                                                                                                                    | 留到开发阶段压测                        |
+| R7  | 全局快捷键 + macOS 辅助功能权限           | 中       | ⚠️ Sonoma+ 需 Accessibility 权限                                                                                                             | 加到 onboarding 流程                    |
+| R8  | sherpa-onnx 实测速度满足体验              | 中       | 🤔 待验证                                                                                                                                    | 详见 `sherpa-onnx-research.md`          |
 
 ---
 
@@ -51,7 +51,7 @@ const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
 ### Electron 版本要求
 
-- **最低 Electron 35**（CoreAudio Tap loopback 默认开启）
+- **最低 Electron 42**（CoreAudio Tap loopback 默认启用；35-38 上 `MacCatapLoopbackAudioForScreenShare` 未默认开 → 回退 ScreenCaptureKit 误索屏幕录制权限，2026-05-29 dev 实测踩坑，见 ADR-0001 实测订正）
 - **推荐 Electron 39+**（默认走 CoreAudio Tap，可用 `--disable-features=MacCatapLoopbackAudioForScreenShare` 切回 ScreenCaptureKit 做对比测试）
 
 ### 不确定点
