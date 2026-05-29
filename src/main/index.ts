@@ -1,6 +1,6 @@
 import './env'
 
-import { app, BrowserWindow, session, desktopCapturer } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import { registerIpc } from './ipc/register'
 import { initLogger, logger } from './logger'
 import { acquireSingleInstanceLock } from './lifecycle/single-instance'
@@ -37,10 +37,13 @@ if (!acquireSingleInstanceLock()) {
     await loadSettings() // T18:启动读 settings.json(dev 在 .local-userdata/)
     installAppMenu()
 
-    // T12 — system audio loopback via ScreenCaptureKit audio-only path(spike-005 验过)
+    // T12 — system audio loopback。Electron 42 在 macOS 14.2+ 默认走 CoreAudio Tap
+    // (Chromium feature MacCatapLoopbackAudioForScreenShare,Electron 39+ 默认开):
+    // mic + system 两路加起来只需「麦克风」权限,不触发屏幕录制权限(ADR-0001 决策路径)。
     // 关键:不要传 useSystemPicker: true(会让 Chromium 在 handler 之前做 TCC 检查并按
-    // screen=denied 短路);返 audio: 'loopback' 不带 video → 走 macOS 14.4+ audio-only
-    // SCKit,对应 "System Audio Recording Only" 权限组,不要 Screen Recording 全权限。
+    // screen=denied 短路);handler 回 { audio: 'loopback' } 不带 video 即触发 audio-only
+    // loopback。注:Electron < 39 会回退 ScreenCaptureKit → 误索屏幕录制权限(本项目曾因
+    // 锁 Electron 35 踩此坑,故基线升到 42,与 spike-005 测试环境对齐)。
     session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
       callback({ audio: 'loopback' })
     })
@@ -69,16 +72,6 @@ if (!acquireSingleInstanceLock()) {
       logger.error('capture window render-process-gone', { reason: details.reason })
       void failActiveRecording(`capture renderer gone: ${details.reason}`)
     })
-    // 防御:macOS Tahoe + 未签 Electron 时 screen 权限可能直接 denied,这里仅 log
-    if (process.platform === 'darwin') {
-      // 利用 desktopCapturer 让 Electron 触发权限检查(虽然 audio-only 路径理论
-      // 不依赖 screen capture 权限,但保留诊断 log 帮排查)
-      void desktopCapturer
-        .getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
-        .then((srcs) => logger.info(`[diag] desktopCapturer.getSources ok, ${srcs.length} sources`))
-        .catch((e) => logger.warn(`[diag] desktopCapturer.getSources failed: ${e.message}`))
-    }
-
     logger.info('app ready')
     maybeRunAutotest() // LAZY_AUTOTEST=1 时启 5s/10s/2s 自动验证 capture pipeline
 

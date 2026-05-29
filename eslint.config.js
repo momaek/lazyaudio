@@ -120,7 +120,7 @@ export default tseslint.config(
 
   // Main / preload / scripts 不准 import 前端运行时
   {
-    files: ['src/main/**/*.ts', 'src/preload/**/*.ts', 'scripts/**/*.ts'],
+    files: ['src/main/**/*.ts', 'src/preload/**/*.ts', 'scripts/**/*.{ts,mts,cts,js,mjs,cjs}'],
     languageOptions: { globals: globals.node },
   },
 

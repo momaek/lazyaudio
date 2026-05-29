@@ -59,8 +59,9 @@ async function openMicStream(): Promise<MediaStream> {
 }
 
 async function openSystemStream(): Promise<MediaStream> {
-  // spike-005 验过的纯 audio SCKit 路径:不要 video,renderer 这样请求,
-  // main 端 setDisplayMediaRequestHandler 回 { audio: 'loopback' } 不带 video。
+  // 纯 audio loopback 路径(Electron 42 在 macOS 14.2+ 默认走 CoreAudio Tap,
+  // 系统音 loopback 仅需麦克风权限、不触发屏幕录制 — ADR-0001):不要 video,renderer
+  // 这样请求,main 端 setDisplayMediaRequestHandler 回 { audio: 'loopback' } 不带 video。
   // 关键:不要传 useSystemPicker: true(会被 TCC 短路)
   const stream = await navigator.mediaDevices.getDisplayMedia({
     video: false,
