@@ -10,6 +10,7 @@ import type {
   RecorderSnapshot,
 } from '../ipc/record'
 import type { ListResult } from '../ipc/library'
+import type { Settings, SetArgs } from '../ipc/settings'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
@@ -33,6 +34,14 @@ export interface LazyAudioApi {
   library: {
     /** T15 录音库 v0.1:按日期分组返回 recordings 下的 meta 快照 */
     list(): Promise<ListResult>
+  }
+  settings: {
+    /** 拉当前完整 settings(窗口 mount 时调) */
+    get(): Promise<Settings>
+    /** 部分更新 settings;main 合并落盘后返回新的完整 settings */
+    set(patch: SetArgs): Promise<Settings>
+    /** 订阅 settings 变更广播;返回取消订阅函数 */
+    onChanged(cb: (settings: Settings) => void): () => void
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */

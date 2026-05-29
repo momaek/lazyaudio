@@ -5,7 +5,7 @@
 // 否则 contextBridge 注入静默失败 → window.lazyaudio undefined。
 // CHANNEL 名从 @shared/ipc/channels(纯字符串常量,无 zod)拿;schema 留给 main / renderer 业务层。
 import { ipcRenderer } from 'electron'
-import { SYSTEM, RECORD, AUDIO, LIBRARY } from '@shared/ipc/channels'
+import { SYSTEM, RECORD, AUDIO, LIBRARY, SETTINGS } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
 import type {
@@ -16,6 +16,7 @@ import type {
   RecorderSnapshot,
 } from '@shared/ipc/record'
 import type { ListResult } from '@shared/ipc/library'
+import type { Settings, SetArgs } from '@shared/ipc/settings'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
 
@@ -38,6 +39,15 @@ export function makeApi(): LazyAudioApi {
     },
     library: {
       list: () => invoke<ListResult>(LIBRARY.list, {}),
+    },
+    settings: {
+      get: () => invoke<Settings>(SETTINGS.get, {}),
+      set: (patch: SetArgs) => invoke<Settings>(SETTINGS.set, patch),
+      onChanged: (cb) => {
+        const handler = (_e: unknown, settings: Settings): void => cb(settings)
+        ipcRenderer.on(SETTINGS.changed, handler)
+        return () => ipcRenderer.off(SETTINGS.changed, handler)
+      },
     },
     audio: {
       // capture window 订阅 main 发的启 capture 信令

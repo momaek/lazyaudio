@@ -10,11 +10,13 @@ import { createPrepWindow } from './windows/prep-window'
 import { createCaptureWindow } from './windows/capture-window'
 import { createTray, destroyTray } from './menu/tray'
 import { installAppMenu } from './menu/app-menu'
-import { registerToggleRecord, unregisterAllShortcuts } from './shortcut/register'
+import { unregisterAllShortcuts } from './shortcut/register'
 import { setupAudioPort, teardownAudioPort } from './audio/port'
 import { startAudioReceiver } from './audio/receiver'
 import { maybeRunAutotest } from './audio/autotest'
 import { registerMediaScheme, registerMediaProtocol } from './media/protocol'
+import { loadSettings } from './settings/settings-store'
+import { applySettingsEffects } from './settings/apply'
 
 app.setName('LazyAudio')
 
@@ -27,9 +29,10 @@ if (!acquireSingleInstanceLock()) {
   initLogger()
   installBeforeQuitHandler()
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     registerIpc()
     registerMediaProtocol()
+    await loadSettings() // T18:启动读 settings.json(dev 在 .local-userdata/)
     installAppMenu()
 
     // T12 — system audio loopback via ScreenCaptureKit audio-only path(spike-005 验过)
@@ -52,7 +55,7 @@ if (!acquireSingleInstanceLock()) {
     startAudioReceiver()
 
     createTray()
-    registerToggleRecord()
+    applySettingsEffects() // T18:开机自启 + 全局快捷键(用持久化的 accel)
 
     // 兜底:开发期看到 capture window load 阶段的错(spike-005 踩坑)
     captureWin.webContents.on('did-fail-load', (_e, code, desc) => {
