@@ -5,6 +5,8 @@ import { registerIpc } from './ipc/register'
 import { initLogger, logger } from './logger'
 import { acquireSingleInstanceLock } from './lifecycle/single-instance'
 import { installBeforeQuitHandler } from './lifecycle/before-quit'
+import { installStateProtection } from './lifecycle/state-protection'
+import { failActiveRecording } from './recording/abort'
 import { createMainWindow } from './windows/main-window'
 import { createPrepWindow } from './windows/prep-window'
 import { createCaptureWindow } from './windows/capture-window'
@@ -56,10 +58,16 @@ if (!acquireSingleInstanceLock()) {
 
     createTray()
     applySettingsEffects() // T18:开机自启 + 全局快捷键(用持久化的 accel)
+    installStateProtection() // T17:录音中退出确认 hook(关主窗口最小化在 main-window close handler)
 
     // 兜底:开发期看到 capture window load 阶段的错(spike-005 踩坑)
     captureWin.webContents.on('did-fail-load', (_e, code, desc) => {
       logger.error('capture window failed to load', { code, desc })
+    })
+    // T17:capture renderer 崩溃 → flush 当前录音 + 标 failed-partial(已落盘部分可播)
+    captureWin.webContents.on('render-process-gone', (_e, details) => {
+      logger.error('capture window render-process-gone', { reason: details.reason })
+      void failActiveRecording(`capture renderer gone: ${details.reason}`)
     })
     // 防御:macOS Tahoe + 未签 Electron 时 screen 权限可能直接 denied,这里仅 log
     if (process.platform === 'darwin') {
