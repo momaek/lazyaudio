@@ -44,6 +44,13 @@ export const SETTINGS = {
   changed: 'settings:changed',
 } as const
 
+// T20 — 权限引导(简版):麦克风权限检测 / 请求 / 跳系统设置
+export const PERMISSION = {
+  getMicStatus: 'permission:get-mic-status',
+  requestMic: 'permission:request-mic',
+  openMicSettings: 'permission:open-mic-settings',
+} as const
+
 // T12 — audio capture control 信令(main → capture-window renderer)
 // PCM 数据流走独立 MessagePort,不在这里;详见 audio-capture.md §4 + ipc-contract.md §2.3
 export const AUDIO = {

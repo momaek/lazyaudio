@@ -11,6 +11,7 @@ import type {
 } from '../ipc/record'
 import type { ListResult } from '../ipc/library'
 import type { Settings, SetArgs } from '../ipc/settings'
+import type { MicStatusResult, RequestMicResult, OpenMicSettingsResult } from '../ipc/permission'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
@@ -42,6 +43,14 @@ export interface LazyAudioApi {
     set(patch: SetArgs): Promise<Settings>
     /** 订阅 settings 变更广播;返回取消订阅函数 */
     onChanged(cb: (settings: Settings) => void): () => void
+  }
+  permission: {
+    /** T20 查麦克风权限状态 */
+    getMicStatus(): Promise<MicStatusResult>
+    /** 触发系统授权框(仅 not-determined 有效);返回最终状态 */
+    requestMic(): Promise<RequestMicResult>
+    /** 跳到系统设置麦克风隐私页 */
+    openMicSettings(): Promise<OpenMicSettingsResult>
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */
