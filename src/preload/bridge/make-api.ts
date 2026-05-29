@@ -13,6 +13,7 @@ import type {
   StartArgs,
   StartResult,
   HidePrepResult,
+  ShowPrepResult,
   RecorderSnapshot,
 } from '@shared/ipc/record'
 import type { ListResult } from '@shared/ipc/library'
@@ -35,6 +36,7 @@ export function makeApi(): LazyAudioApi {
       start: (args: StartArgs) => invoke<StartResult>(RECORD.start, args),
       stop: () => invoke<{ ok: boolean }>(RECORD.stop, {}),
       hidePrep: () => invoke<HidePrepResult>(RECORD.hidePrep),
+      showPrep: () => invoke<ShowPrepResult>(RECORD.showPrep),
       getState: () => invoke<RecorderSnapshot>(RECORD.getState, {}),
       onStateChanged: (cb) => {
         const handler = (_e: unknown, snapshot: RecorderSnapshot): void => cb(snapshot)

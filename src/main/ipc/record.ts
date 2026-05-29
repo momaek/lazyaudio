@@ -14,12 +14,14 @@ import {
   StartResult,
   HidePrepArgs,
   HidePrepResult,
+  ShowPrepArgs,
+  ShowPrepResult,
 } from '@shared/ipc/record'
 import { AUDIO } from '@shared/ipc/channels'
 import { CaptureFailedArgs } from '@shared/audio/messages'
 import { assertSchemaDev } from '../util/assert-schema'
 import { logger } from '../logger'
-import { hidePrepWindow } from '../windows/prep-window'
+import { hidePrepWindow, showPrepWindow } from '../windows/prep-window'
 import { getCaptureWindow } from '../windows/capture-window'
 import {
   getStatus,
@@ -213,6 +215,15 @@ export function register(): void {
     hidePrepWindow()
     const result = { ok: true }
     assertSchemaDev(HidePrepResult, result)
+    return result
+  })
+
+  // 主窗口空状态「开始录音」按钮 → 弹 prep 浮窗(等价 ⌘⇧R / tray)
+  ipcMain.handle(CHANNEL.showPrep, async (_event, rawArgs: unknown) => {
+    ShowPrepArgs.parse(rawArgs)
+    showPrepWindow()
+    const result = { ok: true }
+    assertSchemaDev(ShowPrepResult, result)
     return result
   })
 

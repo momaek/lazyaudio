@@ -18,6 +18,8 @@ export const RECORD = {
   // T11 新增:prep 浮窗的取消按钮 / Esc 通过 IPC 通知 main 隐藏;
   // blur 自动 hide 仍在 main 端独立工作。ipc-contract.md §2.1 同步加。
   hidePrep: 'record:hide-prep',
+  // 主窗口空状态「开始录音」按钮:让 main 弹 prep 浮窗(等价 ⌘⇧R / tray 入口)
+  showPrep: 'record:show-prep',
 } as const
 
 export const LIBRARY = {

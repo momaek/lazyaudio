@@ -74,6 +74,26 @@ function SearchIcon(): React.JSX.Element {
   )
 }
 
+// 空状态详情区(§6.2)的文档图标(取自 ui-mockups/.../icons.jsx glyph.note)
+function NoteIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 1.5h4.5L9.5 3.5V10a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5z" />
+      <path d="M4.5 5h3M4.5 7h3" />
+    </svg>
+  )
+}
+
 function ListItem({
   entry,
   selected,
@@ -163,9 +183,46 @@ function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX
   const { t } = useTranslation()
   if (!entry) {
     return (
-      <section className="detail empty-detail">
-        <h2>{t('common:library.detailEmptyTitle')}</h2>
-        <p>{t('common:library.detailEmptyHint')}</p>
+      <section className="detail">
+        <div className="empty-stage">
+          <div className="icon-circle">
+            <NoteIcon />
+          </div>
+          <h2>{t('common:library.detailEmptyTitle')}</h2>
+          <div className="sub">
+            <span>{t('common:library.emptyStartPrefix')}</span>
+            <span className="kbd">{t('common:library.emptyKbdCmd')}</span>
+            <span className="kbd">{t('common:library.emptyKbdShift')}</span>
+            <span className="kbd">{t('common:library.emptyKbdR')}</span>
+            <span>{t('common:library.emptyStartSuffix')}</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ marginTop: 8 }}
+            onClick={() => {
+              window.lazyaudio.record
+                .showPrep()
+                .catch((e) => console.warn('record.showPrep failed', e))
+            }}
+          >
+            {t('common:library.startRecording')}
+          </button>
+          <div className="empty-tips">
+            <div className="row">
+              <span className="dot" />
+              {t('common:library.emptyTipCapture')}
+            </div>
+            <div className="row">
+              <span className="dot" />
+              {t('common:library.emptyTipLocal')}
+            </div>
+            <div className="row">
+              <span className="dot" />
+              {t('common:library.emptyTipShortcut')}
+            </div>
+          </div>
+        </div>
       </section>
     )
   }
