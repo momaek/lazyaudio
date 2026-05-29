@@ -47,7 +47,12 @@ export function handleMainWindowClose(win: Electron.BrowserWindow, event: Electr
 export function installStateProtection(): void {
   registerBeforeQuitHook(async (event) => {
     if (quitting) return
-    if (!isRecording()) return
+    // 非录音:这是一次真正的退出请求(tray「退出」/ ⌘Q / app menu Quit),
+    // 标 quitting 让主窗口 close handler 放行,否则「关闭主窗口时=最小化」会把退出当成关窗拦下来。
+    if (!isRecording()) {
+      markQuitting()
+      return
+    }
     const choice = dialog.showMessageBoxSync({
       type: 'warning',
       buttons: ['取消', '停止录音并退出'],
