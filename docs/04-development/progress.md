@@ -83,9 +83,9 @@
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 45 (M3-M7 T) = **62** |
 | ✅ done                   | 27                                              |
-| 🔄 wip                    | 4（T15a / T16a / T17 / T20）                    |
+| 🔄 wip                    | 5（T15a / T16a / T17 / T20 / T19）              |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 31                                              |
+| 🔲 todo                   | 30                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -118,6 +118,8 @@
   - 验证：待跑手测 / 单测
 - [ ] T15a 崩溃恢复扫描：meta.json.tmp 不残留
   - 验证：待跑手测 / 单测
+- [ ] T19 CI macOS smoke：build-mac job(arm64+x64) 跑 pnpm build + test + 启动 smoke(LAZY_SMOKE=1 起 app → app ready → 自动退出) 全绿
+  - 验证：待 CI build-mac job 跑绿（push 后）；本地 typecheck/lint/build 已过。scope 调整（签名公证 + 录 PCM 移 T70）见 dev-plan T19
 
 ---
 
@@ -184,7 +186,7 @@
 | T16a | 录音中状态 UI（最小版） | 🔄 wip  | —                                                                        | 2026-05-28 | —          | state-changed 广播 + 录音中横条 + 置顶列表项;不含暂停/电平表/波形                                                                                   |
 | T17  | 状态保护                | 🔄 wip  | feat/T17-state-protection                                                | 2026-05-29 | —          | 实现完成:close→最小化/退出 + 退出确认 dialog + capture崩溃→partial;decideCloseAction 单测过;⌘W/killall/弹窗 真手测 gated T20。栈在 T18(#26)上       |
 | T18  | 设置窗口骨架            | ✅ done | feat/T18-settings ([#26](https://github.com/momaek/lazyaudio/pull/26))   | 2026-05-29 | 2026-05-29 | settings-store(原子持久化)+ safeStorage 预留 + 通用/快捷键 tab;改快捷键 live re-register;AC 两半各有单测(reload roundtrip + applyEffects)           |
-| T19  | CI 加 macOS smoke 测试  | 🔲 todo | —                                                                        | —          | —          | 依赖 T13                                                                                                                                            |
+| T19  | CI 加 macOS smoke 测试  | 🔄 wip  | feat/T19-ci-mac-smoke                                                    | 2026-05-29 | —          | build-mac job(arm64+x64):pnpm build+test+启动 smoke(LAZY_SMOKE=1);签名公证+录PCM 移 T70(改 scope);待 CI 跑绿                                        |
 | T20  | 权限引导（简版）        | 🔄 wip  | feat/T20-permissions                                                     | 2026-05-29 | —          | 麦克风权限检测 + record:start gate(D5 dialog + 打开系统设置 deep link)+ permission IPC;纯判定单测过;无权限 mac 弹窗/跳转真手测待做。栈在 T17(#28)上 |
 
 **M3 退出条件**：录音→停止→库→播放全程无报错；macOS + Windows 各自跑通；30min 长录音；CI smoke 过；PRD §7.1 性能 #1/#2/#5 测过。
