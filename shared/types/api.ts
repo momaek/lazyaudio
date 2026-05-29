@@ -7,6 +7,7 @@ import type {
   StartArgs,
   StartResult,
   HidePrepResult,
+  ShowPrepResult,
   RecorderSnapshot,
 } from '../ipc/record'
 import type { ListResult } from '../ipc/library'
@@ -27,6 +28,8 @@ export interface LazyAudioApi {
     stop(): Promise<{ ok: boolean }>
     /** 取消按钮 / Esc 通知 main 隐藏 prep 浮窗 */
     hidePrep(): Promise<HidePrepResult>
+    /** 主窗口空状态「开始录音」按钮:通知 main 弹 prep 浮窗(等价 ⌘⇧R / tray) */
+    showPrep(): Promise<ShowPrepResult>
     /** 主窗口 mount 时拉一次当前录音状态快照 */
     getState(): Promise<RecorderSnapshot>
     /** 订阅录音状态变更广播(main 每次状态转换后发);返回取消订阅函数 */

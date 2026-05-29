@@ -383,8 +383,7 @@
   color: var(--color-type-podcast);
 }
 
-.detail-stage,
-.empty-detail {
+.detail-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -394,8 +393,7 @@
   text-align: center;
 }
 
-.detail-stage h2,
-.empty-detail h2 {
+.detail-stage h2 {
   margin: 0 0 8px;
   font-size: 18px;
   line-height: 26px;
@@ -403,11 +401,92 @@
   color: var(--color-gray-950);
 }
 
-.detail-stage p,
-.empty-detail p {
+.detail-stage p {
   margin: 0;
   font-size: 13px;
   color: var(--color-gray-500);
+}
+
+/* 空状态详情区(§6.2):还没有录音 + 开始录音 CTA + 说明。
+   token 映射自 mockup app.css(surface-panel→bg-l1 / surface-sunken→bg-l2 /
+   text-strong→gray-950 / text-muted→gray-500 / text-subtle→gray-400)。 */
+.empty-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 40px;
+  text-align: center;
+}
+
+.empty-stage .icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-bg-l2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gray-400);
+}
+
+.empty-stage h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-gray-950);
+}
+
+.empty-stage .sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-gray-500);
+}
+
+.empty-stage .empty-tips {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-gray-500);
+}
+
+.empty-stage .empty-tips .row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-stage .empty-tips .row .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-gray-400);
+}
+
+/* 键帽(空状态快捷键提示);与列表搜索的 .search-kbd 区分,这是 §6.2 的独立键帽 */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--color-bg-l2);
+  border: 1px solid var(--color-gray-300);
+  border-bottom-width: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-gray-900);
 }
 
 /* ======================================================================
@@ -767,6 +846,15 @@
   gap: 6px;
   border: 1px solid transparent;
   line-height: 1;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(0.93);
 }
 
 .btn-secondary {

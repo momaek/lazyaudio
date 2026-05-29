@@ -67,6 +67,16 @@ export const HidePrepResult = z.object({
 })
 export type HidePrepResult = z.infer<typeof HidePrepResult>
 
+// ---- record:show-prep ----
+// 主窗口空状态的「开始录音」按钮调:通知 main 弹 prep 浮窗(等价全局快捷键 / tray 入口)。
+export const ShowPrepArgs = z.object({}).optional()
+export type ShowPrepArgs = z.infer<typeof ShowPrepArgs>
+
+export const ShowPrepResult = z.object({
+  ok: z.boolean(),
+})
+export type ShowPrepResult = z.infer<typeof ShowPrepResult>
+
 // ---- record:get-state / record:state-changed ----
 // 录音状态机的可序列化快照。main 在每次状态转换后 broadcast(record:state-changed),
 // renderer(主窗口)mount 时也可主动拉一次(record:get-state)。
