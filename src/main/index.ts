@@ -16,6 +16,7 @@ import { unregisterAllShortcuts } from './shortcut/register'
 import { setupAudioPort, teardownAudioPort } from './audio/port'
 import { startAudioReceiver } from './audio/receiver'
 import { maybeRunAutotest } from './audio/autotest'
+import { maybeRunSmoke } from './smoke'
 import { registerMediaScheme, registerMediaProtocol } from './media/protocol'
 import { loadSettings } from './settings/settings-store'
 import { applySettingsEffects } from './settings/apply'
@@ -74,6 +75,7 @@ if (!acquireSingleInstanceLock()) {
     })
     logger.info('app ready')
     maybeRunAutotest() // LAZY_AUTOTEST=1 时启 5s/10s/2s 自动验证 capture pipeline
+    maybeRunSmoke() // LAZY_SMOKE=1 时(CI build-mac job)验启动不崩 → 3s 后自动退出
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

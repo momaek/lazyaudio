@@ -239,9 +239,14 @@ T18 [M3]  设置窗口骨架
   AC：改个设置 → 重启 app → 设置还在；改快捷键 → 立即生效
 
 T19 [M3]  CI 加 macOS smoke 测试
-  - workflows/ci.yml 加 build-mac job（arm64 + x64）
-  - signed + notarized package smoke：启动 + 录 1 秒 PCM → 退出
-  AC：每 PR 都跑这个 job，绿才能 merge
+  - workflows/ci.yml 加 build-mac job（arm64）：pnpm build + test + 启动 smoke
+    （LAZY_SMOKE=1 起 app →「app ready」→ 自动退出，验 mac 平台能编译 / 测试 / 启动不崩）
+  - x64 mac:macos-13 runner 此账号排不到队(实测等 >1.5h),且 M3 退出条件只要 macOS arm64,
+    故 build-mac 只跑 arm64;x64 mac 覆盖留 T70 release(有打包链 + secrets 时)
+  - signed + notarized package + 录 1 秒 PCM 的 smoke 移 T70：依赖打包链(electron-builder)
+    + 签名 secrets + 真实音频设备;CI 标准 runner 无音频设备 / 无 TCC,且每 PR 公证不现实
+    (2026-05-29 改 scope,见本任务 PR)
+  AC：每 PR 都跑 build-mac job(arm64)，build + test + 启动 smoke 全绿才能 merge
 
 T20 [M3]  权限引导（简版）
   - 主进程检测麦克风权限状态
@@ -477,6 +482,8 @@ T70 [M7]  release artifacts
   - tag v0.1.0 → release workflow 自动出包
   - macOS arm64 + x64 / Win x64 三个 installer
   - latest-mac.yml / latest.yml 就位
+  - signed + notarized package smoke（启动 + 录 1 秒 PCM → 退出）：从 T19 移来,
+    依赖此处的打包链 + 签名 secrets,在 release workflow 里跑
 
 T71 [M7]  README + 安装文档
   - README.md：截图 + 一键下载链接

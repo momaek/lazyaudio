@@ -60,3 +60,31 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+
+  # T19 — mac 平台 smoke：验 macOS 能编译 / 测试 / 启动不崩(arm64 + x64)。
+  # signed+notarized package + 录真实 PCM 的完整 smoke 留 T70(依赖打包链 + 签名 secrets,
+  # 且 CI 标准 runner 无音频设备 / 无 TCC)。
+  build-mac:
+    # 只跑 arm64(v0.1 主平台 / M3 退出条件只要 macOS arm64)。x64 mac runner(macos-13)
+    # 此账号排不到队(实测等 >1.5h),且 mac x64 按退出条件非必需 → 留 T70 release 验
+    # (那时有打包链 + 签名 secrets)。
+    name: build-mac (arm64)
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      # 覆盖顶部全局 SKIP：这个 job 要起 Electron 跑启动 smoke，必须下 binary。
+      # 用空串而非 '0' —— @electron/get 检测的是"是否 set 非空值"，'0' 也会被当成跳过。
+      ELECTRON_SKIP_BINARY_DOWNLOAD: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+      - name: launch smoke (LAZY_SMOKE=1 起 app → app ready → 自动退出)
+        run: LAZY_SMOKE=1 pnpm exec electron-vite preview
+        timeout-minutes: 3
