@@ -2,7 +2,11 @@ import path from 'node:path'
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { logger } from '../../logger'
 import { currentSherpaPlatformDir, ensureSherpaPlatformDir } from './loader'
-import type { AsrUtilityMessage } from '@shared/transcribe/asr-protocol'
+import type {
+  AsrSegment,
+  AsrTranscribeMessage,
+  AsrUtilityMessage,
+} from '@shared/transcribe/asr-protocol'
 
 export interface AsrSpawnResult {
   child: UtilityProcess
@@ -66,5 +70,62 @@ export async function spawnAsrUtility(opts: { timeoutMs?: number } = {}): Promis
     })
 
     child.postMessage({ type: 'init', platformDir })
+  })
+}
+
+export interface TranscribeRunResult {
+  segments: AsrSegment[]
+  language: string
+  speaker: string
+  durationMs: number
+}
+
+const TRANSCRIBE_TIMEOUT_MS = 60 * 60_000 // 60min 兜底(30min 录音 RTF~0.1 实际几分钟)
+
+/**
+ * 在已 ready 的 utility 上跑一次转录,等 transcribe-result / -error。
+ * 进度经 onProgress 外发;超时 / 子进程退出则 reject。
+ */
+export async function runTranscribe(
+  child: UtilityProcess,
+  msg: AsrTranscribeMessage,
+  opts: { onProgress?: (processedSec: number, totalSec: number) => void; timeoutMs?: number } = {},
+): Promise<TranscribeRunResult> {
+  const timeoutMs = opts.timeoutMs ?? TRANSCRIBE_TIMEOUT_MS
+  return await new Promise<TranscribeRunResult>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup()
+      reject(new Error('transcribe timeout'))
+    }, timeoutMs)
+
+    const onMessage = (raw: AsrUtilityMessage): void => {
+      if (raw.type === 'transcribe-progress' && raw.recordingId === msg.recordingId) {
+        opts.onProgress?.(raw.processedSec, raw.totalSec)
+      } else if (raw.type === 'transcribe-result' && raw.recordingId === msg.recordingId) {
+        cleanup()
+        resolve({
+          segments: raw.segments,
+          language: raw.language,
+          speaker: raw.speaker,
+          durationMs: raw.durationMs,
+        })
+      } else if (raw.type === 'transcribe-error' && raw.recordingId === msg.recordingId) {
+        cleanup()
+        reject(new Error(`${raw.code}: ${raw.message}`))
+      }
+    }
+    const onExit = (code: number): void => {
+      cleanup()
+      reject(new Error(`asr utility exited during transcribe: code=${code}`))
+    }
+    function cleanup(): void {
+      clearTimeout(timeout)
+      child.removeListener('message', onMessage)
+      child.removeListener('exit', onExit)
+    }
+
+    child.on('message', onMessage)
+    child.once('exit', onExit)
+    child.postMessage(msg)
   })
 }

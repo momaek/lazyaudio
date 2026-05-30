@@ -108,6 +108,66 @@
   font-family: var(--font-mono);
 }
 
+/* T39 — 搜索清除按钮 + 结果列表 */
+.search-clear {
+  border: 0;
+  background: transparent;
+  color: var(--color-gray-400);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.search-clear:hover {
+  color: var(--color-gray-700);
+}
+
+.search-results {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 4px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-results-head {
+  font-size: 11px;
+  color: var(--color-gray-500);
+  padding: 6px 8px;
+}
+
+.search-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.search-hit:hover {
+  background: var(--color-bg-l2);
+}
+
+.search-hit-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-hit-snippet {
+  font-size: 12px;
+  color: var(--color-gray-500);
+  line-height: 1.4;
+}
+
 .chip-row {
   display: flex;
   gap: 4px;
@@ -383,28 +443,154 @@
   color: var(--color-type-podcast);
 }
 
+/* T33:detail-stage 现在装转录面板 —— 改为左对齐、可滚动的填充容器 */
 .detail-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  text-align: center;
+  min-height: 0;
+  padding: 0;
+  text-align: left;
 }
 
-.detail-stage h2 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  line-height: 26px;
+/* ---- T33 转录面板 ---- */
+.transcript-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px 24px 24px;
+}
+
+.tr-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+.tr-head h2 {
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-gray-950);
 }
 
-.detail-stage p {
-  margin: 0;
+.tr-count {
+  font-size: 12px;
+  color: var(--color-gray-500);
+}
+
+.tr-hint {
   font-size: 13px;
   color: var(--color-gray-500);
+  padding: 8px 0;
+}
+
+.tr-running {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-accent);
+  padding: 8px 0;
+}
+
+.tr-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: tr-spin 0.8s linear infinite;
+}
+
+@keyframes tr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tr-failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.tr-failed-msg {
+  font-size: 13px;
+  color: var(--color-danger);
+  max-width: 460px;
+  line-height: 1.5;
+}
+
+.tr-failed-detail {
+  font-size: 11px;
+  color: var(--color-gray-500);
+  font-family: var(--font-mono);
+  max-width: 460px;
+  word-break: break-all;
+}
+
+.tr-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tr-seg {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+}
+
+.tr-seg.is-active {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border-left-color: var(--color-accent);
+}
+
+.tr-ts {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-gray-500);
+  cursor: pointer;
+  text-align: left;
+  line-height: 22px;
+}
+
+.tr-ts:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.tr-text {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--color-gray-900);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* speaker 调色(data-model §4.1:mic→1 / system→2 / mixed→3) */
+.tr-seg[data-speaker='1'] .tr-text {
+  border-left: 0;
+}
+.tr-seg[data-speaker='2'] .tr-text {
+  color: color-mix(in srgb, var(--color-gray-900) 88%, var(--color-success));
+}
+.tr-seg[data-speaker='3'] .tr-text {
+  color: color-mix(in srgb, var(--color-gray-900) 88%, var(--color-accent));
 }
 
 /* 空状态详情区(§6.2):还没有录音 + 开始录音 CTA + 说明。

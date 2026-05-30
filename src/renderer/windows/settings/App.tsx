@@ -498,6 +498,7 @@ function ModelCard({
 
 function EngineTab(): React.JSX.Element {
   const { t } = useTranslation()
+  const [mode, setMode] = useState<'local' | 'cloud'>('local')
   const [models, setModels] = useState<ModelListEntry[] | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -567,36 +568,60 @@ function EngineTab(): React.JSX.Element {
         <div className="sub">{t('common:settingsPage.engine.subtitle')}</div>
       </div>
 
-      <div>
-        <h3 className="setting-group-title">
-          {t('common:settingsPage.engine.sectionLocal')}
-          <span className="set-section-helper">
-            {t('common:settingsPage.engine.sectionLocalHelper')}
-          </span>
-        </h3>
-        {models === null ? (
-          <div className="set-loading">{t('common:settingsPage.engine.loading')}</div>
-        ) : (
-          <div className="model-list">
-            {models.map((m) => (
-              <div key={m.key}>
-                <ModelCard
-                  model={m}
-                  onDownload={() => onDownload(m.key)}
-                  onCancel={() => onCancel(m.key)}
-                  onDelete={() => onDelete(m.key)}
-                />
-                {errors[m.key] ? (
-                  <div className="model-error">
-                    {t('common:settingsPage.engine.errorPrefix')}
-                    {errors[m.key]}
+      <Segmented<'local' | 'cloud'>
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: 'local', label: t('common:settingsPage.engine.modeLocal') },
+          { value: 'cloud', label: t('common:settingsPage.engine.modeCloud') },
+        ]}
+      />
+
+      {mode === 'cloud' ? (
+        <div className="set-coming-soon">{t('common:settingsPage.engine.cloudSoon')}</div>
+      ) : (
+        <div>
+          <h3 className="setting-group-title">
+            {t('common:settingsPage.engine.sectionLocal')}
+            <span className="set-section-helper">
+              {t('common:settingsPage.engine.sectionLocalHelper')}
+            </span>
+          </h3>
+          {models === null ? (
+            <div className="set-loading">{t('common:settingsPage.engine.loading')}</div>
+          ) : (
+            <>
+              <div className="model-list">
+                {models.map((m) => (
+                  <div key={m.key}>
+                    <ModelCard
+                      model={m}
+                      onDownload={() => onDownload(m.key)}
+                      onCancel={() => onCancel(m.key)}
+                      onDelete={() => onDelete(m.key)}
+                    />
+                    {errors[m.key] ? (
+                      <div className="model-error">
+                        {t('common:settingsPage.engine.errorPrefix')}
+                        {errors[m.key]}
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div className="engine-space">
+                {t('common:settingsPage.engine.spaceUsed', {
+                  size: formatBytes(
+                    models
+                      .filter((m) => m.status === 'downloaded')
+                      .reduce((sum, m) => sum + m.sizeBytes, 0),
+                  ),
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   )
 }

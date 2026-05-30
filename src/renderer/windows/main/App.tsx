@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { LibraryEntry, LibraryGroup } from '@shared/ipc/library'
 import { mediaUrl } from '@shared/ipc/channels'
 import type { SessionType, RecorderSnapshot, Sources } from '@shared/ipc/record'
+import type { SearchHit } from '@shared/ipc/transcribe'
+import { TranscriptPanel } from './TranscriptPanel'
 import '../../styles/globals.css'
 import './main.css'
 
@@ -125,14 +127,39 @@ function LibrarySidebar({
   groups,
   selectedId,
   onSelect,
+  onSelectId,
   recording,
 }: {
   groups: LibraryGroup[]
   selectedId: string | null
   onSelect: (entry: LibraryEntry) => void
+  onSelectId: (id: string) => void
   recording: RecordingInfo | null
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const [query, setQuery] = useState('')
+  const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [scanned, setScanned] = useState(0)
+
+  // T39:debounce 全文搜索(空 query → 不搜)
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setHits(null)
+      return
+    }
+    const timer = setTimeout(() => {
+      window.lazyaudio.transcribe
+        .search(q)
+        .then((r) => {
+          setHits(r.hits)
+          setScanned(r.scanned)
+        })
+        .catch(() => setHits([]))
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [query])
+
   return (
     <aside className="lib">
       <div className="lib-window-drag-region" aria-hidden="true" />
@@ -142,39 +169,79 @@ function LibrarySidebar({
       <div className="lib-search-row">
         <div className="search-input">
           <SearchIcon />
-          <input placeholder={t('common:library.searchPlaceholder')} readOnly />
-          <span className="search-kbd">{t('common:library.searchShortcut')}</span>
+          <input
+            placeholder={t('common:transcript.search.placeholder')}
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+          />
+          {query ? (
+            <button
+              type="button"
+              className="search-clear"
+              onClick={() => setQuery('')}
+              aria-label={t('common:transcript.search.close')}
+            >
+              ×
+            </button>
+          ) : (
+            <span className="search-kbd">{t('common:library.searchShortcut')}</span>
+          )}
         </div>
-      </div>
-      <div className="chip-row">
-        <button type="button" className="chip is-active">
-          {t('common:library.all')}
-        </button>
       </div>
 
-      {groups.length === 0 && !recording ? (
-        <div className="lib-list-empty">
-          <div>{t('common:library.emptyTitle')}</div>
-          <div>{t('common:library.emptyHint')}</div>
-        </div>
-      ) : (
-        <div className="lib-list">
-          {recording && <RecordingListItem info={recording} />}
-          {groups.map((group) => (
-            <div key={group.label}>
-              <div className="lib-group-head">{group.label}</div>
-              {group.entries.map((entry) => (
-                <ListItem
-                  key={entry.id}
-                  entry={entry}
-                  selected={entry.id === selectedId}
-                  onSelect={() => onSelect(entry)}
-                />
-              ))}
-            </div>
+      {hits !== null ? (
+        <div className="search-results">
+          <div className="search-results-head">
+            {hits.length > 0
+              ? t('common:transcript.search.resultCount', { count: hits.length, scanned })
+              : t('common:transcript.search.empty')}
+          </div>
+          {hits.map((hit) => (
+            <button
+              key={`${hit.recordingId}-${hit.segmentId}`}
+              type="button"
+              className="search-hit"
+              onClick={() => onSelectId(hit.recordingId)}
+            >
+              <div className="search-hit-title">{hit.title}</div>
+              <div className="search-hit-snippet">{hit.snippet}</div>
+            </button>
           ))}
         </div>
-      )}
+      ) : null}
+      {hits === null ? (
+        <>
+          <div className="chip-row">
+            <button type="button" className="chip is-active">
+              {t('common:library.all')}
+            </button>
+          </div>
+
+          {groups.length === 0 && !recording ? (
+            <div className="lib-list-empty">
+              <div>{t('common:library.emptyTitle')}</div>
+              <div>{t('common:library.emptyHint')}</div>
+            </div>
+          ) : (
+            <div className="lib-list">
+              {recording && <RecordingListItem info={recording} />}
+              {groups.map((group) => (
+                <div key={group.label}>
+                  <div className="lib-group-head">{group.label}</div>
+                  {group.entries.map((entry) => (
+                    <ListItem
+                      key={entry.id}
+                      entry={entry}
+                      selected={entry.id === selectedId}
+                      onSelect={() => onSelect(entry)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
     </aside>
   )
 }
@@ -240,12 +307,30 @@ function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX
           <span>{sourcePreview(entry)}</span>
         </span>
       </header>
-      <Player entry={entry} />
-      <div className="detail-stage">
-        <h2>{t('common:library.detailTitle')}</h2>
-        <p>{t('common:library.detailHint')}</p>
-      </div>
+      <DetailBody entry={entry} />
     </section>
+  )
+}
+
+// 播放器 + 转录面板:把 player 的「按秒 seek」+ 当前秒数桥接给转录面板(点时间戳跳播 / 高亮当前段)
+function DetailBody({ entry }: { entry: LibraryEntry }): React.JSX.Element {
+  const seekRef = useRef<((sec: number) => void) | null>(null)
+  const [currentSec, setCurrentSec] = useState(0)
+
+  const registerSeek = useCallback((fn: (sec: number) => void) => {
+    seekRef.current = fn
+  }, [])
+  const onSeekSec = useCallback((sec: number) => {
+    seekRef.current?.(sec)
+  }, [])
+
+  return (
+    <>
+      <Player entry={entry} registerSeek={registerSeek} onTime={setCurrentSec} />
+      <div className="detail-stage">
+        <TranscriptPanel recordingId={entry.id} currentSec={currentSec} onSeekSec={onSeekSec} />
+      </div>
+    </>
   )
 }
 
@@ -521,7 +606,17 @@ function PlaybackWaveform({
 // T16 — 详情区播放器(选中已完成录音时显示)。
 // 范围(用户拍板):play/pause + 波形 seek + ±15s 跳转 功能化;倍速按钮渲染但静态占位(归后续);
 // 波形为装饰(非真实 PCM 峰值)。音频经 main 的 lazyaudio-media:// 协议流式提供(支持 Range)。
-function Player({ entry }: { entry: LibraryEntry }): React.JSX.Element {
+function Player({
+  entry,
+  registerSeek,
+  onTime,
+}: {
+  entry: LibraryEntry
+  /** T33:让外部(转录面板)拿到「按秒 seek」能力 */
+  registerSeek?: (seekToSec: (sec: number) => void) => void
+  /** T33:把当前播放秒数上报给外部(转录面板高亮当前段) */
+  onTime?: (sec: number) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const audioRef = useRef<HTMLAudioElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -571,6 +666,21 @@ function Player({ entry }: { entry: LibraryEntry }): React.JSX.Element {
     [effectiveDurationSec],
   )
 
+  // T33:按秒 seek + 起播,供转录面板点时间戳跳播
+  const seekToSec = useCallback(
+    (sec: number) => {
+      const el = audioRef.current
+      if (!el) return
+      const dur = effectiveDurationSec()
+      el.currentTime = Math.max(0, Math.min(dur, sec))
+      el.play().catch(() => setUnavailable(true))
+    },
+    [effectiveDurationSec],
+  )
+  useEffect(() => {
+    registerSeek?.(seekToSec)
+  }, [registerSeek, seekToSec])
+
   const progress = durationMs > 0 ? Math.min(1, currentMs / durationMs) : 0
 
   return (
@@ -583,7 +693,10 @@ function Player({ entry }: { entry: LibraryEntry }): React.JSX.Element {
           const d = e.currentTarget.duration
           if (Number.isFinite(d) && d > 0) setDurationMs(d * 1000)
         }}
-        onTimeUpdate={(e) => setCurrentMs(e.currentTarget.currentTime * 1000)}
+        onTimeUpdate={(e) => {
+          setCurrentMs(e.currentTarget.currentTime * 1000)
+          onTime?.(e.currentTarget.currentTime)
+        }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
@@ -908,6 +1021,7 @@ export function App(): React.JSX.Element {
           groups={state.groups}
           selectedId={selectedId}
           onSelect={(entry) => setSelectedId(entry.id)}
+          onSelectId={(id) => setSelectedId(id)}
           recording={recordingInfo}
         />
         {recordingInfo ? (
