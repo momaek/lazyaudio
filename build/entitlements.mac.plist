@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- onnxruntime 需要 JIT-style memory;不加这两条 app 启动直接崩(ADR-0002 / build-and-release §2.1) -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+
+  <!-- 允许从 dyld cache 之外加载(asarUnpack 出来的 dylib 必备) -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+
+  <!-- TCC:麦克风(CoreAudio Tap 不需要 screen-capture entitlement) -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+
+  <!-- 网络(云端 LLM / 模型下载) -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

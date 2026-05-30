@@ -286,10 +286,12 @@ T20 [M3]  权限引导（简版）
 
 ```
 T30 [M4]  sherpa-onnx 加载链
-  - workers/asr/index.cts：CommonJS 入口 + parentPort init message
-  - main/transcribe/offline/loader.ts：platformDir 解析
-  - scripts/after-pack.cjs：dylib install_name 改写 + 重签
-  AC：dev + packaged 都能 require('sherpa-onnx')；spctl --assess accepted
+  - workers/asr/index.ts：utility 入口 + parentPort init message（输出 out/main/asr.js 为 CJS）
+  - main/transcribe/offline/loader.ts + spawn.ts：platformDir 解析 + utilityProcess.fork 握手
+  - scripts/after-pack.cjs：dylib install_name @loader_path 改写 + 重签（含 ad-hoc 分支）
+  - 包名是 sherpa-onnx-node（N-API），不是 sherpa-onnx（WASM）
+  AC：dev + ad-hoc packaged 都能 require('sherpa-onnx-node')（otool -L 验 dylib 全 @loader_path）；
+      正式 Developer ID 签名 + 公证 spctl --assess accepted 留 T70（无证书时 ad-hoc 到底）
 
 T31 [M4]  模型下载（Pass B 用 SenseVoice int8）
   - model/downloader.ts：HTTP Range + 断点续传

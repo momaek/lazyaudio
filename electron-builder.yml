@@ -1,0 +1,47 @@
+# electron-builder 打包配置(T30 起,ADR-0002 落地)。
+# 当前 scope:macOS arm64 ad-hoc 本地验证(sherpa-onnx 加载链)。x64 / win / dmg / 正式签名公证留 T70。
+# 完整草案见 docs/04-development/build-and-release.md §2(本文件是其 ad-hoc 最小子集)。
+
+appId: com.lazyaudio.app # 对齐 T20 手测实测的权限身份(build-and-release.md 写 com.wentx.lazyaudio,待 T70 裁决统一)
+productName: LazyAudio
+copyright: Copyright © 2026 wentx
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.{md,markdown,map,ts,tsx}'
+  - '!**/__tests__/**'
+  - '!**/*.test.*'
+
+# 关键(ADR-0002):sherpa-onnx 的 .node + 平台二进制必须 asarUnpack —— native 二进制不能在
+# asar 里 dlopen。主包是 JS 胶水,平台子包才是真二进制。afterPack 对解包出来的 .dylib 做
+# install_name_tool @loader_path 改写 + 重签。
+asarUnpack:
+  - node_modules/sherpa-onnx-node/**
+  - node_modules/sherpa-onnx-darwin-arm64/**
+  - node_modules/sherpa-onnx-darwin-x64/**
+  - node_modules/sherpa-onnx-win-x64/**
+
+mac:
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # T30 ad-hoc 到底:无 Developer ID 证书,identity:null 让 electron-builder 跳过正式 Developer ID
+  # 签名(否则会 fail 找证书);sherpa dylib/.node 的 ad-hoc 重签由 afterPack(APPLE_IDENTITY 缺省
+  # → '-')完成。正式签名 + 公证(spctl --assess accepted)留 T70。
+  identity: null
+  target:
+    - target: dir # 本地验证只要 .app(afterPack 仍跑);dmg/zip 留 T70
+      arch: [arm64]
+  extendInfo:
+    NSMicrophoneUsageDescription: 'LazyAudio 需要麦克风权限录制您的语音。'
+    LSMinimumSystemVersion: '14.2'
+
+# macOS install_name_tool 改写 + ad-hoc 重签 sherpa dylibs(ADR-0002)
+afterPack: scripts/after-pack.cjs

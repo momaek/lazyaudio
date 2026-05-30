@@ -130,6 +130,14 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
 
+  // CommonJS 脚本(.cjs):require 是其本质语法(如 electron-builder afterPack hook 必须 CJS)
+  {
+    files: ['**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+
   // 关掉所有和 prettier 打架的规则,必须最后
   prettier,
 )
