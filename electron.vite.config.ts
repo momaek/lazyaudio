@@ -10,6 +10,9 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
+          // T30 — ASR utility process 入口(ADR-0003)。与 index.js 同目录(out/main/asr.js),
+          // 主进程 utilityProcess.fork(__dirname/asr.js) 路径在 dev / packaged 都稳定。
+          asr: resolve('src/main/workers/asr/index.ts'),
         },
       },
     },

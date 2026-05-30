@@ -1,8 +1,8 @@
 # 开发进度（live）
 
 > **最后更新**：2026-05-30
-> **当前里程碑**：M3
-> **当前焦点**：T17 / T20 / T16a 手测全过收尾（本 PR，含 ⌘W close 菜单补丁）；剩 T15a 崩溃恢复扫描待手测；下一候选 spike-012 资源压测
+> **当前里程碑**：M3（收尾中）→ M4 起步
+> **当前焦点**：T15a 崩溃恢复扫描待手测（M3 最后一块）；M4 已起步：T30 sherpa-onnx 加载链 done（dev + ad-hoc packaged require 验过），下一候选 T31 模型下载；spike-012 资源压测候选
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 45 (M3-M7 T) = **62** |
-| ✅ done                   | 31                                              |
+| ✅ done                   | 32                                              |
 | 🔄 wip                    | 1（T15a）                                       |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 30                                              |
+| 🔲 todo                   | 29                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -173,19 +173,19 @@
 
 ### 4.3 M4 — 本地转录跑通（T30-T40）
 
-| ID  | 标题                               | 状态    | 分支 / PR | 起  | 完  | 备注                |
-| --- | ---------------------------------- | ------- | --------- | --- | --- | ------------------- |
-| T30 | sherpa-onnx 加载链                 | 🔲 todo | —         | —   | —   | 依赖 ADR-0002       |
-| T31 | 模型下载（Pass B SenseVoice int8） | 🔲 todo | —         | —   | —   | 依赖 T30            |
-| T32 | Pass B Offline Engine              | 🔲 todo | —         | —   | —   | 依赖 T31            |
-| T33 | 转录文本展示                       | 🔲 todo | —         | —   | —   | 依赖 T32            |
-| T34 | Pass A Streaming Engine            | 🔲 todo | —         | —   | —   | 依赖 ADR-0004 + T32 |
-| T35 | hypothesis → confirmed 视觉        | 🔲 todo | —         | —   | —   | 依赖 T34            |
-| T36 | Pass A → Pass B 切换               | 🔲 todo | —         | —   | —   | 依赖 T34            |
-| T37 | 转录失败处理                       | 🔲 todo | —         | —   | —   | 依赖 T32            |
-| T38 | 设置 - 转录引擎 tab                | 🔲 todo | —         | —   | —   | 依赖 T31            |
-| T39 | 全文搜索                           | 🔲 todo | —         | —   | —   | 依赖 T32            |
-| T40 | 长录音中途离线提醒（PRD F4.8）     | 🔲 todo | —         | —   | —   | 依赖 T36            |
+| ID  | 标题                               | 状态    | 分支 / PR                                                                   | 起         | 完         | 备注                                                                                                                                                          |
+| --- | ---------------------------------- | ------- | --------------------------------------------------------------------------- | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T30 | sherpa-onnx 加载链                 | ✅ done | feat/T30-sherpa-loader ([#33](https://github.com/momaek/lazyaudio/pull/33)) | 2026-05-30 | 2026-05-30 | ADR-0002 落地:utility require + @loader_path afterPack 改写;dev + ad-hoc packaged require('sherpa-onnx-node') 验过(otool 全 @loader_path);spctl 公证 gate T70 |
+| T31 | 模型下载（Pass B SenseVoice int8） | 🔲 todo | —                                                                           | —          | —          | 依赖 T30                                                                                                                                                      |
+| T32 | Pass B Offline Engine              | 🔲 todo | —                                                                           | —          | —          | 依赖 T31                                                                                                                                                      |
+| T33 | 转录文本展示                       | 🔲 todo | —                                                                           | —          | —          | 依赖 T32                                                                                                                                                      |
+| T34 | Pass A Streaming Engine            | 🔲 todo | —                                                                           | —          | —          | 依赖 ADR-0004 + T32                                                                                                                                           |
+| T35 | hypothesis → confirmed 视觉        | 🔲 todo | —                                                                           | —          | —          | 依赖 T34                                                                                                                                                      |
+| T36 | Pass A → Pass B 切换               | 🔲 todo | —                                                                           | —          | —          | 依赖 T34                                                                                                                                                      |
+| T37 | 转录失败处理                       | 🔲 todo | —                                                                           | —          | —          | 依赖 T32                                                                                                                                                      |
+| T38 | 设置 - 转录引擎 tab                | 🔲 todo | —                                                                           | —          | —          | 依赖 T31                                                                                                                                                      |
+| T39 | 全文搜索                           | 🔲 todo | —                                                                           | —          | —          | 依赖 T32                                                                                                                                                      |
+| T40 | 长录音中途离线提醒（PRD F4.8）     | 🔲 todo | —                                                                           | —          | —          | 依赖 T36                                                                                                                                                      |
 
 **M4 退出条件**：30min → Pass B 自动出 → UI 显示；实时字幕 hypothesis 几秒变 confirmed；1h Pass A→B 切换；全文搜索；CI transcription smoke；RTF ≤ 0.1；2.5 GB 内存上限验证。
 

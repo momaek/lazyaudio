@@ -7,6 +7,7 @@
 
 import { app } from 'electron'
 import { logger } from './logger'
+import { spawnAsrUtility } from './transcribe/offline/spawn'
 
 const ENABLED = process.env['LAZY_SMOKE'] === '1'
 // 给窗口 / tray 创建留点时间,确认启动阶段不崩再退
@@ -21,4 +22,27 @@ export function maybeRunSmoke(): void {
     logger.info('[smoke] startup ok LAZY_SMOKE_OK, quitting')
     app.quit()
   }, QUIT_DELAY_MS)
+}
+
+// T30 — ASR 加载链 smoke。LAZY_ASR_SMOKE=1 时 fork asr utility 验证 require('sherpa-onnx-node')
+// 成功(dev + ad-hoc packaged 共用同一路径),打标记行后退出。验 AC「dev/packaged 都能 require」。
+const ASR_ENABLED = process.env['LAZY_ASR_SMOKE'] === '1'
+
+export function maybeRunAsrSmoke(): void {
+  if (!ASR_ENABLED) return
+  logger.info(
+    '[asr-smoke] LAZY_ASR_SMOKE=1 detected; forking asr utility to require sherpa-onnx-node',
+  )
+  void (async () => {
+    try {
+      const { child, sherpaVersion } = await spawnAsrUtility()
+      // 标记行 LAZY_ASR_OK:smoke runner / 手测可 grep 确认加载链通
+      logger.info(`[asr-smoke] require ok LAZY_ASR_OK sherpa=${sherpaVersion}`)
+      child.kill()
+    } catch (err) {
+      logger.error('[asr-smoke] require FAILED LAZY_ASR_FAIL', err)
+    } finally {
+      app.quit()
+    }
+  })()
 }

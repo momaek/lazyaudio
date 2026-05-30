@@ -256,7 +256,7 @@ TranscribeOrchestrator                 require('sherpa-onnx')   <-- N-API addon
 `sherpa-onnx-research.md` §5 已经详细写过；这里给**主进程启动时的具体动作**：
 
 ```ts
-// electron/main/transcribe/local/loader.ts
+// src/main/transcribe/offline/loader.ts(T30 落地路径)
 async function sherpaPlatformBaseDir(): Promise<string> {
   // dev: node_modules 在源码树
   // packaged: app.asar.unpacked/node_modules
@@ -337,7 +337,8 @@ process.parentPort.once('message', (msg) => {
 function initASR(platformDir: string) {
   // 把 platformDir 显式注入到 sherpa-onnx 的入口胶水
   process.env.SHERPA_ONNX_INSTALL_DIR = platformDir
-  const sherpa = require('sherpa-onnx')
+  // 包名是 sherpa-onnx-node(N-API),不是 sherpa-onnx(WASM)。T30 落地修正。
+  const sherpa = require('sherpa-onnx-node')
   // ... ensureRecognizer / 消息循环
 }
 ```
@@ -345,8 +346,9 @@ function initASR(platformDir: string) {
 **主进程 fork 时**：
 
 ```ts
-// electron/main/transcribe/local/spawn.ts
-const child = utilityProcess.fork(path.join(__dirname, '../workers/asr/index.js'), [], { ... })
+// src/main/transcribe/offline/spawn.ts(T30 落地路径)
+// 注:T30 实现把 asr 入口编译成 out/main/asr.js(与 index.js 同目录),fork 路径为 __dirname/asr.js
+const child = utilityProcess.fork(path.join(__dirname, 'asr.js'), [], { ... })
 
 // **必须等 'spawn' 事件**——在此之前 utility 内的 parentPort.once('message') listener 未注册，
 // postMessage 会被丢弃，表现为 utility 启动后卡死等 init。
