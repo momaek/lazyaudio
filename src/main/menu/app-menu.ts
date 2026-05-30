@@ -57,7 +57,16 @@ export function installAppMenu(): void {
     },
     {
       label: 'Window',
-      submenu: [{ role: 'minimize' }, { role: 'zoom' }, { role: 'front' }],
+      submenu: [
+        // role: 'close' 自带 ⌘W,触发当前 focused window 的 close 事件。
+        // 主窗口的 close handler(T17 state-protection)据此拦截:录音中→最小化不停录,
+        // 非录音按 T18「关闭主窗口时」设置。缺这一项时 ⌘W 完全不绑定 → 按下无反应。
+        { role: 'close' },
+        { type: 'separator' },
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { role: 'front' },
+      ],
     },
     {
       label: 'Help',
