@@ -695,34 +695,45 @@ v0.1 **不**走 OpenAI 的 streaming（SSE）：
 
 ### 5.1 模型 Registry
 
-app 内置一份 JSON（编译进 bundle，不可远程更新——避免供应链风险）：
+app 内置一份常量（编译进 bundle，不可远程更新——避免供应链风险）。T31 落地的真实值（2026-05-30 实测，源代码在 `src/main/transcribe/model/registry.ts`）：
 
 ```ts
-// electron/main/transcribe/local/modelRegistry.ts
+// src/main/transcribe/model/registry.ts
 export const MODELS: Record<string, ModelEntry> = {
-  'sense-voice-zh-en-ja-ko-yue-2025-09-09-int8': {
+  'sense-voice-zh-en-ja-ko-yue-int8-2025-09-09': {
     kind: 'asr',
-    displayName: 'SenseVoice (zh/en/ja/ko/yue, int8)',
-    sizeBytes: 234_000_000,
+    displayName: 'SenseVoice-small (int8)',
+    version: '2025-09-09',
+    sizeBytes: 237_431_441, // 237_115_547 + 315_894
     files: [
-      { relPath: 'model.int8.onnx', sha256: 'abc...', bytes: 233_000_000 },
-      { relPath: 'tokens.txt',      sha256: 'def...', bytes: 308_000 },
+      {
+        relPath: 'model.int8.onnx',
+        sha256: '12ca1a2ae7ecf3e0019ef2822307ee0b5cadc9196569e379b4c4026f8205276d',
+        bytes: 237_115_547,
+      },
+      {
+        relPath: 'tokens.txt',
+        sha256: 'f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc',
+        bytes: 315_894,
+      },
     ],
     sources: [
-      'https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2025-09-09/resolve/main/{file}',
-      'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2025-09-09-int8-{file}',
-      'https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2025-09-09/resolve/main/{file}',
+      'https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/{file}',
+      'https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/{file}',
     ],
     isDefault: true,
   },
-  'silero-vad-v5': {
-    kind: 'vad',
-    sizeBytes: 2_100_000,
-    files: [{ relPath: 'silero_vad.onnx', sha256: '...', bytes: 2_100_000 }],
-    sources: [...],
-  },
+  // silero-vad-v5（VAD）等 Pass A 依赖在 T34 需要时再加入 registry
 }
 ```
+
+> **T31 订正记录**：原稿这段是占位符（`abc...`/`def...`），且模型 key 写成 `...-2025-09-09`（非 int8）——
+> 那个 HF repo 只有 929MB fp32 `model.onnx`，**没有单文件 int8**。int8 在**独立 repo**
+> `...-int8-2025-09-09`（官方文档推荐版），暴露单文件 `model.int8.onnx`(226MB)+`tokens.txt`，
+> hf-mirror / huggingface 均已实测可达、支持 Range。
+> **GitHub releases 只发 `.tar.bz2` 整包（无单文件 URL）、ModelScope 无此 repo**，
+> 与「按文件 Range 续传 + 逐文件 sha256」的下载器设计不兼容，故本轮源收敛为 hf-mirror + huggingface 两个单文件源；
+> 日后要接 GitHub 整包需另加「下载 + 解压」分支。
 
 字段定义见 [`data-model.md`](./data-model.md) §7。
 
@@ -746,23 +757,24 @@ download(modelKey):
 
 ### 5.3 源选择策略
 
-`pickSourceOrder` 由 `settings.modelDownload.sourceOrder` 决定，默认：
+`orderSources(sources, locale)` 按系统 locale 给 registry 里的两个单文件源排序（T31 实现，`src/main/transcribe/model/mirror.ts`）：
 
 ```
-['hf-mirror', 'modelscope', 'github-releases']  # 国内（locale=zh-CN）
-['github-releases', 'huggingface']               # 海外
+zh-*  → ['hf-mirror', 'huggingface']   # 国内:镜像优先
+其它  → ['huggingface', 'hf-mirror']   # 海外:HF 优先
 ```
 
-启动 onboarding 时按系统 locale 选默认顺序；用户可在设置改。
+> T31 收敛说明：原稿列了 `modelscope` / `github-releases`，但 ModelScope 无此 repo、GitHub 只发整包（见 §5.1 订正记录），
+> 故 v0.1 只用 hf-mirror + huggingface 两个单文件源。用户可在设置改顺序留待 T38。
 
-**首次下载时并发 HEAD 测速**：对每个 source 发 HEAD，5s 超时，按响应快的优先——避免某个镜像 DNS 解析慢拖整体。
+**首次下载时并发 HEAD 测速**（`probeFastest`）：对每个 source 发 HEAD，5s 超时，按响应快的优先——避免某个镜像 DNS 解析慢拖整体；探测全失败则退回上面的 locale 默认顺序。
 
 ### 5.4 断点续传
 
 - HTTP `Range: bytes={offset}-`
-- 服务端不支持 Range → 全量重下
-- 断点元数据存 `{download}.partial` 同目录：`{ offset, sha256-so-far }`
-- 完成后 rename 为目标文件名
+- 服务端不支持 Range（未回 206）→ 全量重下
+- 断点元数据**不另存**：`{file}.partial` 文件本身即进度，resume 时重新流式 hash 已落盘部分为 sha256 seed（T31 实现策略，比另存 `sha256-so-far` 元数据更不易腐坏）
+- 完成校验通过后 rename 为目标文件名
 
 ### 5.5 SHA256 校验
 

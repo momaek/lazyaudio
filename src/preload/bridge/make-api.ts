@@ -5,7 +5,7 @@
 // 否则 contextBridge 注入静默失败 → window.lazyaudio undefined。
 // CHANNEL 名从 @shared/ipc/channels(纯字符串常量,无 zod)拿;schema 留给 main / renderer 业务层。
 import { ipcRenderer } from 'electron'
-import { SYSTEM, RECORD, AUDIO, LIBRARY, SETTINGS, PERMISSION } from '@shared/ipc/channels'
+import { SYSTEM, RECORD, AUDIO, LIBRARY, SETTINGS, PERMISSION, MODEL } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
 import type {
@@ -23,6 +23,13 @@ import type {
   RequestMicResult,
   OpenMicSettingsResult,
 } from '@shared/ipc/permission'
+import type {
+  ListResult as ModelListResult,
+  DownloadResult,
+  CancelResult,
+  DeleteResult,
+  ModelEvent,
+} from '@shared/ipc/model'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
 
@@ -60,6 +67,17 @@ export function makeApi(): LazyAudioApi {
       getMicStatus: () => invoke<MicStatusResult>(PERMISSION.getMicStatus, {}),
       requestMic: () => invoke<RequestMicResult>(PERMISSION.requestMic, {}),
       openMicSettings: () => invoke<OpenMicSettingsResult>(PERMISSION.openMicSettings, {}),
+    },
+    model: {
+      list: () => invoke<ModelListResult>(MODEL.list, {}),
+      download: (modelKey: string) => invoke<DownloadResult>(MODEL.download, { modelKey }),
+      cancel: (modelKey: string) => invoke<CancelResult>(MODEL.cancel, { modelKey }),
+      delete: (modelKey: string) => invoke<DeleteResult>(MODEL.delete, { modelKey }),
+      onEvent: (cb) => {
+        const handler = (_e: unknown, event: ModelEvent): void => cb(event)
+        ipcRenderer.on(MODEL.event, handler)
+        return () => ipcRenderer.off(MODEL.event, handler)
+      },
     },
     audio: {
       // capture window 订阅 main 发的启 capture 信令

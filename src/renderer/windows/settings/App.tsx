@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Settings, ThemeMode } from '@shared/ipc/settings'
 import type { SessionType } from '@shared/ipc/record'
+import type { ModelListEntry } from '@shared/ipc/model'
 import '../../styles/globals.css'
 import './settings.css'
 
@@ -10,7 +11,7 @@ type NavId = 'general' | 'recording' | 'engine' | 'templates' | 'shortcuts' | 'p
 const NAV_ITEMS: { id: NavId; glyph: string; enabled: boolean }[] = [
   { id: 'general', glyph: '⚙', enabled: true },
   { id: 'recording', glyph: '⏺', enabled: false },
-  { id: 'engine', glyph: '⌁', enabled: false },
+  { id: 'engine', glyph: '⌁', enabled: true },
   { id: 'templates', glyph: '✦', enabled: false },
   { id: 'shortcuts', glyph: '⌘', enabled: true },
   { id: 'privacy', glyph: '◉', enabled: false },
@@ -411,6 +412,195 @@ function ShortcutsTab({
   )
 }
 
+// ---- 转录引擎 tab(T31:最小模型管理 = 列表 + 下载 + 删除)----
+// 本地/云端切换、当前引擎大卡、高级 section、云端表单 留 T38。
+function formatBytes(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)} GB`
+  return `${Math.round(n / 1_000_000)} MB`
+}
+
+function ModelCard({
+  model,
+  onDownload,
+  onCancel,
+  onDelete,
+}: {
+  model: ModelListEntry
+  onDownload: () => void
+  onCancel: () => void
+  onDelete: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const downloaded = model.downloadedBytes ?? 0
+  const pct =
+    model.sizeBytes > 0 ? Math.min(100, Math.round((downloaded / model.sizeBytes) * 100)) : 0
+
+  return (
+    <div className={`model-card${model.isDefault ? ' is-default' : ''}`}>
+      <div className="lang-chip">{model.lang}</div>
+      <div className="info">
+        <div className="name">
+          {model.displayName}
+          {model.isDefault ? (
+            <span className="default-badge">{t('common:settingsPage.engine.default')}</span>
+          ) : null}
+        </div>
+        <div className="desc">{model.description}</div>
+      </div>
+
+      {model.status === 'downloaded' ? (
+        <div className="status is-done">
+          <span>✓</span>
+          <span>{t('common:settingsPage.engine.statusDownloaded')}</span>
+        </div>
+      ) : null}
+      {model.status === 'available' ? (
+        <div className="status is-avail">
+          <span>↓</span>
+          <span>{t('common:settingsPage.engine.statusAvailable')}</span>
+        </div>
+      ) : null}
+      {model.status === 'downloading' ? (
+        <div className="status is-downloading">
+          <div className="pbar">
+            <div className="fill" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="meta">
+            <span>{pct}%</span>
+            <span>{`${formatBytes(downloaded)} / ${formatBytes(model.sizeBytes)}`}</span>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="right">
+        <span className="size">{formatBytes(model.sizeBytes)}</span>
+        <div className="actions">
+          {model.status === 'downloaded' ? (
+            <button type="button" className="btn-compact-ghost danger" onClick={onDelete}>
+              {t('common:settingsPage.engine.delete')}
+            </button>
+          ) : null}
+          {model.status === 'available' ? (
+            <button type="button" className="btn-compact-ghost" onClick={onDownload}>
+              {t('common:settingsPage.engine.download')}
+            </button>
+          ) : null}
+          {model.status === 'downloading' ? (
+            <button type="button" className="btn-compact-ghost danger" onClick={onCancel}>
+              {t('common:settingsPage.engine.cancel')}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EngineTab(): React.JSX.Element {
+  const { t } = useTranslation()
+  const [models, setModels] = useState<ModelListEntry[] | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const refresh = useCallback(() => {
+    window.lazyaudio.model
+      .list()
+      .then((r) => setModels(r.models))
+      .catch(() => {
+        /* 拿不到保持 loading */
+      })
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    const off = window.lazyaudio.model.onEvent((event) => {
+      if (event.phase === 'start') {
+        setErrors((prev) => {
+          const next = { ...prev }
+          delete next[event.modelKey]
+          return next
+        })
+        setModels((prev) =>
+          prev
+            ? prev.map((m) =>
+                m.key === event.modelKey ? { ...m, status: 'downloading', downloadedBytes: 0 } : m,
+              )
+            : prev,
+        )
+      } else if (event.phase === 'progress') {
+        setModels((prev) =>
+          prev
+            ? prev.map((m) =>
+                m.key === event.modelKey
+                  ? { ...m, status: 'downloading', downloadedBytes: event.downloadedBytes }
+                  : m,
+              )
+            : prev,
+        )
+      } else if (event.phase === 'error') {
+        setErrors((prev) => ({ ...prev, [event.modelKey]: event.message }))
+        refresh()
+      } else if (event.phase === 'done' || event.phase === 'cancelled') {
+        refresh()
+      }
+    })
+    return () => off()
+  }, [refresh])
+
+  const onDownload = useCallback((key: string) => {
+    void window.lazyaudio.model.download(key)
+  }, [])
+  const onCancel = useCallback((key: string) => {
+    void window.lazyaudio.model.cancel(key)
+  }, [])
+  const onDelete = useCallback(
+    (key: string) => {
+      if (!window.confirm(t('common:settingsPage.engine.deleteConfirm'))) return
+      void window.lazyaudio.model.delete(key).then(refresh)
+    },
+    [t, refresh],
+  )
+
+  return (
+    <>
+      <div className="set-page-head">
+        <h2>{t('common:settingsPage.engine.title')}</h2>
+        <div className="sub">{t('common:settingsPage.engine.subtitle')}</div>
+      </div>
+
+      <div>
+        <h3 className="setting-group-title">
+          {t('common:settingsPage.engine.sectionLocal')}
+          <span className="set-section-helper">
+            {t('common:settingsPage.engine.sectionLocalHelper')}
+          </span>
+        </h3>
+        {models === null ? (
+          <div className="set-loading">{t('common:settingsPage.engine.loading')}</div>
+        ) : (
+          <div className="model-list">
+            {models.map((m) => (
+              <div key={m.key}>
+                <ModelCard
+                  model={m}
+                  onDownload={() => onDownload(m.key)}
+                  onCancel={() => onCancel(m.key)}
+                  onDelete={() => onDelete(m.key)}
+                />
+                {errors[m.key] ? (
+                  <div className="model-error">
+                    {t('common:settingsPage.engine.errorPrefix')}
+                    {errors[m.key]}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 function ComingSoon({ navId }: { navId: NavId }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -483,6 +673,7 @@ export function App(): React.JSX.Element {
     if (!settings) return null
     if (nav === 'general') return <GeneralTab settings={settings} patch={patchGeneral} />
     if (nav === 'shortcuts') return <ShortcutsTab settings={settings} setShortcut={setShortcut} />
+    if (nav === 'engine') return <EngineTab />
     return <ComingSoon navId={nav} />
   }, [nav, settings, patchGeneral, setShortcut])
 

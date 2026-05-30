@@ -13,6 +13,13 @@ import type {
 import type { ListResult } from '../ipc/library'
 import type { Settings, SetArgs } from '../ipc/settings'
 import type { MicStatusResult, RequestMicResult, OpenMicSettingsResult } from '../ipc/permission'
+import type {
+  ListResult as ModelListResult,
+  DownloadResult as ModelDownloadResult,
+  CancelResult as ModelCancelResult,
+  DeleteResult as ModelDeleteResult,
+  ModelEvent,
+} from '../ipc/model'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
@@ -54,6 +61,18 @@ export interface LazyAudioApi {
     requestMic(): Promise<RequestMicResult>
     /** 跳到系统设置麦克风隐私页 */
     openMicSettings(): Promise<OpenMicSettingsResult>
+  }
+  model: {
+    /** T31 列出所有内置模型 + 磁盘状态(available / downloading / downloaded) */
+    list(): Promise<ModelListResult>
+    /** 触发下载某模型;立即 ack,进度走 onEvent */
+    download(modelKey: string): Promise<ModelDownloadResult>
+    /** 取消进行中的下载 */
+    cancel(modelKey: string): Promise<ModelCancelResult>
+    /** 删除已下载模型(目录 + manifest) */
+    delete(modelKey: string): Promise<ModelDeleteResult>
+    /** 订阅下载生命周期事件(start/progress/source-switched/done/error/cancelled);返回取消订阅函数 */
+    onEvent(cb: (event: ModelEvent) => void): () => void
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */
