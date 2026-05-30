@@ -4,6 +4,7 @@ import { register as registerRecord } from './record'
 import { register as registerSettings } from './settings'
 import { register as registerLibrary } from './library'
 import { register as registerPermission } from './permission'
+import { register as registerModel } from './model'
 
 export function registerIpc(): void {
   registerSystem()
@@ -11,4 +12,5 @@ export function registerIpc(): void {
   registerSettings()
   registerLibrary()
   registerPermission()
+  registerModel()
 }

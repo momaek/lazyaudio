@@ -46,6 +46,16 @@ export const SETTINGS = {
   changed: 'settings:changed',
 } as const
 
+// T31 — 模型下载(Pass B SenseVoice int8):列表 / 下载 / 取消 / 删除 + 下载事件广播
+export const MODEL = {
+  list: 'model:list',
+  download: 'model:download',
+  cancel: 'model:cancel',
+  delete: 'model:delete',
+  // main → renderer:下载生命周期事件(start/progress/source-switched/done/error/cancelled)
+  event: 'model:event',
+} as const
+
 // T20 — 权限引导(简版):麦克风权限检测 / 请求 / 跳系统设置
 export const PERMISSION = {
   getMicStatus: 'permission:get-mic-status',

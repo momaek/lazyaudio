@@ -59,6 +59,21 @@
     "defaultSession": {
       "last": "上次使用"
     },
+    "engine": {
+      "title": "转录引擎",
+      "subtitle": "本地模型保证音频不出本机。下载后离线可用。",
+      "sectionLocal": "本地转录模型",
+      "sectionLocalHelper": "下载后离线可用 · 数据不出本机",
+      "statusDownloaded": "已下载",
+      "statusAvailable": "未下载",
+      "default": "默认",
+      "download": "下载",
+      "cancel": "取消",
+      "delete": "删除",
+      "deleteConfirm": "删除该模型?下次转录需重新下载。",
+      "errorPrefix": "下载失败:",
+      "loading": "正在读取模型…"
+    },
     "shortcuts": {
       "title": "快捷键",
       "subtitle": "全局快捷键 — 在任何 app 中都能触发",
