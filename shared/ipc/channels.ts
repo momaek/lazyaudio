@@ -53,6 +53,10 @@ export const TRANSCRIBE = {
   search: 'transcribe:search',
   // main → renderer:某录音转录状态变更(running/done/failed + 进度)
   statusChanged: 'transcribe:status-changed',
+  // T34 main → renderer:Pass A 实时段(hypothesis / confirmed,同 id 原地替换)
+  liveSegment: 'transcribe:live-segment',
+  // T36 main → renderer:Pass B 完成,整体换 transcript.json
+  offlineOverwrite: 'transcribe:offline-overwrite',
 } as const
 
 // T31 — 模型下载(Pass B SenseVoice int8):列表 / 下载 / 取消 / 删除 + 下载事件广播

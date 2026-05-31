@@ -1,12 +1,23 @@
-// T33 — 转录文本面板(详情区)。
-// T37 失败处理:failed → 错误文案 + [重试];model-missing → 提示去设置下载。
-//
-// 状态来源:transcribe.getTranscript(recordingId) 拉一次 + onStatusChanged 增量。
+// T33/T34/T35 — 转录文本面板(详情区)。
+// - 离线(Pass B):transcribe.getTranscript 拉一次 + onStatusChanged 增量。
+// - 实时(Pass A,T34/T35):onLiveSegment 增量并段,hypothesis 灰斜体、confirmed 正常,
+//   按 segmentId 原地替换不跳行(spike-013);Pass B 完成(onOfflineOverwrite)→ 整体换 transcript.json。
+// - T37 失败:failed → 文案 + [重试](no-audio/model-missing 特判)。
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Transcript, TranscriptSegment } from '@shared/transcribe/transcript'
+import type { Transcript } from '@shared/transcribe/transcript'
 import type { TranscribeStatus } from '@shared/recording/meta'
+import type { LiveSegmentPayload } from '@shared/ipc/transcribe'
+
+interface DisplaySegment {
+  segmentId: string
+  start: number
+  end: number
+  text: string
+  speaker: string
+  stability: 'hypothesis' | 'confirmed'
+}
 
 function formatSec(sec: number): string {
   const total = Math.max(0, Math.floor(sec))
@@ -28,12 +39,19 @@ function SegmentRow({
   active,
   onSeekSec,
 }: {
-  seg: TranscriptSegment
+  seg: DisplaySegment
   active: boolean
   onSeekSec: (sec: number) => void
 }): React.JSX.Element {
+  const cls = [
+    'tr-seg',
+    active ? 'is-active' : '',
+    seg.stability === 'hypothesis' ? 'is-hypothesis' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return (
-    <div className={`tr-seg${active ? ' is-active' : ''}`} data-speaker={speakerIndex(seg.speaker)}>
+    <div className={cls} data-speaker={speakerIndex(seg.speaker)}>
       <button
         type="button"
         className="tr-ts"
@@ -51,16 +69,21 @@ export function TranscriptPanel({
   recordingId,
   currentSec,
   onSeekSec,
+  isRecording = false,
 }: {
   recordingId: string
   currentSec: number
   onSeekSec: (sec: number) => void
+  /** 这条录音是否正在录制(决定空态文案 + 是否展示「开始转录」按钮) */
+  isRecording?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [status, setStatus] = useState<TranscribeStatus>('idle')
   const [error, setError] = useState<string | undefined>(undefined)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [progress, setProgress] = useState<{ processedSec: number; totalSec: number } | null>(null)
+  // Pass A 实时段(in-memory,按 segmentId)
+  const [liveSegs, setLiveSegs] = useState<Record<string, LiveSegmentPayload>>({})
 
   const refresh = useCallback(() => {
     window.lazyaudio.transcribe
@@ -77,8 +100,9 @@ export function TranscriptPanel({
 
   useEffect(() => {
     setProgress(null)
+    setLiveSegs({})
     refresh()
-    const off = window.lazyaudio.transcribe.onStatusChanged((event) => {
+    const offStatus = window.lazyaudio.transcribe.onStatusChanged((event) => {
       if (event.recordingId !== recordingId) return
       setStatus(event.status)
       setError(event.error)
@@ -91,7 +115,20 @@ export function TranscriptPanel({
       }
       if (event.status === 'failed') setProgress(null)
     })
-    return () => off()
+    const offLive = window.lazyaudio.transcribe.onLiveSegment((event) => {
+      if (event.recordingId !== recordingId) return
+      setLiveSegs((prev) => ({ ...prev, [event.segment.segmentId]: event.segment }))
+    })
+    const offOverwrite = window.lazyaudio.transcribe.onOfflineOverwrite((event) => {
+      if (event.recordingId !== recordingId) return
+      setLiveSegs({}) // Pass B 覆盖 → 清实时段,整体换 transcript.json
+      refresh()
+    })
+    return () => {
+      offStatus()
+      offLive()
+      offOverwrite()
+    }
   }, [recordingId, refresh])
 
   const onRetry = useCallback(() => {
@@ -100,35 +137,68 @@ export function TranscriptPanel({
     void window.lazyaudio.transcribe.retry(recordingId)
   }, [recordingId])
 
+  // 合并:transcript 文件段 + 实时内存段(按 id 覆盖),按 start 排序
+  const segments = useMemo<DisplaySegment[]>(() => {
+    const byId = new Map<string, DisplaySegment>()
+    if (transcript) {
+      for (const s of transcript.segments) {
+        byId.set(s.segmentId, {
+          segmentId: s.segmentId,
+          start: s.start,
+          end: s.end,
+          text: s.text,
+          speaker: s.speaker,
+          stability: s.stability,
+        })
+      }
+    }
+    for (const s of Object.values(liveSegs)) byId.set(s.segmentId, s)
+    return [...byId.values()].sort((a, b) => a.start - b.start)
+  }, [transcript, liveSegs])
+
   const activeId = useMemo(() => {
-    if (!transcript) return null
-    const hit = transcript.segments.find((s) => currentSec >= s.start && currentSec < s.end)
+    const hit = segments.find((s) => currentSec >= s.start && currentSec < s.end)
     return hit?.segmentId ?? null
-  }, [transcript, currentSec])
+  }, [segments, currentSec])
+
+  const isRefined = status === 'done' && transcript?.pass === 'offline'
 
   return (
     <div className="transcript-panel">
       <div className="tr-head">
         <h2>{t('common:transcript.title')}</h2>
-        {status === 'done' && transcript ? (
+        {isRefined ? <span className="tr-refined">{t('common:transcript.refined')}</span> : null}
+        {segments.length > 0 ? (
           <span className="tr-count">
-            {t('common:transcript.segmentCount', { count: transcript.segments.length })}
+            {t('common:transcript.segmentCount', { count: segments.length })}
           </span>
         ) : null}
       </div>
 
-      {status === 'idle' ? (
+      {/* 有段就渲染(实时 / 离线);否则按状态显示占位 */}
+      {segments.length > 0 ? (
+        <div className="tr-list">
+          {segments.map((seg) => (
+            <SegmentRow
+              key={seg.segmentId}
+              seg={seg}
+              active={seg.segmentId === activeId}
+              onSeekSec={onSeekSec}
+            />
+          ))}
+        </div>
+      ) : isRecording ? (
+        <div className="tr-hint">{t('common:transcript.listening')}</div>
+      ) : status === 'idle' ? (
         <div className="tr-idle">
           <span className="tr-hint">{t('common:transcript.notTranscribed')}</span>
           <button type="button" className="btn btn-secondary" onClick={onRetry}>
             {t('common:transcript.start')}
           </button>
         </div>
-      ) : null}
-
-      {status === 'pending' ? <div className="tr-hint">{t('common:transcript.queued')}</div> : null}
-
-      {status === 'running' ? (
+      ) : status === 'pending' ? (
+        <div className="tr-hint">{t('common:transcript.queued')}</div>
+      ) : status === 'running' ? (
         <div className="tr-running">
           <div className="tr-spinner" />
           <span>
@@ -139,9 +209,7 @@ export function TranscriptPanel({
               : t('common:transcript.running')}
           </span>
         </div>
-      ) : null}
-
-      {status === 'failed' ? (
+      ) : status === 'failed' ? (
         <div className="tr-failed">
           <div className="tr-failed-msg">
             {error === 'model-missing'
@@ -153,30 +221,12 @@ export function TranscriptPanel({
           {error && error !== 'model-missing' && error !== 'no-audio' ? (
             <div className="tr-failed-detail">{error}</div>
           ) : null}
-          {/* no-audio 没法靠重试解决,不给重试按钮 */}
           {error !== 'no-audio' ? (
             <button type="button" className="btn btn-secondary" onClick={onRetry}>
               {t('common:transcript.retry')}
             </button>
           ) : null}
         </div>
-      ) : null}
-
-      {status === 'done' && transcript ? (
-        transcript.segments.length === 0 ? (
-          <div className="tr-hint">{t('common:transcript.empty')}</div>
-        ) : (
-          <div className="tr-list">
-            {transcript.segments.map((seg) => (
-              <SegmentRow
-                key={seg.segmentId}
-                seg={seg}
-                active={seg.segmentId === activeId}
-                onSeekSec={onSeekSec}
-              />
-            ))}
-          </div>
-        )
       ) : null}
     </div>
   )

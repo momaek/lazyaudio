@@ -13,6 +13,7 @@ import { logger } from '../logger'
 import { onAudioPortReady } from './port'
 import { getCurrentSession } from '../recording'
 import { recoverRecordingsOnStartup } from '../recording/recovery'
+import { forkPcm } from './pcm-fork'
 
 type TrackStat = {
   recordingId: string
@@ -137,6 +138,8 @@ function handleMessage(port: MessagePortMain, raw: unknown): void {
     if (session && session.id === msg.recordingId) {
       void session.writeTrack(msg.trackId, msg.pcm)
     }
+    // T34:同一块 PCM 也 fork 给 Pass A 实时转录(仅 live active 时;失败不影响落盘)
+    forkPcm(msg.recordingId, msg.trackId, msg.pcm)
 
     // 每 50 帧(~5s)回一次 ack;太频繁没必要(背压本来就够)
     if (stat.chunksReceived % 50 === 0) {

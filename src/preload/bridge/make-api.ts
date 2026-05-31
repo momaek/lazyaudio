@@ -44,6 +44,8 @@ import type {
   RetryResult,
   SearchResult,
   StatusChangedEvent,
+  LiveSegmentEvent,
+  OfflineOverwriteEvent,
 } from '@shared/ipc/transcribe'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
@@ -103,6 +105,16 @@ export function makeApi(): LazyAudioApi {
         const handler = (_e: unknown, event: StatusChangedEvent): void => cb(event)
         ipcRenderer.on(TRANSCRIBE.statusChanged, handler)
         return () => ipcRenderer.off(TRANSCRIBE.statusChanged, handler)
+      },
+      onLiveSegment: (cb) => {
+        const handler = (_e: unknown, event: LiveSegmentEvent): void => cb(event)
+        ipcRenderer.on(TRANSCRIBE.liveSegment, handler)
+        return () => ipcRenderer.off(TRANSCRIBE.liveSegment, handler)
+      },
+      onOfflineOverwrite: (cb) => {
+        const handler = (_e: unknown, event: OfflineOverwriteEvent): void => cb(event)
+        ipcRenderer.on(TRANSCRIBE.offlineOverwrite, handler)
+        return () => ipcRenderer.off(TRANSCRIBE.offlineOverwrite, handler)
       },
     },
     audio: {

@@ -17,25 +17,44 @@ import {
 } from '@shared/ipc/transcribe'
 import { readMeta } from '../recording/meta-store'
 import { readTranscript } from '../transcribe/transcript-store'
-import { enqueueTranscription, setTranscribeBroadcaster } from '../transcribe/orchestrator'
+import { readLiveTranscript } from '../transcribe/live-store'
+import {
+  enqueueTranscription,
+  setTranscribeBroadcaster,
+  setLiveBroadcaster,
+  setOverwriteBroadcaster,
+} from '../transcribe/orchestrator'
 import { searchTranscripts } from '../transcribe/search'
+import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
 import { assertSchemaDev } from '../util/assert-schema'
 import { logger } from '../logger'
 
-function broadcastStatus(event: StatusChangedEvent): void {
+function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send(CHANNEL.statusChanged, event)
+    if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
+}
+
+function broadcastStatus(event: StatusChangedEvent): void {
+  broadcast(CHANNEL.statusChanged, event)
 }
 
 export function register(): void {
   // 编排器(可能由 record:stop 触发,非 IPC)经此把状态广播到 renderer
   setTranscribeBroadcaster(broadcastStatus)
+  setLiveBroadcaster((recordingId: string, segment: LiveSegment) =>
+    broadcast(CHANNEL.liveSegment, { recordingId, segment }),
+  )
+  setOverwriteBroadcaster((recordingId: string) =>
+    broadcast(CHANNEL.offlineOverwrite, { recordingId }),
+  )
 
   ipcMain.handle(CHANNEL.getTranscript, async (_event, rawArgs: unknown) => {
     const { recordingId } = GetTranscriptArgs.parse(rawArgs)
     const meta = await readMeta(recordingId)
-    const transcript = await readTranscript(recordingId)
+    // transcript.json(Pass B)优先;缺则回退 transcript.live.json(Pass A)
+    const transcript =
+      (await readTranscript(recordingId)) ?? (await readLiveTranscript(recordingId))
     const result: GetTranscriptResult = {
       status: meta?.transcribe?.status ?? 'idle',
       transcript,

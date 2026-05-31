@@ -35,6 +35,29 @@ export const StatusChangedEvent = z.object({
 })
 export type StatusChangedEvent = z.infer<typeof StatusChangedEvent>
 
+// ---- Pass A 实时段（T34）----
+export const LiveSegmentPayload = z.object({
+  segmentId: z.string(),
+  start: z.number(),
+  end: z.number(),
+  text: z.string(),
+  speaker: z.string(),
+  stability: z.enum(['hypothesis', 'confirmed']),
+})
+export type LiveSegmentPayload = z.infer<typeof LiveSegmentPayload>
+
+export const LiveSegmentEvent = z.object({
+  recordingId: z.string(),
+  segment: LiveSegmentPayload,
+})
+export type LiveSegmentEvent = z.infer<typeof LiveSegmentEvent>
+
+// ---- Pass B 覆盖（T36）----
+export const OfflineOverwriteEvent = z.object({
+  recordingId: z.string(),
+})
+export type OfflineOverwriteEvent = z.infer<typeof OfflineOverwriteEvent>
+
 // ---- search（T39 全文搜索）----
 export const SearchArgs = z.object({ query: z.string() })
 export type SearchArgs = z.infer<typeof SearchArgs>

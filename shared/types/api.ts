@@ -25,6 +25,8 @@ import type {
   RetryResult as TranscribeRetryResult,
   SearchResult as TranscribeSearchResult,
   StatusChangedEvent as TranscribeStatusChangedEvent,
+  LiveSegmentEvent,
+  OfflineOverwriteEvent,
 } from '../ipc/transcribe'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
@@ -89,6 +91,10 @@ export interface LazyAudioApi {
     search(query: string): Promise<TranscribeSearchResult>
     /** 订阅转录状态广播(running/done/failed + 进度);返回取消订阅函数 */
     onStatusChanged(cb: (event: TranscribeStatusChangedEvent) => void): () => void
+    /** T34 订阅 Pass A 实时段(hypothesis/confirmed,同 id 原地替换);返回取消订阅函数 */
+    onLiveSegment(cb: (event: LiveSegmentEvent) => void): () => void
+    /** T36 订阅 Pass B 覆盖事件(整体换 transcript.json);返回取消订阅函数 */
+    onOfflineOverwrite(cb: (event: OfflineOverwriteEvent) => void): () => void
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */

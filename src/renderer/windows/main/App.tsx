@@ -347,6 +347,7 @@ function DetailBody({ entry }: { entry: LibraryEntry }): React.JSX.Element {
 }
 
 type RecordingInfo = {
+  recordingId: string
   sessionType: SessionType
   sources: Sources
   startedAt: number
@@ -781,8 +782,30 @@ function DetailRecording({
   const sessionLabel = sessionLabelText(t, info.sessionType)
   const title = `${sessionLabel} ${formatTitleTimestamp(info.startedAt)}`
   const templateLabel = t('common:library.summaryTemplate', { type: sessionLabel })
+  // T40 最小版:每满 10min 提醒「停录可生成离线精修」;点 = 停录走完整 Pass B
+  const tenMinMark = Math.floor(info.elapsedMs / 600_000)
+  const [dismissedMark, setDismissedMark] = useState(0)
+  const showLongRecBanner = tenMinMark >= 1 && tenMinMark > dismissedMark
   return (
     <section className="detail">
+      {showLongRecBanner ? (
+        <div className="rec-banner">
+          <span className="rec-banner-text">
+            {t('common:library.longRecBanner', { min: tenMinMark * 10 })}
+          </span>
+          <button type="button" className="btn btn-secondary btn-compact" onClick={onStop}>
+            {t('common:library.longRecAction')}
+          </button>
+          <button
+            type="button"
+            className="rec-banner-close"
+            aria-label={t('common:transcript.search.close')}
+            onClick={() => setDismissedMark(tenMinMark)}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <header className="dh">
         <span className="dh-title">{title}</span>
         <span className="type-badge" data-type={SESSION_UI_TYPE[info.sessionType]}>
@@ -844,22 +867,13 @@ function DetailRecording({
 
       <div className="tx-summary">
         <div className="tx">
-          <div className="tx-head">
-            {t('common:library.transcript')}
-            <div className="tx-head-right">{t('common:library.transcriptAutoStart')}</div>
-          </div>
-          <div className="tx-placeholder">
-            <div className="skeleton-stack">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div className="sk-row" key={i}>
-                  <div className="sk-bar" style={{ width: 32, height: 8 }} />
-                  <div className="sk-bar" style={{ width: 14, height: 8, borderRadius: '50%' }} />
-                  <div className="sk-bar" style={{ width: `${60 + ((i * 7) % 36)}%` }} />
-                </div>
-              ))}
-            </div>
-            <div className="hint">{t('common:library.transcriptPlaceholder')}</div>
-          </div>
+          {/* T34/T35:录音中实时转录(Pass A) */}
+          <TranscriptPanel
+            recordingId={info.recordingId}
+            currentSec={0}
+            onSeekSec={() => {}}
+            isRecording
+          />
         </div>
 
         <div className="tx-divider" />
@@ -997,11 +1011,13 @@ export function App(): React.JSX.Element {
       recState?.status !== 'recording' ||
       !recState.sessionType ||
       !recState.sources ||
-      recState.startedAt == null
+      recState.startedAt == null ||
+      !recState.recordingId
     ) {
       return null
     }
     return {
+      recordingId: recState.recordingId,
       sessionType: recState.sessionType,
       sources: recState.sources,
       startedAt: recState.startedAt,

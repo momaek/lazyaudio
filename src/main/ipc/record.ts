@@ -34,7 +34,8 @@ import { RecorderSnapshot, GetStateArgs } from '@shared/ipc/record'
 import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
 import { runMixdown } from '../recording/mixer'
-import { enqueueTranscription } from '../transcribe/orchestrator'
+import { enqueueTranscription, startLive, stopLive } from '../transcribe/orchestrator'
+import { startPcmFork, stopPcmFork } from '../audio/pcm-fork'
 import { purgeRecordingTracks } from '../audio/receiver'
 import { getMicStatus, requestMic, isMicGranted, openMicSettings } from '../permission/mic'
 import { z } from 'zod'
@@ -154,6 +155,10 @@ export function register(): void {
     // 状态机已进 recording → 广播给主窗口渲染"录音中"UI
     broadcastRecorderState()
 
+    // T34:起实时 PCM fork + Pass A 实时转录会话(模型缺/失败 → 降级,录音照常)
+    startPcmFork(state.recordingId!, args.sources)
+    void startLive(state.recordingId!, args.sources)
+
     const result = { recordingId: state.recordingId!, startedAt: state.startedAt! }
     assertSchemaDev(StartResult, result)
     return result
@@ -183,12 +188,18 @@ export function register(): void {
       await session.stop().catch((e) => logger.error(`session.stop failed: ${String(e)}`))
       const finishedId = session.id
       setCurrentSession(null)
-      // T14:fire-and-forget mixdown(meta.mixStatus 已在 stop 里设 'pending')。
-      // 不 await — 用户停止后录音应立刻进库,混音异步在后台跑(audio-capture §6.0)。
-      // T32:混音完(成功或失败都可能有可转录音轨)→ 入队 Pass B 离线转录。
-      void runMixdown(finishedId)
-        .catch((e) => logger.error(`mixdown unhandled: ${String(e)}`, { recordingId: finishedId }))
-        .finally(() => enqueueTranscription(finishedId))
+      // T34:立即停 PCM fork(不再喂 Pass A)
+      stopPcmFork(finishedId)
+      // T14 mixdown + T36 Pass A→B 串行:等 mixdown 出 mixed.wav 且 Pass A 退出(释放内存)
+      // 后,再 fork Pass B(满足 2.5GB 内存约束)。两者并行,都完成才入队 Pass B。
+      void Promise.all([
+        runMixdown(finishedId).catch((e) =>
+          logger.error(`mixdown unhandled: ${String(e)}`, { recordingId: finishedId }),
+        ),
+        stopLive(finishedId).catch((e) =>
+          logger.error(`stopLive unhandled: ${String(e)}`, { recordingId: finishedId }),
+        ),
+      ]).finally(() => enqueueTranscription(finishedId))
     }
 
     transitionToIdle()

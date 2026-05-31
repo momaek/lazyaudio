@@ -5,16 +5,21 @@
 //   transcript.json + 更新 meta.transcribe → 广播状态。失败不写 transcript,只标 meta failed。
 // 串行执行(一次只 fork 一个 utility,SenseVoice 常驻 ~600MB-1GB,避免并发爆内存)。
 
+import path from 'node:path'
 import fs from 'node:fs/promises'
 import type { UtilityProcess } from 'electron'
+import type { Sources } from '@shared/ipc/record'
 import { readMeta, writeMeta } from '../recording/meta-store'
 import { getMixedFilePath, getAudioFilePath } from '../recording/paths'
 import { spawnAsrUtility, runTranscribe } from './offline/spawn'
-import { listModelEntries } from './model/registry'
-import { isModelDownloaded } from './model/downloader'
+import { startStreamingSession, type StreamingSession } from './streaming/spawn'
+import { listModelEntries, SILERO_VAD_KEY } from './model/registry'
+import { isModelDownloaded, downloadModel } from './model/downloader'
 import { getModelDir } from './model/paths'
 import { writeTranscript } from './transcript-store'
+import { writeLiveTranscript } from './live-store'
 import { Transcript, type TranscriptSegment } from '@shared/transcribe/transcript'
+import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
 import type { TranscribeMeta, TranscribeStatus } from '@shared/recording/meta'
 import { logger } from '../logger'
 
@@ -33,10 +38,143 @@ export function setTranscribeBroadcaster(fn: (e: TranscribeStatusEvent) => void)
   broadcaster = fn
 }
 
+/** Pass A 实时段广播(由 ipc/transcribe 注入) */
+let liveBroadcaster: (recordingId: string, seg: LiveSegment) => void = () => {}
+export function setLiveBroadcaster(fn: (recordingId: string, seg: LiveSegment) => void): void {
+  liveBroadcaster = fn
+}
+
+/** Pass B 完成后通知 renderer 整体换 transcript.json(由 ipc/transcribe 注入) */
+let overwriteBroadcaster: (recordingId: string) => void = () => {}
+export function setOverwriteBroadcaster(fn: (recordingId: string) => void): void {
+  overwriteBroadcaster = fn
+}
+
 /** 默认本地 ASR 模型(registry 里 isDefault 的 asr 条目) */
 function defaultAsrModelKey(): string | null {
   const entry = listModelEntries().find((e) => e.kind === 'asr' && e.isDefault)
   return entry?.key ?? null
+}
+
+// ============ Pass A 实时转录(T34/T36) ============
+
+interface LiveState {
+  recordingId: string
+  session: StreamingSession
+  segments: Map<string, LiveSegment>
+  startedAt: number
+  modelKey: string
+}
+let live: LiveState | null = null
+
+/** 确保模型就绪;缺则尝试下载(VAD 仅 643KB)。返回是否可用。 */
+async function ensureModel(modelKey: string): Promise<boolean> {
+  if (await isModelDownloaded(modelKey)) return true
+  try {
+    await downloadModel(modelKey, () => {})
+    return await isModelDownloaded(modelKey)
+  } catch (e) {
+    logger.warn('[passA] model download failed', { modelKey, err: String(e) })
+    return false
+  }
+}
+
+/** 把当前 live 段落落盘 transcript.live.json(只持久化 confirmed;hypothesis 只走 IPC) */
+async function persistLive(state: LiveState, partial: boolean): Promise<void> {
+  const segs = [...state.segments.values()]
+    .filter((s) => s.stability === 'confirmed')
+    .sort((a, b) => a.start - b.start)
+    .map<TranscriptSegment>((s) => ({
+      segmentId: s.segmentId,
+      start: s.start,
+      end: s.end,
+      text: s.text,
+      speaker: s.speaker,
+      stability: 'confirmed',
+    }))
+  if (segs.length === 0 && partial) return
+  const transcript = Transcript.parse({
+    schemaVersion: 1,
+    recordingId: state.recordingId,
+    pass: 'live',
+    engine: 'local-vad-shortwin',
+    modelKey: state.modelKey,
+    language: 'auto',
+    generatedAt: Date.now(),
+    durationMs: Date.now() - state.startedAt,
+    segments: segs,
+    partial,
+  })
+  await writeLiveTranscript(transcript).catch((e) =>
+    logger.warn('[passA] writeLive failed', { err: String(e) }),
+  )
+}
+
+/** record:start 后调:起 Pass A 实时会话。模型缺 / spawn 失败 → 降级(不起 live,录音照常)。 */
+export async function startLive(recordingId: string, _sources: Sources): Promise<void> {
+  if (live) {
+    logger.warn('[passA] already active, skip', { recordingId })
+    return
+  }
+  const asrKey = defaultAsrModelKey()
+  if (!asrKey || !(await isModelDownloaded(asrKey))) {
+    logger.info('[passA] asr model not ready, skip live captions', { recordingId })
+    return
+  }
+  if (!(await ensureModel(SILERO_VAD_KEY))) {
+    logger.info('[passA] vad model unavailable, skip live captions', { recordingId })
+    return
+  }
+
+  const segments = new Map<string, LiveSegment>()
+  const startedAt = Date.now()
+  try {
+    const session = await startStreamingSession({
+      recordingId,
+      modelDir: getModelDir(asrKey),
+      vadModelPath: path.join(getModelDir(SILERO_VAD_KEY), 'silero_vad.onnx'),
+      language: 'auto',
+      speaker: 'mixed', // v0.1:mic+system 合一路
+      onSegment: (seg) => {
+        if (!live || live.recordingId !== recordingId) return
+        live.segments.set(seg.segmentId, seg)
+        liveBroadcaster(recordingId, seg)
+        if (seg.stability === 'confirmed') void persistLive(live, true)
+      },
+    })
+    live = { recordingId, session, segments, startedAt, modelKey: asrKey }
+    logger.info('[passA] live started', { recordingId })
+  } catch (e) {
+    logger.warn('[passA] start failed, degraded (no live captions)', {
+      recordingId,
+      err: String(e),
+    })
+    live = null
+  }
+}
+
+/** pcm-fork 调:喂一块 16k mono Int16 给 Pass A */
+export function pushLivePcm(recordingId: string, int16: Int16Array): void {
+  if (!live || live.recordingId !== recordingId) return
+  live.session.pushPcm(int16)
+}
+
+export function isLiveActive(recordingId: string): boolean {
+  return live?.recordingId === recordingId
+}
+
+/** record:stop 时调(早于 Pass B):停 Pass A、等退出、落盘 final live transcript(T36 串行切换的前半) */
+export async function stopLive(recordingId: string): Promise<void> {
+  const state = live
+  if (!state || state.recordingId !== recordingId) return
+  live = null
+  try {
+    await state.session.stop() // flush + 等 flushed(≤5s)+ kill
+  } catch (e) {
+    logger.warn('[passA] stop error', { recordingId, err: String(e) })
+  }
+  await persistLive(state, false)
+  logger.info('[passA] live stopped', { recordingId, segments: state.segments.size })
 }
 
 async function fileExists(p: string): Promise<boolean> {
@@ -188,6 +326,7 @@ async function transcribeOne(recordingId: string, force: boolean): Promise<void>
       finishedAt: Date.now(),
     })
     broadcaster({ recordingId, status: 'done' })
+    overwriteBroadcaster(recordingId) // T36:Pass B 覆盖 → renderer 整体换 transcript.json
     logger.info('[transcribe] done', {
       recordingId,
       segments: segments.length,
