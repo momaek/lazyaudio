@@ -151,7 +151,6 @@ export function SummaryPanel({
 
       {text ? (
         <div className="sum-body">
-          {}
           <Markdown components={mdComponents}>{text}</Markdown>
           {status === 'running' ? <span className="sum-caret" /> : null}
         </div>
