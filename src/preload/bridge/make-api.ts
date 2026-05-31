@@ -5,7 +5,16 @@
 // 否则 contextBridge 注入静默失败 → window.lazyaudio undefined。
 // CHANNEL 名从 @shared/ipc/channels(纯字符串常量,无 zod)拿;schema 留给 main / renderer 业务层。
 import { ipcRenderer } from 'electron'
-import { SYSTEM, RECORD, AUDIO, LIBRARY, SETTINGS, PERMISSION, MODEL } from '@shared/ipc/channels'
+import {
+  SYSTEM,
+  RECORD,
+  AUDIO,
+  LIBRARY,
+  SETTINGS,
+  PERMISSION,
+  MODEL,
+  TRANSCRIBE,
+} from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
 import type {
@@ -30,6 +39,14 @@ import type {
   DeleteResult,
   ModelEvent,
 } from '@shared/ipc/model'
+import type {
+  GetTranscriptResult,
+  RetryResult,
+  SearchResult,
+  StatusChangedEvent,
+  LiveSegmentEvent,
+  OfflineOverwriteEvent,
+} from '@shared/ipc/transcribe'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
 
@@ -77,6 +94,27 @@ export function makeApi(): LazyAudioApi {
         const handler = (_e: unknown, event: ModelEvent): void => cb(event)
         ipcRenderer.on(MODEL.event, handler)
         return () => ipcRenderer.off(MODEL.event, handler)
+      },
+    },
+    transcribe: {
+      getTranscript: (recordingId: string) =>
+        invoke<GetTranscriptResult>(TRANSCRIBE.getTranscript, { recordingId }),
+      retry: (recordingId: string) => invoke<RetryResult>(TRANSCRIBE.retry, { recordingId }),
+      search: (query: string) => invoke<SearchResult>(TRANSCRIBE.search, { query }),
+      onStatusChanged: (cb) => {
+        const handler = (_e: unknown, event: StatusChangedEvent): void => cb(event)
+        ipcRenderer.on(TRANSCRIBE.statusChanged, handler)
+        return () => ipcRenderer.off(TRANSCRIBE.statusChanged, handler)
+      },
+      onLiveSegment: (cb) => {
+        const handler = (_e: unknown, event: LiveSegmentEvent): void => cb(event)
+        ipcRenderer.on(TRANSCRIBE.liveSegment, handler)
+        return () => ipcRenderer.off(TRANSCRIBE.liveSegment, handler)
+      },
+      onOfflineOverwrite: (cb) => {
+        const handler = (_e: unknown, event: OfflineOverwriteEvent): void => cb(event)
+        ipcRenderer.on(TRANSCRIBE.offlineOverwrite, handler)
+        return () => ipcRenderer.off(TRANSCRIBE.offlineOverwrite, handler)
       },
     },
     audio: {

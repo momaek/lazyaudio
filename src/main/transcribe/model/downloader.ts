@@ -160,6 +160,13 @@ export async function listModels(): Promise<ModelListEntry[]> {
   return out
 }
 
+/** 某模型是否已完整下载(给转录编排器判断模型就绪用) */
+export async function isModelDownloaded(modelKey: string): Promise<boolean> {
+  const entry = getModelEntry(modelKey)
+  if (!entry) return false
+  return isDownloaded(entry)
+}
+
 /** 触发取消(若该 key 正在下载) */
 export function cancelDownload(modelKey: string): boolean {
   const active = inflight.get(modelKey)

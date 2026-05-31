@@ -12,6 +12,8 @@ export const LibraryEntry = z.object({
   durationMs: z.number().int(),
   status: z.enum(['recording', 'stopping', 'done', 'failed', 'failed-partial']),
   mixStatus: z.enum(['pending', 'running', 'done', 'failed', 'skipped']).optional(),
+  /** T32 转录子状态(列表项 / 详情区据此显示「转录中 / 失败」) */
+  transcribeStatus: z.enum(['idle', 'pending', 'running', 'done', 'failed']).optional(),
 })
 export type LibraryEntry = z.infer<typeof LibraryEntry>
 

@@ -12,12 +12,16 @@ import {
 } from '../../../../src/main/transcribe/model/registry'
 
 describe('model registry', () => {
-  it('至少含一个默认 ASR 模型(SenseVoice int8)', () => {
-    const entries = listModelEntries()
-    const def = entries.filter((e) => e.isDefault)
+  it('恰好一个默认 ASR 模型(SenseVoice int8)', () => {
+    const def = listModelEntries().filter((e) => e.kind === 'asr' && e.isDefault)
     expect(def.length).toBe(1)
-    expect(def[0]?.kind).toBe('asr')
     expect(def[0]?.key).toContain('sense-voice')
+  })
+
+  it('恰好一个默认 VAD 模型(Silero,Pass A 实时分段依赖)', () => {
+    const def = listModelEntries().filter((e) => e.kind === 'vad' && e.isDefault)
+    expect(def.length).toBe(1)
+    expect(def[0]?.key).toContain('silero')
   })
 
   it('每个 entry:files 非空、sha256 是 64 位 hex、bytes>0、sizeBytes==文件字节和', () => {

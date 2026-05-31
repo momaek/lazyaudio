@@ -61,7 +61,28 @@ export const MODELS: Record<string, ModelEntry> = {
     ],
     isDefault: true,
   },
+  'silero-vad-v5': {
+    key: 'silero-vad-v5',
+    kind: 'vad',
+    displayName: 'Silero VAD v5',
+    description: '语音活动检测 · 实时字幕分段依赖',
+    lang: 'vad',
+    version: 'v5',
+    sizeBytes: 643_854,
+    files: [
+      {
+        relPath: 'silero_vad.onnx',
+        sha256: '9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6',
+        bytes: 643_854,
+      },
+    ],
+    // 无干净 HF 单文件镜像;github releases 单文件(643KB,国内可达性 OK)
+    sources: ['https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/{file}'],
+    isDefault: true,
+  },
 }
+
+export const SILERO_VAD_KEY = 'silero-vad-v5'
 
 export function getModelEntry(key: string): ModelEntry | undefined {
   return MODELS[key]

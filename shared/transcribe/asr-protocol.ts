@@ -13,12 +13,53 @@ export interface AsrInitMessage {
   platformDir: string
 }
 
+/** main → utility:让 utility 跑一次离线转录(T32 Pass B)。
+ *  utility 加载 SenseVoice recognizer、读 wav、定窗切片识别,回 transcribe-result / -error。 */
+export interface AsrTranscribeMessage {
+  type: 'transcribe'
+  recordingId: string
+  /** 要转录的 wav 绝对路径(主进程挑好:mixed > mic > system) */
+  wavPath: string
+  /** 模型目录绝对路径(含 model.int8.onnx + tokens.txt) */
+  modelDir: string
+  modelKey: string
+  /** 'auto' | 'zh' | 'en' | ...;v0.1 用 auto */
+  language: string
+  /** 该 wav 对应的 speaker 标签:'mic' | 'system' | 'mixed' */
+  speaker: string
+}
+
+/** utility 识别出的单段(start/end 秒) */
+export interface AsrSegment {
+  start: number
+  end: number
+  text: string
+}
+
+/** main → utility */
+export type AsrRequestMessage = AsrInitMessage | AsrTranscribeMessage
+
 /** utility → main */
 export type AsrUtilityMessage =
   | { type: 'ready'; sherpaVersion: string } // require('sherpa-onnx-node') 成功
   | { type: 'fatal'; code: AsrFatalCode; detail?: unknown }
+  | { type: 'transcribe-progress'; recordingId: string; processedSec: number; totalSec: number }
+  | {
+      type: 'transcribe-result'
+      recordingId: string
+      segments: AsrSegment[]
+      language: string
+      speaker: string
+      durationMs: number
+    }
+  | { type: 'transcribe-error'; recordingId: string; code: AsrTranscribeErrorCode; message: string }
 
 export type AsrFatalCode =
   | 'protocol-error' // 第一条不是 init
   | 'sherpa-dylib-missing' // platformDir 缺 .node / 平台二进制
   | 'sherpa-require-failed' // require 抛错(dylib 链断 / addon 不兼容等)
+
+export type AsrTranscribeErrorCode =
+  | 'model-load-failed' // OfflineRecognizer 构造失败(模型文件缺/坏)
+  | 'wav-read-failed' // wav 读取/解析失败
+  | 'recognize-failed' // 识别过程抛错

@@ -36,6 +36,16 @@ export function getMetaFilePath(recordingId: string): string {
   return path.join(getRecordingDir(recordingId), 'meta.json')
 }
 
+/** T32 — Pass B 离线转录结果 */
+export function getTranscriptFilePath(recordingId: string): string {
+  return path.join(getRecordingDir(recordingId), 'transcript.json')
+}
+
+/** T34 — Pass A 实时转录结果(录音中增量写;UI 在 transcript.json 缺时回退读这份) */
+export function getLiveTranscriptFilePath(recordingId: string): string {
+  return path.join(getRecordingDir(recordingId), 'transcript.live.json')
+}
+
 export function getMetaTmpPath(recordingId: string): string {
   return path.join(getRecordingDir(recordingId), 'meta.json.tmp')
 }

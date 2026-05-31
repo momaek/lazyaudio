@@ -17,7 +17,12 @@
 // fatal 时**不** process.exit:postMessage 后立即 exit 有丢消息竞态,改为发完 fatal 等主进程 kill。
 
 import fs from 'node:fs'
-import type { AsrInitMessage, AsrUtilityMessage } from '@shared/transcribe/asr-protocol'
+import type {
+  AsrRequestMessage,
+  AsrTranscribeMessage,
+  AsrUtilityMessage,
+} from '@shared/transcribe/asr-protocol'
+import { loadRecognizer, recognizeSamples, readWav16kMono, type SherpaModule } from './recognize'
 
 const parentPort = process.parentPort
 
@@ -25,14 +30,10 @@ function post(msg: AsrUtilityMessage): void {
   parentPort.postMessage(msg)
 }
 
-parentPort.once('message', (event) => {
-  const msg = event.data as AsrInitMessage | undefined
-  if (!msg || msg.type !== 'init') {
-    post({ type: 'fatal', code: 'protocol-error' })
-    return
-  }
-  const { platformDir } = msg
+// require('sherpa-onnx-node') 成功后缓存模块引用(init 之后才有)
+let sherpa: SherpaModule | null = null
 
+function handleInit(platformDir: string): void {
   // darwin / win:验证平台二进制与 .node 同目录可达(Linux 不在 v0.1 范围,跳过文件校验直接 require)
   if (process.platform === 'darwin' || process.platform === 'win32') {
     let files: string[]
@@ -61,13 +62,72 @@ parentPort.once('message', (event) => {
   process.env['SHERPA_ONNX_INSTALL_DIR'] = platformDir
 
   try {
-    // 必须惰性 require(在守卫之后):静态 import 会在模块顶层就触发加载,绕过上面的 dylib 校验,
-    // 且加载失败会在 utility 启动时不可控地抛出。sherpa-onnx-node 无类型声明。
+    // 必须惰性 require(在守卫之后):静态 import 会在模块顶层就触发加载,绕过上面的 dylib 校验。
+    // sherpa-onnx-node 无类型声明。
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const sherpa = require('sherpa-onnx-node') as { version?: unknown }
-    const sherpaVersion = typeof sherpa.version === 'string' ? sherpa.version : 'unknown'
+    const mod = require('sherpa-onnx-node') as { version?: unknown } & SherpaModule
+    sherpa = mod
+    const sherpaVersion = typeof mod.version === 'string' ? mod.version : 'unknown'
     post({ type: 'ready', sherpaVersion })
   } catch (err) {
     post({ type: 'fatal', code: 'sherpa-require-failed', detail: String(err) })
+  }
+}
+
+function handleTranscribe(msg: AsrTranscribeMessage): void {
+  const { recordingId, wavPath, modelDir, language, speaker } = msg
+  if (!sherpa) {
+    post({
+      type: 'transcribe-error',
+      recordingId,
+      code: 'model-load-failed',
+      message: 'sherpa not initialized',
+    })
+    return
+  }
+  const startedAt = Date.now()
+
+  let rec
+  try {
+    rec = loadRecognizer(sherpa, modelDir, language)
+  } catch (err) {
+    post({ type: 'transcribe-error', recordingId, code: 'model-load-failed', message: String(err) })
+    return
+  }
+
+  let samples: Float32Array
+  try {
+    samples = readWav16kMono(wavPath).samples
+  } catch (err) {
+    post({ type: 'transcribe-error', recordingId, code: 'wav-read-failed', message: String(err) })
+    return
+  }
+
+  try {
+    const segments = recognizeSamples(rec, samples, (processedSec, totalSec) => {
+      post({ type: 'transcribe-progress', recordingId, processedSec, totalSec })
+    })
+    post({
+      type: 'transcribe-result',
+      recordingId,
+      segments,
+      language,
+      speaker,
+      durationMs: Date.now() - startedAt,
+    })
+  } catch (err) {
+    post({ type: 'transcribe-error', recordingId, code: 'recognize-failed', message: String(err) })
+  }
+}
+
+parentPort.on('message', (event) => {
+  const msg = event.data as AsrRequestMessage | undefined
+  if (!msg) return
+  if (msg.type === 'init') {
+    handleInit(msg.platformDir)
+  } else if (msg.type === 'transcribe') {
+    handleTranscribe(msg)
+  } else {
+    post({ type: 'fatal', code: 'protocol-error' })
   }
 })

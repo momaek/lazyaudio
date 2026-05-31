@@ -13,6 +13,8 @@ export default defineConfig({
           // T30 — ASR utility process 入口(ADR-0003)。与 index.js 同目录(out/main/asr.js),
           // 主进程 utilityProcess.fork(__dirname/asr.js) 路径在 dev / packaged 都稳定。
           asr: resolve('src/main/workers/asr/index.ts'),
+          // T34 — Pass A 实时转录 utility 入口(VAD + SenseVoice 短窗)。同上,out/main/streaming-asr.js。
+          'streaming-asr': resolve('src/main/workers/streaming-asr/index.ts'),
         },
       },
     },
