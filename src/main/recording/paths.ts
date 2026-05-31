@@ -46,6 +46,11 @@ export function getLiveTranscriptFilePath(recordingId: string): string {
   return path.join(getRecordingDir(recordingId), 'transcript.live.json')
 }
 
+/** T51 — LLM 摘要(markdown) */
+export function getSummaryFilePath(recordingId: string): string {
+  return path.join(getRecordingDir(recordingId), 'summary.md')
+}
+
 export function getMetaTmpPath(recordingId: string): string {
   return path.join(getRecordingDir(recordingId), 'meta.json.tmp')
 }

@@ -5,6 +5,7 @@ import { mediaUrl } from '@shared/ipc/channels'
 import type { SessionType, RecorderSnapshot, Sources } from '@shared/ipc/record'
 import type { SearchHit } from '@shared/ipc/transcribe'
 import { TranscriptPanel } from './TranscriptPanel'
+import { SummaryPanel } from './SummaryPanel'
 import '../../styles/globals.css'
 import './main.css'
 
@@ -339,8 +340,14 @@ function DetailBody({ entry }: { entry: LibraryEntry }): React.JSX.Element {
   return (
     <>
       <Player entry={entry} registerSeek={registerSeek} onTime={setCurrentSec} />
-      <div className="detail-stage">
+      <div className="detail-stage detail-split">
         <TranscriptPanel recordingId={entry.id} currentSec={currentSec} onSeekSec={onSeekSec} />
+        <div className="detail-split-divider" />
+        <SummaryPanel
+          recordingId={entry.id}
+          sessionType={entry.sessionType}
+          onSeekSec={onSeekSec}
+        />
       </div>
     </>
   )

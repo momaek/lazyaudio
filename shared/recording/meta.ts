@@ -48,6 +48,20 @@ export const TranscribeMeta = z.object({
 })
 export type TranscribeMeta = z.infer<typeof TranscribeMeta>
 
+/** 摘要子状态机(data-model §2.1)。T51 加;optional 向后兼容。 */
+export const SummaryStatus = z.enum(['idle', 'pending', 'running', 'done', 'failed'])
+export type SummaryStatus = z.infer<typeof SummaryStatus>
+
+export const SummaryMeta = z.object({
+  status: SummaryStatus,
+  templateId: z.string().optional(),
+  model: z.string().optional(),
+  generatedAt: z.number().int().optional(),
+  /** status==='failed' 时填(auth / rate-limit / too-long / network / ...) */
+  error: z.string().optional(),
+})
+export type SummaryMeta = z.infer<typeof SummaryMeta>
+
 /** v1 minimum:T13 必填字段;extension 字段 T15/T15a/M4/M5 加 */
 export const RecordingMetaV1 = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
@@ -77,6 +91,9 @@ export const RecordingMetaV1 = z.object({
 
   /** 转录子状态机(T32)。可选 — 老 meta / 还没转录的 meta 没这字段也能 parse */
   transcribe: TranscribeMeta.optional(),
+
+  /** 摘要子状态机(T51)。可选 — 没摘要的 meta 没这字段也能 parse */
+  summary: SummaryMeta.optional(),
 
   /** 非致命警告;mix-failed / pcm-dropouts 等都进这里(data-model §1.5) */
   warnings: z.array(Warning).optional(),

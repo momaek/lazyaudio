@@ -47,10 +47,31 @@ export const ShortcutSettings = z.object({
 })
 export type ShortcutSettings = z.infer<typeof ShortcutSettings>
 
+/** T51 — 云端 LLM 配置(OpenAI 兼容)。apiKeyCipher = safeStorage 加密后的 base64,
+ *  '' 表示未配置;renderer 只读密文(无法解密,safeStorage 在 main),永不见明文。 */
+export const CloudSettings = z.object({
+  baseUrl: z.string(),
+  chatModel: z.string(),
+  contextWindow: z.number().int().positive(),
+  autoSummary: z.boolean(),
+  apiKeyCipher: z.string(),
+})
+export type CloudSettings = z.infer<typeof CloudSettings>
+
+export const DEFAULT_CLOUD: CloudSettings = {
+  baseUrl: '',
+  chatModel: '',
+  contextWindow: 128000,
+  autoSummary: true,
+  apiKeyCipher: '',
+}
+
 export const Settings = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION.settings),
   general: GeneralSettings,
   shortcuts: ShortcutSettings,
+  // .default 保证老 settings.json(无 cloud 字段)仍能 parse,不丢用户已有设置
+  cloud: CloudSettings.default(DEFAULT_CLOUD),
 })
 export type Settings = z.infer<typeof Settings>
 
@@ -72,15 +93,28 @@ export const DEFAULT_SETTINGS: Settings = {
   shortcuts: {
     toggleRecord: DEFAULT_TOGGLE_RECORD_ACCEL,
   },
+  cloud: DEFAULT_CLOUD,
 }
 
 // ---- IPC args / results ----
 export const GetArgs = z.object({}).optional()
 export type GetArgs = z.infer<typeof GetArgs>
 
+/** cloud 的 set:非密钥字段直接传;apiKey 传**明文**,main 端 encrypt 成 apiKeyCipher
+ *  (renderer 不传 apiKeyCipher;空串 apiKey = 清除密钥) */
+export const CloudSetArgs = z.object({
+  baseUrl: z.string().optional(),
+  chatModel: z.string().optional(),
+  contextWindow: z.number().int().positive().optional(),
+  autoSummary: z.boolean().optional(),
+  apiKey: z.string().optional(),
+})
+export type CloudSetArgs = z.infer<typeof CloudSetArgs>
+
 /** set:部分更新(只传要改的子键);main 合并后整体校验再落盘 */
 export const SetArgs = z.object({
   general: GeneralSettings.partial().optional(),
   shortcuts: ShortcutSettings.partial().optional(),
+  cloud: CloudSetArgs.optional(),
 })
 export type SetArgs = z.infer<typeof SetArgs>

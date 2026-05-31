@@ -46,6 +46,18 @@ export const SETTINGS = {
   changed: 'settings:changed',
 } as const
 
+// T51 — LLM 摘要:生成 / 取消 / 取结果 / 测连接 + 流式事件广播
+export const SUMMARY = {
+  generate: 'summary:generate',
+  cancel: 'summary:cancel',
+  get: 'summary:get',
+  testConnection: 'summary:test-connection',
+  // main → renderer:流式 delta / 完成 / 失败
+  chunk: 'summary:chunk',
+  done: 'summary:done',
+  error: 'summary:error',
+} as const
+
 // T32/T33/T37/T39 — 转录:取 transcript / 重试 / 全文搜索 + 状态广播
 export const TRANSCRIBE = {
   getTranscript: 'transcribe:get-transcript',

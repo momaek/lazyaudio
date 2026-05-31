@@ -29,6 +29,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^16.6.6",
+    "react-markdown": "^10.1.0",
     "sherpa-onnx-darwin-arm64": "^1.13.2",
     "sherpa-onnx-node": "^1.13.2",
     "ulid": "^3.0.2",
