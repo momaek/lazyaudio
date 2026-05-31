@@ -60,7 +60,19 @@ function sourcePreview(entry: LibraryEntry): string {
   if (entry.status === 'failed-partial') return '录音中断，已保存部分音频'
   if (entry.mixStatus === 'running' || entry.mixStatus === 'pending') return '正在生成 mixed.wav'
   if (entry.mixStatus === 'failed') return '混音失败，分轨仍可用'
-  return '等待转录'
+  // T32:列表副标题反映真实转录状态(idle/pending/running/done/failed)
+  switch (entry.transcribeStatus) {
+    case 'running':
+      return '转录中…'
+    case 'done':
+      return '已转录'
+    case 'failed':
+      return '转录失败'
+    case 'pending':
+      return '排队转录中…'
+    default:
+      return '未转录'
+  }
 }
 
 function SearchIcon(): React.JSX.Element {
@@ -958,9 +970,17 @@ export function App(): React.JSX.Element {
       setRecState(snap)
       if (wasRecording && snap.status !== 'recording') refetchLibrary()
     })
+    // T32:转录状态变更时刷新列表副标题(转录中 / 已转录 / 转录失败)。
+    // 进度 tick(带 processedSec)不刷,只在起始 running / done / failed 刷,避免频繁扫盘。
+    const offTranscribe = window.lazyaudio.transcribe.onStatusChanged((event) => {
+      if (event.status === 'done' || event.status === 'failed' || event.processedSec == null) {
+        refetchLibrary()
+      }
+    })
     return () => {
       cancelled = true
       off()
+      offTranscribe()
     }
   }, [refetchLibrary])
 

@@ -172,6 +172,9 @@
   "transcript": {
     "title": "转录",
     "pending": "录音结束后自动转录…",
+    "notTranscribed": "这条录音还没转录",
+    "queued": "排队转录中…",
+    "start": "开始转录",
     "running": "转录中…",
     "runningPct": "转录中… {{pct}}%",
     "empty": "未识别到语音内容",

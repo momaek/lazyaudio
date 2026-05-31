@@ -117,9 +117,16 @@ export function TranscriptPanel({
         ) : null}
       </div>
 
-      {status === 'idle' || status === 'pending' ? (
-        <div className="tr-hint">{t('common:transcript.pending')}</div>
+      {status === 'idle' ? (
+        <div className="tr-idle">
+          <span className="tr-hint">{t('common:transcript.notTranscribed')}</span>
+          <button type="button" className="btn btn-secondary" onClick={onRetry}>
+            {t('common:transcript.start')}
+          </button>
+        </div>
       ) : null}
+
+      {status === 'pending' ? <div className="tr-hint">{t('common:transcript.queued')}</div> : null}
 
       {status === 'running' ? (
         <div className="tr-running">
