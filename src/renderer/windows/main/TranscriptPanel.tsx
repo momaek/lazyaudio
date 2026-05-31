@@ -146,14 +146,19 @@ export function TranscriptPanel({
           <div className="tr-failed-msg">
             {error === 'model-missing'
               ? t('common:transcript.errorModelMissing')
-              : t('common:transcript.errorGeneric')}
+              : error === 'no-audio'
+                ? t('common:transcript.errorNoAudio')
+                : t('common:transcript.errorGeneric')}
           </div>
-          {error && error !== 'model-missing' ? (
+          {error && error !== 'model-missing' && error !== 'no-audio' ? (
             <div className="tr-failed-detail">{error}</div>
           ) : null}
-          <button type="button" className="btn btn-secondary" onClick={onRetry}>
-            {t('common:transcript.retry')}
-          </button>
+          {/* no-audio 没法靠重试解决,不给重试按钮 */}
+          {error !== 'no-audio' ? (
+            <button type="button" className="btn btn-secondary" onClick={onRetry}>
+              {t('common:transcript.retry')}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
