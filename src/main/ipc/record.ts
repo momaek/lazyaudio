@@ -34,6 +34,7 @@ import { RecorderSnapshot, GetStateArgs } from '@shared/ipc/record'
 import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
 import { runMixdown } from '../recording/mixer'
+import { enqueueTranscription } from '../transcribe/orchestrator'
 import { purgeRecordingTracks } from '../audio/receiver'
 import { getMicStatus, requestMic, isMicGranted, openMicSettings } from '../permission/mic'
 import { z } from 'zod'
@@ -184,9 +185,10 @@ export function register(): void {
       setCurrentSession(null)
       // T14:fire-and-forget mixdown(meta.mixStatus 已在 stop 里设 'pending')。
       // 不 await — 用户停止后录音应立刻进库,混音异步在后台跑(audio-capture §6.0)。
-      void runMixdown(finishedId).catch((e) =>
-        logger.error(`mixdown unhandled: ${String(e)}`, { recordingId: finishedId }),
-      )
+      // T32:混音完(成功或失败都可能有可转录音轨)→ 入队 Pass B 离线转录。
+      void runMixdown(finishedId)
+        .catch((e) => logger.error(`mixdown unhandled: ${String(e)}`, { recordingId: finishedId }))
+        .finally(() => enqueueTranscription(finishedId))
     }
 
     transitionToIdle()

@@ -20,6 +20,12 @@ import type {
   DeleteResult as ModelDeleteResult,
   ModelEvent,
 } from '../ipc/model'
+import type {
+  GetTranscriptResult,
+  RetryResult as TranscribeRetryResult,
+  SearchResult as TranscribeSearchResult,
+  StatusChangedEvent as TranscribeStatusChangedEvent,
+} from '../ipc/transcribe'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
@@ -73,6 +79,16 @@ export interface LazyAudioApi {
     delete(modelKey: string): Promise<ModelDeleteResult>
     /** 订阅下载生命周期事件(start/progress/source-switched/done/error/cancelled);返回取消订阅函数 */
     onEvent(cb: (event: ModelEvent) => void): () => void
+  }
+  transcribe: {
+    /** T33 取某录音的 transcript + 转录状态 */
+    getTranscript(recordingId: string): Promise<GetTranscriptResult>
+    /** T37 强制重跑 Pass B(失败重试 / 手动触发) */
+    retry(recordingId: string): Promise<TranscribeRetryResult>
+    /** T39 全文搜索 */
+    search(query: string): Promise<TranscribeSearchResult>
+    /** 订阅转录状态广播(running/done/failed + 进度);返回取消订阅函数 */
+    onStatusChanged(cb: (event: TranscribeStatusChangedEvent) => void): () => void
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */

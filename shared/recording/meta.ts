@@ -33,6 +33,21 @@ export const Warning = z.object({
 })
 export type Warning = z.infer<typeof Warning>
 
+/** 转录子状态机(data-model §2.1)。M4 T32 加;optional 向后兼容老 meta。 */
+export const TranscribeStatus = z.enum(['idle', 'pending', 'running', 'done', 'failed'])
+export type TranscribeStatus = z.infer<typeof TranscribeStatus>
+
+export const TranscribeMeta = z.object({
+  status: TranscribeStatus,
+  engine: z.enum(['local-sense-voice', 'openai-compatible']).optional(),
+  modelKey: z.string().optional(),
+  startedAt: z.number().int().optional(),
+  finishedAt: z.number().int().optional(),
+  /** status==='failed' 时填 */
+  error: z.string().optional(),
+})
+export type TranscribeMeta = z.infer<typeof TranscribeMeta>
+
 /** v1 minimum:T13 必填字段;extension 字段 T15/T15a/M4/M5 加 */
 export const RecordingMetaV1 = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
@@ -59,6 +74,9 @@ export const RecordingMetaV1 = z.object({
 
   /** 混音子状态机(T14;audio-capture §6.0)。可选 — T13 老 meta 没这字段也能 parse */
   mixStatus: z.enum(['pending', 'running', 'done', 'failed', 'skipped']).optional(),
+
+  /** 转录子状态机(T32)。可选 — 老 meta / 还没转录的 meta 没这字段也能 parse */
+  transcribe: TranscribeMeta.optional(),
 
   /** 非致命警告;mix-failed / pcm-dropouts 等都进这里(data-model §1.5) */
   warnings: z.array(Warning).optional(),

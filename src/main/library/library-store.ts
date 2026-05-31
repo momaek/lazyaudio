@@ -52,6 +52,7 @@ function toEntry(meta: RecordingMeta): LibraryEntry {
     durationMs: meta.durationMs,
     status: meta.status,
     mixStatus: meta.mixStatus,
+    transcribeStatus: meta.transcribe?.status,
   }
 }
 

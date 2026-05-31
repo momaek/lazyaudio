@@ -583,3 +583,11 @@ body,
   color: var(--color-danger);
   padding: 0 4px;
 }
+
+.engine-space {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--color-gray-500);
+  font-family: var(--font-mono);
+  padding: 0 4px;
+}

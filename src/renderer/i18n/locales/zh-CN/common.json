@@ -64,6 +64,10 @@
       "subtitle": "本地模型保证音频不出本机。下载后离线可用。",
       "sectionLocal": "本地转录模型",
       "sectionLocalHelper": "下载后离线可用 · 数据不出本机",
+      "modeLocal": "本地",
+      "modeCloud": "云端 API",
+      "cloudSoon": "云端转录将在后续版本支持",
+      "spaceUsed": "已占用磁盘 {{size}}",
       "statusDownloaded": "已下载",
       "statusAvailable": "未下载",
       "default": "默认",
@@ -164,6 +168,27 @@
     "playerSkipForward": "前进 15 秒",
     "playerSpeedSoon": "倍速调节即将支持",
     "playerUnavailable": "音频文件不可用"
+  },
+  "transcript": {
+    "title": "转录",
+    "pending": "录音结束后自动转录…",
+    "notTranscribed": "这条录音还没转录",
+    "queued": "排队转录中…",
+    "start": "开始转录",
+    "running": "转录中…",
+    "runningPct": "转录中… {{pct}}%",
+    "empty": "未识别到语音内容",
+    "segmentCount": "{{count}} 段",
+    "retry": "重试",
+    "errorGeneric": "转录失败",
+    "errorNoAudio": "这条录音没有音频文件，无法转录",
+    "errorModelMissing": "转录模型未下载，请到「设置 → 转录引擎」下载 SenseVoice 模型后重试",
+    "search": {
+      "placeholder": "搜索转录…",
+      "resultCount": "{{count}} 条结果（扫描 {{scanned}} 条录音）",
+      "empty": "没有匹配的转录",
+      "close": "关闭"
+    }
   },
   "ping": {
     "loading": "调用 system:ping …",
