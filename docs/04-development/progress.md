@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-31
 > **当前里程碑**：M4 收尾（Pass B 闭环 + Pass A 实时均 done，待 GUI 手测）
-> **当前焦点**：M4 全部 T32-T40 done。Pass B 离线(feat/M4-transcription #35)+ Pass A 实时(feat/M4-passa,T34/35/36/40)。Pass A POC 实测真录音出 hypothesis→confirmed 锚点稳定;待用户 GUI 手测整条「录音中实时字幕→停录 Pass B 覆盖」。剩 spike-012 压测 + T15a 崩溃恢复手测
+> **当前焦点**：M4 全合进 main(#34/#35/#36)。M5 起步:T51 LLM 摘要核心 done(feat/M5-summary,OpenAI 兼容流式 + 5 模板 + react-markdown 面板 + 云端配置;真 LLM 端到端待用户配 key 手测)。下一候选 T52 模板 tab / T50 onboarding / T53 云端转录。剩 spike-012 压测 + T15a 崩溃恢复手测
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -82,10 +82,10 @@
 | 维度                      | 数字                                            |
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 45 (M3-M7 T) = **62** |
-| ✅ done                   | 42                                              |
+| ✅ done                   | 43                                              |
 | 🔄 wip                    | 1（T15a）                                       |
 | ⛔ blocked                | 0                                               |
-| 🔲 todo                   | 19                                              |
+| 🔲 todo                   | 18                                              |
 | 本周燃尽                  | —                                               |
 
 ---
@@ -191,17 +191,17 @@
 
 ### 4.4 M5 — 库 + LLM 摘要 + onboarding（T50-T58）
 
-| ID  | 标题                        | 状态    | 分支 / PR | 起  | 完  | 备注           |
-| --- | --------------------------- | ------- | --------- | --- | --- | -------------- |
-| T50 | Onboarding 完整流程（8 屏） | 🔲 todo | —         | —   | —   | 屏 4a 复用 T31 |
-| T51 | LLM 摘要核心                | 🔲 todo | —         | —   | —   | 5 个内置模板   |
-| T52 | 设置 - LLM 模板 tab         | 🔲 todo | —         | —   | —   | 依赖 T51       |
-| T53 | 云端转录                    | 🔲 todo | —         | —   | —   | 依赖 T33       |
-| T54 | 导出（md/txt/srt）          | 🔲 todo | —         | —   | —   | 依赖 T33       |
-| T55 | 列表项操作完整              | 🔲 todo | —         | —   | —   | 依赖 T16       |
-| T56 | 系统通知                    | 🔲 todo | —         | —   | —   | 依赖 T32       |
-| T57 | 设置完整                    | 🔲 todo | —         | —   | —   | 依赖 T52       |
-| T58 | 深色模式 toggle + 过渡      | 🔲 todo | —         | —   | —   | 依赖 T18       |
+| ID  | 标题                        | 状态    | 分支 / PR                                                            | 起         | 完         | 备注                                                                                                                                                                                                                                                                                                                                                                              |
+| --- | --------------------------- | ------- | -------------------------------------------------------------------- | ---------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T50 | Onboarding 完整流程（8 屏） | 🔲 todo | —                                                                    | —          | —          | 屏 4a 复用 T31                                                                                                                                                                                                                                                                                                                                                                    |
+| T51 | LLM 摘要核心                | ✅ done | feat/M5-summary ([#37](https://github.com/momaek/lazyaudio/pull/37)) | 2026-05-31 | 2026-05-31 | SummarizerFacade + OpenAI 兼容 SSE 流式 client + 5 内置模板(meeting/note 照文档,interview-\*/lecture 新写)+ 输入组装(speaker/时间戳/sysmeta/截断)+ 摘要面板(react-markdown,可点 [HH:MM:SS] 跳播)+ 云端配置表单(base/key 密文/model/测连接)+ meta.summary;手动按钮 + 转录完自动。本地 SSE server 测过流式/401/endpoint;真 LLM 端到端待用户(需 key)。map-reduce/checkbox 写回留后续 |
+| T52 | 设置 - LLM 模板 tab         | 🔲 todo | —                                                                    | —          | —          | 依赖 T51                                                                                                                                                                                                                                                                                                                                                                          |
+| T53 | 云端转录                    | 🔲 todo | —                                                                    | —          | —          | 依赖 T33                                                                                                                                                                                                                                                                                                                                                                          |
+| T54 | 导出（md/txt/srt）          | 🔲 todo | —                                                                    | —          | —          | 依赖 T33                                                                                                                                                                                                                                                                                                                                                                          |
+| T55 | 列表项操作完整              | 🔲 todo | —                                                                    | —          | —          | 依赖 T16                                                                                                                                                                                                                                                                                                                                                                          |
+| T56 | 系统通知                    | 🔲 todo | —                                                                    | —          | —          | 依赖 T32                                                                                                                                                                                                                                                                                                                                                                          |
+| T57 | 设置完整                    | 🔲 todo | —                                                                    | —          | —          | 依赖 T52                                                                                                                                                                                                                                                                                                                                                                          |
+| T58 | 深色模式 toggle + 过渡      | 🔲 todo | —                                                                    | —          | —          | 依赖 T18                                                                                                                                                                                                                                                                                                                                                                          |
 
 **M5 退出条件**：首启 → onboarding → 录音 → 转录 → 摘要全自动；LLM 模板自动套用；至少一家云端走通；e2e CI 过。
 
@@ -261,6 +261,7 @@ _暂无周报记录。_
 
 | 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-31 | M5 起步:T51 LLM 摘要核心 done(feat/M5-summary):SummarizerFacade + OpenAI 兼容 SSE 流式 + 5 内置模板(meeting/note 照 llm-templates.md,interview-as-interviewer/candidate + lecture 新写,§0 表标 ✅)+ settings.cloud(safeStorage 密钥)+ 摘要面板(react-markdown)+ 自动/手动触发;71 单测(含本地 SSE server 端到端)。真 LLM 端到端待用户配 key                                                                                                               |
 | 2026-05-31 | M4 Pass A 实时 done(T34/35/36/T40 最小版,feat/M4-passa):Silero VAD(进 registry,github 单源)切片 + 复用 SenseVoice;streaming-asr utility(hypothesis 尾部 15s 滑窗 + confirmed VAD 闭合段,同 segmentId 原地替换)+ pcm-fork(receiver tap 48k→16k mono mic+sys 合一路)+ Pass A→B 串行切换(守 2.5GB)+ live UI 灰斜体 hypothesis + T40 banner。POC 真录音验过。simplifications:mic+sys 合一路 speaker=mixed、T40 最小版、hypothesis 重识别滑窗(POC RTF~0.36)。 |
 | 2026-05-31 | M4 核心转录闭环 done(T32/T33/T37/T38/T39,单条 feat/M4-transcription):utility SenseVoice 定窗识别 + transcript.json + 详情区面板 + 失败重试 + 引擎设置本地/云端 + 全文搜索;M2 arm64 实测识别可跑。Pass A 实时(T34/35/36/40)留第二批。simplifications:定窗(非 VAD)分段、失败单次(非 3x 自动重试)、高级 section/段内 seek 留后续                                                                                                                            |
 | 2026-05-30 | T31 模型下载 done;订正 transcription-pipeline.md §5.1 registry 为真实值(原占位符 + int8 在独立 repo `...-int8-2025-09-09`,非 fp32 repo)、§5.3 源收敛 hf-mirror+huggingface 双单文件源(GitHub 整包/ModelScope 不接)、§5.4 断点元数据改「partial 文件即进度」                                                                                                                                                                                              |

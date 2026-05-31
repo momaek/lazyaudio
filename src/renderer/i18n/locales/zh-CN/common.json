@@ -67,6 +67,16 @@
       "modeLocal": "本地",
       "modeCloud": "云端 API",
       "cloudSoon": "云端转录将在后续版本支持",
+      "sectionCloud": "云端 API（OpenAI 兼容）",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "apiKeySet": "已配置 ••••••（重新输入以更换）",
+      "chatModel": "Chat 模型",
+      "autoSummary": "转录完自动生成摘要",
+      "testConnection": "测试连接",
+      "testing": "测试中…",
+      "testOk": "✓ 已连接",
+      "testFail": "✕ 连接失败",
       "spaceUsed": "已占用磁盘 {{size}}",
       "statusDownloaded": "已下载",
       "statusAvailable": "未下载",
@@ -193,6 +203,17 @@
       "empty": "没有匹配的转录",
       "close": "关闭"
     }
+  },
+  "summary": {
+    "title": "AI 摘要",
+    "generate": "生成摘要",
+    "regenerate": "重新生成",
+    "cancel": "取消",
+    "generating": "生成中…",
+    "empty": "录音转录后，点「生成摘要」用 AI 整理成纪要 / 要点",
+    "usingTemplate": "用「{{name}}」模板",
+    "noConfig": "未配置云端 LLM。请到「设置 → 转录引擎 → 云端 API」填 Base URL / API Key / 模型",
+    "failed": "摘要生成失败"
   },
   "ping": {
     "loading": "调用 system:ping …",

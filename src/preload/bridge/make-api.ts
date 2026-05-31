@@ -14,6 +14,7 @@ import {
   PERMISSION,
   MODEL,
   TRANSCRIBE,
+  SUMMARY,
 } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
@@ -47,6 +48,15 @@ import type {
   LiveSegmentEvent,
   OfflineOverwriteEvent,
 } from '@shared/ipc/transcribe'
+import type {
+  GenerateResult as SummaryGenerateResult,
+  CancelResult as SummaryCancelResult,
+  GetResult as SummaryGetResult,
+  TestResult as SummaryTestResult,
+  ChunkEvent as SummaryChunkEvent,
+  DoneEvent as SummaryDoneEvent,
+  ErrorEvent as SummaryErrorEvent,
+} from '@shared/ipc/summary'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
 
@@ -115,6 +125,28 @@ export function makeApi(): LazyAudioApi {
         const handler = (_e: unknown, event: OfflineOverwriteEvent): void => cb(event)
         ipcRenderer.on(TRANSCRIBE.offlineOverwrite, handler)
         return () => ipcRenderer.off(TRANSCRIBE.offlineOverwrite, handler)
+      },
+    },
+    summary: {
+      generate: (recordingId: string, templateId?: string) =>
+        invoke<SummaryGenerateResult>(SUMMARY.generate, { recordingId, templateId }),
+      cancel: (recordingId: string) => invoke<SummaryCancelResult>(SUMMARY.cancel, { recordingId }),
+      get: (recordingId: string) => invoke<SummaryGetResult>(SUMMARY.get, { recordingId }),
+      testConnection: () => invoke<SummaryTestResult>(SUMMARY.testConnection, {}),
+      onChunk: (cb) => {
+        const handler = (_e: unknown, event: SummaryChunkEvent): void => cb(event)
+        ipcRenderer.on(SUMMARY.chunk, handler)
+        return () => ipcRenderer.off(SUMMARY.chunk, handler)
+      },
+      onDone: (cb) => {
+        const handler = (_e: unknown, event: SummaryDoneEvent): void => cb(event)
+        ipcRenderer.on(SUMMARY.done, handler)
+        return () => ipcRenderer.off(SUMMARY.done, handler)
+      },
+      onError: (cb) => {
+        const handler = (_e: unknown, event: SummaryErrorEvent): void => cb(event)
+        ipcRenderer.on(SUMMARY.error, handler)
+        return () => ipcRenderer.off(SUMMARY.error, handler)
       },
     },
     audio: {

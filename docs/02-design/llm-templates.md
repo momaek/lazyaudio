@@ -10,13 +10,13 @@
 
 PRD [§4.2 F7.1](../01-research/prd.md) 列出 v0.1 期望的 5 个内置模板：
 
-| 模板       | 适用 sessionType         | v0.1 状态        |
-| ---------- | ------------------------ | ---------------- |
-| 会议纪要   | meeting                  | ✅ 出（本文 §2） |
-| 要点速记   | note                     | ✅ 出（本文 §3） |
-| 候选人评估 | interview-as-interviewer | ⏳ M5 T51 一并出 |
-| 自我复盘   | interview-as-interviewee | ⏳ M5 T51 一并出 |
-| 章节笔记   | lecture                  | ⏳ M5 T51 一并出 |
+| 模板       | 适用 sessionType         | v0.1 状态                                                                   |
+| ---------- | ------------------------ | --------------------------------------------------------------------------- |
+| 会议纪要   | meeting                  | ✅ 出（本文 §2）                                                            |
+| 要点速记   | note                     | ✅ 出（本文 §3）                                                            |
+| 候选人评估 | interview-as-interviewer | ✅ T51 出（prompt 在 `src/main/llm/templates/interview-as-interviewer.ts`） |
+| 自我复盘   | interview-as-candidate   | ✅ T51 出（`src/main/llm/templates/interview-as-candidate.ts`）             |
+| 章节笔记   | lecture                  | ✅ T51 出（`src/main/llm/templates/lecture.ts`）                            |
 
 > Pre-M3 退出条件 dev-plan §2.4 仅要求 meeting + note 两个写出来即可上线；其余 3 个推到 M5 T51 LLM 摘要核心 PR 一并补。出 3 个 TBD 的 prompt 时也按本文 §1 输入约定 + §4 输出渲染约定走。
 

@@ -49,14 +49,30 @@ async function persist(s: Settings): Promise<void> {
 /** 部分更新:合并 patch → 整体校验 → 落盘 → 更新缓存。返回新的完整 settings。 */
 export async function updateSettings(patch: SetArgs): Promise<Settings> {
   const current = getSettings()
+
+  // cloud:apiKey 是明文(write-only),在 main 端加密成 apiKeyCipher;其余字段直接合并
+  const cloudPatch = patch.cloud ?? {}
+  const { apiKey, ...cloudRest } = cloudPatch
+  const nextCloud = { ...current.cloud, ...cloudRest }
+  if (apiKey !== undefined) {
+    nextCloud.apiKeyCipher = apiKey ? encryptSecret(apiKey) : ''
+  }
+
   const next = Settings.parse({
     ...current,
     general: { ...current.general, ...(patch.general ?? {}) },
     shortcuts: { ...current.shortcuts, ...(patch.shortcuts ?? {}) },
+    cloud: nextCloud,
   })
   cache = next
   await persist(next)
   return next
+}
+
+/** main-only:取解密后的云端 API key(给 summarizer 用);未配置返回 '' */
+export function getCloudApiKey(): string {
+  const cipher = getSettings().cloud.apiKeyCipher
+  return cipher ? decryptSecret(cipher) : ''
 }
 
 // ---- safeStorage 包装(T18 预留;云端 API key 等敏感字段在 T53/T57 用)----

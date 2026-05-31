@@ -606,6 +606,145 @@
   font-weight: 500;
 }
 
+/* T51 — 详情区:转录 | 摘要 双栏 */
+.detail-split {
+  flex-direction: row;
+}
+.detail-split > .transcript-panel,
+.detail-split > .summary-panel {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+.detail-split-divider {
+  flex: 0 0 1px;
+  background: var(--color-border);
+}
+
+/* T51 — 摘要面板 */
+.summary-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px 24px 24px;
+  overflow-y: auto;
+}
+.sum-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+.sum-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-gray-950);
+}
+.sum-template {
+  font-size: 11px;
+  color: var(--color-gray-500);
+}
+.sum-head-actions {
+  margin-left: auto;
+}
+.sum-hint {
+  font-size: 13px;
+  color: var(--color-gray-500);
+  padding: 8px 0;
+}
+.sum-running {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-accent);
+  padding: 8px 0;
+}
+.sum-failed {
+  padding: 8px 0;
+}
+.sum-failed-msg {
+  font-size: 13px;
+  color: var(--color-danger);
+}
+.sum-failed-detail {
+  font-size: 11px;
+  color: var(--color-gray-500);
+  font-family: var(--font-mono);
+  word-break: break-all;
+  margin-top: 4px;
+}
+.sum-body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-gray-900);
+}
+.sum-body h1,
+.sum-body h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-gray-950);
+  margin: 18px 0 8px;
+}
+.sum-body h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  margin: 14px 0 6px;
+}
+.sum-body p {
+  margin: 6px 0;
+}
+.sum-body ul,
+.sum-body ol {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+.sum-body li {
+  margin: 3px 0;
+}
+.sum-body blockquote {
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-bg-l0);
+  margin: 8px 0;
+  padding: 6px 12px;
+  color: var(--color-gray-700);
+}
+.sum-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--color-bg-l2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.sum-ts {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.sum-ts:hover {
+  text-decoration: underline;
+}
+.sum-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: var(--color-accent);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: sum-blink 1s step-start infinite;
+}
+@keyframes sum-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 /* T40:长录音离线提醒 banner */
 .rec-banner {
   display: flex;

@@ -496,6 +496,118 @@ function ModelCard({
   )
 }
 
+// T51 — 云端 LLM 配置表单(补 T38 占位)。base URL / API key / chat model + 自动摘要 + 测试连接。
+function CloudForm(): React.JSX.Element {
+  const { t } = useTranslation()
+  const [cloud, setCloud] = useState<Settings['cloud'] | null>(null)
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [test, setTest] = useState<{ state: 'idle' | 'testing' | 'ok' | 'fail'; msg?: string }>({
+    state: 'idle',
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    window.lazyaudio.settings
+      .get()
+      .then((s) => {
+        if (!cancelled) setCloud(s.cloud)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const persist = useCallback(
+    (patch: { baseUrl?: string; chatModel?: string; autoSummary?: boolean }) => {
+      void window.lazyaudio.settings.set({ cloud: patch })
+    },
+    [],
+  )
+
+  const saveApiKey = useCallback(() => {
+    const key = apiKeyInput.trim()
+    if (!key) return
+    void window.lazyaudio.settings.set({ cloud: { apiKey: key } }).then(() => {
+      setApiKeyInput('')
+      window.lazyaudio.settings.get().then((s) => setCloud(s.cloud))
+    })
+  }, [apiKeyInput])
+
+  const onTest = useCallback(() => {
+    setTest({ state: 'testing' })
+    window.lazyaudio.summary
+      .testConnection()
+      .then((r) => setTest(r.ok ? { state: 'ok' } : { state: 'fail', msg: r.error ?? '' }))
+      .catch((e) => setTest({ state: 'fail', msg: String(e) }))
+  }, [])
+
+  if (!cloud) return <div className="set-loading">{t('common:library.loading')}</div>
+  const hasKey = !!cloud.apiKeyCipher
+
+  return (
+    <div>
+      <h3 className="setting-group-title">{t('common:settingsPage.engine.sectionCloud')}</h3>
+      <div className="setting-rows">
+        <SetRow label={t('common:settingsPage.engine.baseUrl')}>
+          <input
+            className="text-input"
+            value={cloud.baseUrl}
+            placeholder="https://api.openai.com/v1"
+            onChange={(e) => setCloud({ ...cloud, baseUrl: e.currentTarget.value })}
+            onBlur={() => persist({ baseUrl: cloud.baseUrl })}
+          />
+        </SetRow>
+        <SetRow label={t('common:settingsPage.engine.apiKey')}>
+          <input
+            className="text-input"
+            type="password"
+            value={apiKeyInput}
+            placeholder={hasKey ? t('common:settingsPage.engine.apiKeySet') : 'sk-...'}
+            onChange={(e) => setApiKeyInput(e.currentTarget.value)}
+            onBlur={saveApiKey}
+          />
+        </SetRow>
+        <SetRow label={t('common:settingsPage.engine.chatModel')}>
+          <input
+            className="text-input"
+            value={cloud.chatModel}
+            placeholder="gpt-4o-mini"
+            onChange={(e) => setCloud({ ...cloud, chatModel: e.currentTarget.value })}
+            onBlur={() => persist({ chatModel: cloud.chatModel })}
+          />
+        </SetRow>
+        <SetRow label={t('common:settingsPage.engine.autoSummary')}>
+          <Toggle
+            on={cloud.autoSummary}
+            onChange={(v) => {
+              setCloud({ ...cloud, autoSummary: v })
+              persist({ autoSummary: v })
+            }}
+            label={t('common:settingsPage.engine.autoSummary')}
+          />
+        </SetRow>
+      </div>
+      <div className="cloud-test">
+        <button type="button" className="btn btn-secondary btn-compact" onClick={onTest}>
+          {t('common:settingsPage.engine.testConnection')}
+        </button>
+        {test.state === 'testing' ? (
+          <span className="cloud-test-msg">{t('common:settingsPage.engine.testing')}</span>
+        ) : null}
+        {test.state === 'ok' ? (
+          <span className="cloud-test-msg ok">{t('common:settingsPage.engine.testOk')}</span>
+        ) : null}
+        {test.state === 'fail' ? (
+          <span className="cloud-test-msg fail">
+            {t('common:settingsPage.engine.testFail')} {test.msg}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function EngineTab(): React.JSX.Element {
   const { t } = useTranslation()
   const [mode, setMode] = useState<'local' | 'cloud'>('local')
@@ -578,7 +690,7 @@ function EngineTab(): React.JSX.Element {
       />
 
       {mode === 'cloud' ? (
-        <div className="set-coming-soon">{t('common:settingsPage.engine.cloudSoon')}</div>
+        <CloudForm />
       ) : (
         <div>
           <h3 className="setting-group-title">

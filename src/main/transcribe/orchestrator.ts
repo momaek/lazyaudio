@@ -18,6 +18,8 @@ import { isModelDownloaded, downloadModel } from './model/downloader'
 import { getModelDir } from './model/paths'
 import { writeTranscript } from './transcript-store'
 import { writeLiveTranscript } from './live-store'
+import { summarize, isCloudConfigured } from '../llm/summarizer'
+import { getSettings } from '../settings/settings-store'
 import { Transcript, type TranscriptSegment } from '@shared/transcribe/transcript'
 import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
 import type { TranscribeMeta, TranscribeStatus } from '@shared/recording/meta'
@@ -332,6 +334,10 @@ async function transcribeOne(recordingId: string, force: boolean): Promise<void>
       segments: segments.length,
       durationMs: result.durationMs,
     })
+    // T51:转录完且云端已配置 + autoSummary → 自动生成摘要(失败只记 meta,不影响转录)
+    if (isCloudConfigured() && getSettings().cloud.autoSummary) {
+      void summarize(recordingId)
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     logger.error('[transcribe] failed', { recordingId, message })

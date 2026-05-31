@@ -591,3 +591,40 @@ body,
   font-family: var(--font-mono);
   padding: 0 4px;
 }
+
+/* T51 — 云端配置表单 */
+.text-input {
+  height: 30px;
+  min-width: 260px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-gray-300);
+  background: var(--color-bg-l1);
+  font-size: 13px;
+  color: var(--color-gray-900);
+}
+.text-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.text-input::placeholder {
+  color: var(--color-gray-400);
+}
+
+.cloud-test {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 0 4px;
+}
+.cloud-test-msg {
+  font-size: 12px;
+  color: var(--color-gray-500);
+}
+.cloud-test-msg.ok {
+  color: var(--color-success);
+}
+.cloud-test-msg.fail {
+  color: var(--color-danger);
+}

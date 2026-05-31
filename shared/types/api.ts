@@ -28,6 +28,15 @@ import type {
   LiveSegmentEvent,
   OfflineOverwriteEvent,
 } from '../ipc/transcribe'
+import type {
+  GenerateResult as SummaryGenerateResult,
+  CancelResult as SummaryCancelResult,
+  GetResult as SummaryGetResult,
+  TestResult as SummaryTestResult,
+  ChunkEvent as SummaryChunkEvent,
+  DoneEvent as SummaryDoneEvent,
+  ErrorEvent as SummaryErrorEvent,
+} from '../ipc/summary'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
@@ -95,6 +104,22 @@ export interface LazyAudioApi {
     onLiveSegment(cb: (event: LiveSegmentEvent) => void): () => void
     /** T36 订阅 Pass B 覆盖事件(整体换 transcript.json);返回取消订阅函数 */
     onOfflineOverwrite(cb: (event: OfflineOverwriteEvent) => void): () => void
+  }
+  summary: {
+    /** T51 生成摘要(不传 templateId = 按 sessionType 自动选);流式走 onChunk */
+    generate(recordingId: string, templateId?: string): Promise<SummaryGenerateResult>
+    /** 取消进行中的摘要 */
+    cancel(recordingId: string): Promise<SummaryCancelResult>
+    /** 取已生成摘要 + 状态 */
+    get(recordingId: string): Promise<SummaryGetResult>
+    /** 用当前云端设置测试连接 */
+    testConnection(): Promise<SummaryTestResult>
+    /** 订阅流式 delta;返回取消订阅函数 */
+    onChunk(cb: (event: SummaryChunkEvent) => void): () => void
+    /** 订阅完成事件 */
+    onDone(cb: (event: SummaryDoneEvent) => void): () => void
+    /** 订阅失败事件 */
+    onError(cb: (event: SummaryErrorEvent) => void): () => void
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */
