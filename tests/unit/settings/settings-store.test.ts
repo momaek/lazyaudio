@@ -103,4 +103,23 @@ describe('settings-store', () => {
     expect(reloaded.onboarding.step).toBe('done')
     expect(reloaded.onboarding.privacyMode).toBe('cloud')
   })
+
+  it('updateSettings 持久化 LLM 模板覆盖和 sessionType 映射', async () => {
+    const store = await import(STORE)
+    await store.loadSettings()
+    const next = await store.updateSettings({
+      templates: {
+        overrides: { meeting: { systemPrompt: 'custom prompt', sessionTypes: ['meeting'] } },
+        templatePerSessionType: { general: 'meeting' },
+      },
+    })
+    expect(next.templates.overrides.meeting?.systemPrompt).toBe('custom prompt')
+    expect(next.templates.templatePerSessionType.general).toBe('meeting')
+
+    vi.resetModules()
+    const reloadedStore = await import(STORE)
+    const reloaded = await reloadedStore.loadSettings()
+    expect(reloaded.templates.overrides.meeting?.sessionTypes).toEqual(['meeting'])
+    expect(reloaded.templates.templatePerSessionType.general).toBe('meeting')
+  })
 })

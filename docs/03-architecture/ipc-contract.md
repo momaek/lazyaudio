@@ -257,15 +257,15 @@ type StreamingAsrEvent =
 
 ### 5.1 命令（renderer → main）
 
-| 通道                      | payload                                | 返回                                                       |
-| ------------------------- | -------------------------------------- | ---------------------------------------------------------- |
-| `summary:run`             | `{ recordingId, templateId?: string }` | `{ ok: true }`（流走事件）                                 |
-| `summary:cancel`          | `{ recordingId }`                      | `{ ok: true }`                                             |
-| `summary:list-templates`  | `{}`                                   | `{ templates: Template[] }`（不含 prompt 全文，UI 列表用） |
-| `summary:get-template`    | `{ templateId }`                       | `{ template: Template }`                                   |
-| `summary:save-template`   | `{ template }`                         | `{ templateId }`（save as user template）                  |
-| `summary:delete-template` | `{ templateId }`                       | `{ ok }`（仅允许删 user/）                                 |
-| `summary:test-template`   | `{ template, transcriptSample }`       | `{ output: string }`（试跑）                               |
+| 通道                      | payload                                | 返回                                                             |
+| ------------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| `summary:generate`        | `{ recordingId, templateId?: string }` | `{ ok: true }`（流走事件）                                       |
+| `summary:cancel`          | `{ recordingId }`                      | `{ ok: true }`                                                   |
+| `summary:get`             | `{ recordingId }`                      | `{ status, text, templateId?, model?, error? }`                  |
+| `summary:test-connection` | `{}`                                   | `{ ok, error? }`                                                 |
+| `summary:list-templates`  | `{}`                                   | `{ templates: Template[], templatePerSessionType }`（含 prompt） |
+| `summary:set-template`    | `{ id, systemPrompt, sessionTypes }`   | `{ ok: true, template: Template }`（保存内置模板的用户覆盖）     |
+| `summary:reset-template`  | `{ id }`                               | `{ ok: true, template: Template }`（清掉该模板覆盖和相关映射）   |
 
 ### 5.2 事件（main → renderer）
 

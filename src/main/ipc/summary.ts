@@ -15,7 +15,14 @@ import {
   GetResult,
   TestArgs,
   TestResult,
+  ListTemplatesArgs,
+  ListTemplatesResult,
+  SetTemplateArgs,
+  SetTemplateResult,
+  ResetTemplateArgs,
+  ResetTemplateResult,
 } from '@shared/ipc/summary'
+import type { SummaryTemplate as SummaryTemplateDto } from '@shared/ipc/summary'
 import {
   summarize,
   cancelSummary,
@@ -23,6 +30,9 @@ import {
   testCloudConnection,
   setSummaryBroadcasters,
 } from '../llm/summarizer'
+import { listTemplates, getTemplate } from '../llm/templates'
+import type { Template } from '../llm/templates'
+import { getSettings, updateSettings } from '../settings/settings-store'
 import { readMeta } from '../recording/meta-store'
 import { assertSchemaDev } from '../util/assert-schema'
 import { logger } from '../logger'
@@ -30,6 +40,19 @@ import { logger } from '../logger'
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
+  }
+}
+
+function toSummaryTemplate(t: Template): SummaryTemplateDto {
+  return {
+    id: t.id,
+    name: t.name,
+    icon: t.icon,
+    sessionTypes: t.sessionTypes,
+    systemPrompt: t.systemPrompt,
+    defaultSystemPrompt: t.defaultSystemPrompt ?? t.systemPrompt,
+    output: t.output,
+    isCustomized: !!t.isCustomized,
   }
 }
 
@@ -77,6 +100,64 @@ export function register(): void {
     TestArgs.parse(rawArgs)
     const result: TestResult = await testCloudConnection()
     assertSchemaDev(TestResult, result)
+    return result
+  })
+
+  ipcMain.handle(CHANNEL.listTemplates, async (_event, rawArgs: unknown) => {
+    ListTemplatesArgs.parse(rawArgs)
+    const result: ListTemplatesResult = {
+      templates: listTemplates().map(toSummaryTemplate),
+      templatePerSessionType: getSettings().templates.templatePerSessionType,
+    }
+    assertSchemaDev(ListTemplatesResult, result)
+    return result
+  })
+
+  ipcMain.handle(CHANNEL.setTemplate, async (_event, rawArgs: unknown) => {
+    const args = SetTemplateArgs.parse(rawArgs)
+    const current = getSettings().templates
+    const templatePerSessionType = Object.fromEntries(
+      Object.entries(current.templatePerSessionType).filter(
+        ([, templateId]) => templateId !== args.id,
+      ),
+    )
+    for (const sessionType of args.sessionTypes) {
+      templatePerSessionType[sessionType] = args.id
+    }
+    await updateSettings({
+      templates: {
+        overrides: {
+          ...current.overrides,
+          [args.id]: { systemPrompt: args.systemPrompt, sessionTypes: args.sessionTypes },
+        },
+        templatePerSessionType,
+      },
+    })
+    const template = getTemplate(args.id)
+    if (!template) throw new Error(`template not found after save: ${args.id}`)
+    const result: SetTemplateResult = {
+      ok: true,
+      template: toSummaryTemplate(template),
+    }
+    assertSchemaDev(SetTemplateResult, result)
+    return result
+  })
+
+  ipcMain.handle(CHANNEL.resetTemplate, async (_event, rawArgs: unknown) => {
+    const { id } = ResetTemplateArgs.parse(rawArgs)
+    const current = getSettings().templates
+    const { [id]: _removed, ...overrides } = current.overrides
+    const templatePerSessionType = Object.fromEntries(
+      Object.entries(current.templatePerSessionType).filter(([, templateId]) => templateId !== id),
+    )
+    await updateSettings({ templates: { overrides, templatePerSessionType } })
+    const template = getTemplate(id)
+    if (!template) throw new Error(`template not found after reset: ${id}`)
+    const result: ResetTemplateResult = {
+      ok: true,
+      template: toSummaryTemplate(template),
+    }
+    assertSchemaDev(ResetTemplateResult, result)
     return result
   })
 }

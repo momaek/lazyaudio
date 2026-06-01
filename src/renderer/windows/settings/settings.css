@@ -628,3 +628,170 @@ body,
 .cloud-test-msg.fail {
   color: var(--color-danger);
 }
+
+/* T52 — LLM 模板 tab */
+.template-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.template-editor {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.template-list {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-l1);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+
+.template-nav-item,
+.template-new {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  text-align: left;
+  color: var(--color-gray-800);
+  cursor: pointer;
+}
+
+.template-nav-item:hover {
+  background: var(--color-bg-l2);
+}
+
+.template-nav-item.is-active {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  color: var(--color-accent);
+}
+
+.template-icon {
+  width: 22px;
+  font-size: 10px;
+  color: var(--color-gray-500);
+  font-family: var(--font-mono);
+}
+
+.template-nav-item.is-active .template-icon {
+  color: var(--color-accent);
+}
+
+.template-nav-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.template-nav-text span:last-child {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-gray-400);
+}
+
+.template-new {
+  color: var(--color-gray-400);
+  cursor: default;
+  margin-top: 4px;
+}
+
+.template-detail {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-l1);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.template-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-field.grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.template-field > label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-gray-500);
+  letter-spacing: 0.04em;
+}
+
+.session-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.session-chip {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--color-gray-300);
+  background: var(--color-bg-l1);
+  color: var(--color-gray-600);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.session-chip.is-on {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-gray-300));
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  color: var(--color-accent);
+}
+
+.template-prompt {
+  flex: 1;
+  min-height: 260px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid var(--color-gray-300);
+  background: var(--color-bg-l0);
+  color: var(--color-gray-900);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  padding: 12px;
+}
+
+.template-prompt:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.template-actions {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-msg {
+  font-size: 12px;
+  color: var(--color-gray-500);
+}

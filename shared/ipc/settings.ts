@@ -10,6 +10,7 @@
 import { z } from 'zod'
 import { SessionType } from './record'
 import { SCHEMA_VERSION } from '../schema-version'
+import { TEMPLATE_IDS } from '../llm/templates'
 export { SETTINGS as CHANNEL } from './channels'
 
 export const ThemeMode = z.enum(['light', 'dark', 'system'])
@@ -58,6 +59,26 @@ export const CloudSettings = z.object({
 })
 export type CloudSettings = z.infer<typeof CloudSettings>
 
+export const TemplateId = z.enum(TEMPLATE_IDS)
+export type TemplateId = z.infer<typeof TemplateId>
+
+export const TemplateOverride = z.object({
+  systemPrompt: z.string().min(1).optional(),
+  sessionTypes: z.array(SessionType).min(1).optional(),
+})
+export type TemplateOverride = z.infer<typeof TemplateOverride>
+
+export const TemplateSettings = z.object({
+  overrides: z.partialRecord(TemplateId, TemplateOverride),
+  templatePerSessionType: z.partialRecord(SessionType, TemplateId),
+})
+export type TemplateSettings = z.infer<typeof TemplateSettings>
+
+export const DEFAULT_TEMPLATES: TemplateSettings = {
+  overrides: {},
+  templatePerSessionType: {},
+}
+
 export const OnboardingStep = z.enum([
   'version-check',
   'welcome',
@@ -101,6 +122,7 @@ export const Settings = z.object({
   shortcuts: ShortcutSettings,
   // .default 保证老 settings.json(无 cloud 字段)仍能 parse,不丢用户已有设置
   cloud: CloudSettings.default(DEFAULT_CLOUD),
+  templates: TemplateSettings.default(DEFAULT_TEMPLATES),
   onboarding: OnboardingSettings.default(DEFAULT_ONBOARDING),
 })
 export type Settings = z.infer<typeof Settings>
@@ -124,6 +146,7 @@ export const DEFAULT_SETTINGS: Settings = {
     toggleRecord: DEFAULT_TOGGLE_RECORD_ACCEL,
   },
   cloud: DEFAULT_CLOUD,
+  templates: DEFAULT_TEMPLATES,
   onboarding: DEFAULT_ONBOARDING,
 }
 
@@ -147,5 +170,6 @@ export const SetArgs = z.object({
   general: GeneralSettings.partial().optional(),
   shortcuts: ShortcutSettings.partial().optional(),
   cloud: CloudSetArgs.optional(),
+  templates: TemplateSettings.partial().optional(),
 })
 export type SetArgs = z.infer<typeof SetArgs>
