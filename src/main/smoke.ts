@@ -13,14 +13,24 @@ const ENABLED = process.env['LAZY_SMOKE'] === '1'
 // 给窗口 / tray 创建留点时间,确认启动阶段不崩再退
 const QUIT_DELAY_MS = 3000
 
+let smokeTimer: NodeJS.Timeout | null = null
+let smokeQuitRequested = false
+
+export function isSmokeQuitRequested(): boolean {
+  return smokeQuitRequested
+}
+
 export function maybeRunSmoke(): void {
   if (!ENABLED) return
+  if (smokeTimer) return
+
   logger.info('[smoke] LAZY_SMOKE=1 detected; verifying startup then quitting in 3s')
-  setTimeout(() => {
+  smokeTimer = setTimeout(() => {
+    smokeQuitRequested = true
     // 标记行(含 LAZY_SMOKE_OK):CI step 可 grep 这行确认启动 smoke 真的跑通,
     // 而不是恰好 3s 内因别的原因退出。electron-log 默认把 info 写 stdout。
     logger.info('[smoke] startup ok LAZY_SMOKE_OK, quitting')
-    app.quit()
+    app.exit(0)
   }, QUIT_DELAY_MS)
 }
 
@@ -42,7 +52,7 @@ export function maybeRunAsrSmoke(): void {
     } catch (err) {
       logger.error('[asr-smoke] require FAILED LAZY_ASR_FAIL', err)
     } finally {
-      app.quit()
+      app.exit(0)
     }
   })()
 }

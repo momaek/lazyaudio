@@ -9,7 +9,7 @@ import { destroyTray } from './menu/tray'
 import { unregisterAllShortcuts } from './shortcut/register'
 import { teardownAudioPort } from './audio/port'
 import { maybeRunAutotest } from './audio/autotest'
-import { maybeRunSmoke, maybeRunAsrSmoke } from './smoke'
+import { isSmokeQuitRequested, maybeRunSmoke, maybeRunAsrSmoke } from './smoke'
 import { registerMediaScheme, registerMediaProtocol } from './media/protocol'
 import { loadSettings } from './settings/settings-store'
 import { createOnboardingWindow } from './windows/onboarding-window'
@@ -62,6 +62,7 @@ if (!acquireSingleInstanceLock()) {
   // macOS:关闭所有窗口不退出 app(tray 仍在,符合 menubar app 行为);
   // Win / Linux:关闭主窗口即退出
   app.on('window-all-closed', () => {
+    if (isSmokeQuitRequested()) return
     if (process.platform !== 'darwin') app.quit()
   })
 
