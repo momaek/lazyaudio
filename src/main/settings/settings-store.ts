@@ -7,6 +7,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app, safeStorage } from 'electron'
 import { Settings, DEFAULT_SETTINGS, type SetArgs } from '@shared/ipc/settings'
+import type { OnboardingStep, PrivacyMode } from '@shared/ipc/onboarding'
 import { logger } from '../logger'
 
 function settingsPath(): string {
@@ -38,6 +39,13 @@ export function getSettings(): Settings {
   return cache ?? DEFAULT_SETTINGS
 }
 
+export interface OnboardingPatch {
+  completedAt?: number | undefined
+  step?: OnboardingStep | undefined
+  privacyMode?: PrivacyMode | undefined
+  complianceReminderHidden?: boolean | undefined
+}
+
 async function persist(s: Settings): Promise<void> {
   const finalPath = settingsPath()
   const tmp = `${finalPath}.tmp`
@@ -49,7 +57,24 @@ async function persist(s: Settings): Promise<void> {
 /** 部分更新:合并 patch → 整体校验 → 落盘 → 更新缓存。返回新的完整 settings。 */
 export async function updateSettings(patch: SetArgs): Promise<Settings> {
   const current = getSettings()
+  const next = mergeSettings(current, patch)
+  cache = next
+  await persist(next)
+  return next
+}
 
+export async function updateOnboarding(patch: OnboardingPatch): Promise<Settings> {
+  const current = getSettings()
+  const next = Settings.parse({
+    ...current,
+    onboarding: { ...current.onboarding, ...patch },
+  })
+  cache = next
+  await persist(next)
+  return next
+}
+
+function mergeSettings(current: Settings, patch: SetArgs): Settings {
   // cloud:apiKey 是明文(write-only),在 main 端加密成 apiKeyCipher;其余字段直接合并
   const cloudPatch = patch.cloud ?? {}
   const { apiKey, ...cloudRest } = cloudPatch
@@ -58,15 +83,12 @@ export async function updateSettings(patch: SetArgs): Promise<Settings> {
     nextCloud.apiKeyCipher = apiKey ? encryptSecret(apiKey) : ''
   }
 
-  const next = Settings.parse({
+  return Settings.parse({
     ...current,
     general: { ...current.general, ...(patch.general ?? {}) },
     shortcuts: { ...current.shortcuts, ...(patch.shortcuts ?? {}) },
     cloud: nextCloud,
   })
-  cache = next
-  await persist(next)
-  return next
 }
 
 /** main-only:取解密后的云端 API key(给 summarizer 用);未配置返回 '' */

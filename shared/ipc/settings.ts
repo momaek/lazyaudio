@@ -58,6 +58,35 @@ export const CloudSettings = z.object({
 })
 export type CloudSettings = z.infer<typeof CloudSettings>
 
+export const OnboardingStep = z.enum([
+  'version-check',
+  'welcome',
+  'privacy',
+  'permission',
+  'model-download',
+  'api-config',
+  'shortcut',
+  'compliance',
+  'done',
+])
+export type OnboardingStep = z.infer<typeof OnboardingStep>
+
+export const PrivacyMode = z.enum(['local', 'cloud'])
+export type PrivacyMode = z.infer<typeof PrivacyMode>
+
+export const OnboardingSettings = z.object({
+  completedAt: z.number().int().optional(),
+  step: OnboardingStep.optional(),
+  privacyMode: PrivacyMode,
+  complianceReminderHidden: z.boolean(),
+})
+export type OnboardingSettings = z.infer<typeof OnboardingSettings>
+
+export const DEFAULT_ONBOARDING: OnboardingSettings = {
+  privacyMode: 'local',
+  complianceReminderHidden: false,
+}
+
 export const DEFAULT_CLOUD: CloudSettings = {
   baseUrl: '',
   chatModel: '',
@@ -72,6 +101,7 @@ export const Settings = z.object({
   shortcuts: ShortcutSettings,
   // .default 保证老 settings.json(无 cloud 字段)仍能 parse,不丢用户已有设置
   cloud: CloudSettings.default(DEFAULT_CLOUD),
+  onboarding: OnboardingSettings.default(DEFAULT_ONBOARDING),
 })
 export type Settings = z.infer<typeof Settings>
 
@@ -94,6 +124,7 @@ export const DEFAULT_SETTINGS: Settings = {
     toggleRecord: DEFAULT_TOGGLE_RECORD_ACCEL,
   },
   cloud: DEFAULT_CLOUD,
+  onboarding: DEFAULT_ONBOARDING,
 }
 
 // ---- IPC args / results ----

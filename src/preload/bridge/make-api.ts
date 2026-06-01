@@ -6,6 +6,7 @@
 // CHANNEL 名从 @shared/ipc/channels(纯字符串常量,无 zod)拿;schema 留给 main / renderer 业务层。
 import { ipcRenderer } from 'electron'
 import {
+  ONBOARDING,
   SYSTEM,
   RECORD,
   AUDIO,
@@ -18,6 +19,15 @@ import {
 } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
+import type {
+  StatusResult as OnboardingStatusResult,
+  SetStepArgs as OnboardingSetStepArgs,
+  SetStepResult as OnboardingSetStepResult,
+  CompleteArgs as OnboardingCompleteArgs,
+  CompleteResult as OnboardingCompleteResult,
+  OpenSystemUpdateResult,
+  QuitResult as OnboardingQuitResult,
+} from '@shared/ipc/onboarding'
 import type {
   PrepDefaults,
   StartArgs,
@@ -64,6 +74,20 @@ export function makeApi(): LazyAudioApi {
   return {
     system: {
       ping: () => invoke<PingResult>(SYSTEM.ping),
+    },
+    onboarding: {
+      status: () => invoke<OnboardingStatusResult>(ONBOARDING.status, {}),
+      setStep: (args: OnboardingSetStepArgs) =>
+        invoke<OnboardingSetStepResult>(ONBOARDING.setStep, args),
+      complete: (args: OnboardingCompleteArgs) =>
+        invoke<OnboardingCompleteResult>(ONBOARDING.complete, args),
+      openSystemUpdate: () => invoke<OpenSystemUpdateResult>(ONBOARDING.openSystemUpdate, {}),
+      quit: () => invoke<OnboardingQuitResult>(ONBOARDING.quit, {}),
+      onRequestClose: (cb) => {
+        const handler = (): void => cb()
+        ipcRenderer.on(ONBOARDING.requestClose, handler)
+        return () => ipcRenderer.off(ONBOARDING.requestClose, handler)
+      },
     },
     record: {
       getPrepDefaults: () => invoke<PrepDefaults>(RECORD.getPrepDefaults),
