@@ -82,4 +82,25 @@ describe('settings-store', () => {
     expect(cipher).not.toBe('')
     expect(store.decryptSecret(cipher)).toBe('sk-secret-123')
   })
+
+  it('updateOnboarding 持久化步骤和完成状态', async () => {
+    const store = await import(STORE)
+    await store.loadSettings()
+    const next = await store.updateOnboarding({
+      step: 'privacy',
+      privacyMode: 'cloud',
+      complianceReminderHidden: true,
+    })
+    expect(next.onboarding.step).toBe('privacy')
+    expect(next.onboarding.privacyMode).toBe('cloud')
+    expect(next.onboarding.complianceReminderHidden).toBe(true)
+
+    await store.updateOnboarding({ completedAt: 123, step: 'done' })
+    vi.resetModules()
+    const reloadedStore = await import(STORE)
+    const reloaded = await reloadedStore.loadSettings()
+    expect(reloaded.onboarding.completedAt).toBe(123)
+    expect(reloaded.onboarding.step).toBe('done')
+    expect(reloaded.onboarding.privacyMode).toBe('cloud')
+  })
 })

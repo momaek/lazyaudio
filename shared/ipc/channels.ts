@@ -5,6 +5,16 @@ export const SYSTEM = {
   ping: 'system:ping',
 } as const
 
+// T50 — 首启 onboarding:状态 / 步骤持久化 / 完成后进入主流程。
+export const ONBOARDING = {
+  status: 'onboarding:status',
+  setStep: 'onboarding:set-step',
+  complete: 'onboarding:complete',
+  openSystemUpdate: 'onboarding:open-system-update',
+  quit: 'onboarding:quit',
+  requestClose: 'onboarding:request-close',
+} as const
+
 export const RECORD = {
   getPrepDefaults: 'record:get-prep-defaults',
   start: 'record:start',

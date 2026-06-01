@@ -3,6 +3,15 @@
 
 import type { PingResult } from '../ipc/system'
 import type {
+  StatusResult as OnboardingStatusResult,
+  SetStepArgs as OnboardingSetStepArgs,
+  SetStepResult as OnboardingSetStepResult,
+  CompleteArgs as OnboardingCompleteArgs,
+  CompleteResult as OnboardingCompleteResult,
+  OpenSystemUpdateResult,
+  QuitResult as OnboardingQuitResult,
+} from '../ipc/onboarding'
+import type {
   PrepDefaults,
   StartArgs,
   StartResult,
@@ -42,6 +51,14 @@ import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../au
 export interface LazyAudioApi {
   system: {
     ping(): Promise<PingResult>
+  }
+  onboarding: {
+    status(): Promise<OnboardingStatusResult>
+    setStep(args: OnboardingSetStepArgs): Promise<OnboardingSetStepResult>
+    complete(args: OnboardingCompleteArgs): Promise<OnboardingCompleteResult>
+    openSystemUpdate(): Promise<OpenSystemUpdateResult>
+    quit(): Promise<OnboardingQuitResult>
+    onRequestClose(cb: () => void): () => void
   }
   record: {
     /** prep 浮窗 mount 时拉默认 sessionType + sources */
