@@ -62,6 +62,9 @@ export const SUMMARY = {
   cancel: 'summary:cancel',
   get: 'summary:get',
   testConnection: 'summary:test-connection',
+  listTemplates: 'summary:list-templates',
+  setTemplate: 'summary:set-template',
+  resetTemplate: 'summary:reset-template',
   // main → renderer:流式 delta / 完成 / 失败
   chunk: 'summary:chunk',
   done: 'summary:done',

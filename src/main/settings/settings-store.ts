@@ -88,6 +88,15 @@ function mergeSettings(current: Settings, patch: SetArgs): Settings {
     general: { ...current.general, ...(patch.general ?? {}) },
     shortcuts: { ...current.shortcuts, ...(patch.shortcuts ?? {}) },
     cloud: nextCloud,
+    templates: {
+      ...current.templates,
+      ...(patch.templates ?? {}),
+      overrides: { ...current.templates.overrides, ...(patch.templates?.overrides ?? {}) },
+      templatePerSessionType: {
+        ...current.templates.templatePerSessionType,
+        ...(patch.templates?.templatePerSessionType ?? {}),
+      },
+    },
   })
 }
 

@@ -88,6 +88,24 @@
       "errorPrefix": "下载失败:",
       "loading": "正在读取模型…"
     },
+    "templates": {
+      "title": "LLM 模板",
+      "subtitle": "按会话类型自动套用模板生成摘要，可改 prompt",
+      "resetDefault": "恢复默认",
+      "templateName": "模板名",
+      "applyTo": "应用于会话类型",
+      "prompt": "Prompt",
+      "resetPrompt": "重置为默认",
+      "save": "保存",
+      "saving": "保存中…",
+      "default": "默认",
+      "customized": "已自定义",
+      "newTemplate": "+ 新建模板",
+      "confirmSwitch": "当前模板有未保存修改，确定切换?",
+      "confirmReset": "重置「{{name}}」为默认 prompt?",
+      "saved": "已保存。重新生成摘要会使用新模板。",
+      "resetDone": "已恢复默认。"
+    },
     "shortcuts": {
       "title": "快捷键",
       "subtitle": "全局快捷键 — 在任何 app 中都能触发",

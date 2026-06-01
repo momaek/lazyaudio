@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { Settings, ThemeMode } from '@shared/ipc/settings'
 import type { SessionType } from '@shared/ipc/record'
 import type { ModelListEntry } from '@shared/ipc/model'
+import type { SummaryTemplate } from '@shared/ipc/summary'
+import type { TemplateId } from '@shared/llm/templates'
 import '../../styles/globals.css'
 import './settings.css'
 
@@ -12,7 +14,7 @@ const NAV_ITEMS: { id: NavId; glyph: string; enabled: boolean }[] = [
   { id: 'general', glyph: '⚙', enabled: true },
   { id: 'recording', glyph: '⏺', enabled: false },
   { id: 'engine', glyph: '⌁', enabled: true },
-  { id: 'templates', glyph: '✦', enabled: false },
+  { id: 'templates', glyph: '✦', enabled: true },
   { id: 'shortcuts', glyph: '⌘', enabled: true },
   { id: 'privacy', glyph: '◉', enabled: false },
   { id: 'about', glyph: 'ⓘ', enabled: false },
@@ -36,6 +38,14 @@ const SESSION_I18N_KEY: Record<SessionType, string> = {
   'interview-as-candidate': 'session.interviewAsCandidate',
   lecture: 'session.lecture',
   podcast: 'session.podcast',
+}
+
+const TEMPLATE_ICON: Record<TemplateId, string> = {
+  meeting: 'users',
+  note: 'pencil',
+  'interview-as-interviewer': 'search',
+  'interview-as-candidate': 'user',
+  lecture: 'cap',
 }
 
 function ChevronDown(): React.JSX.Element {
@@ -738,6 +748,200 @@ function EngineTab(): React.JSX.Element {
   )
 }
 
+function TemplatesTab(): React.JSX.Element {
+  const { t } = useTranslation()
+  const [templates, setTemplates] = useState<SummaryTemplate[] | null>(null)
+  const [selectedId, setSelectedId] = useState<TemplateId>('meeting')
+  const [draftPrompt, setDraftPrompt] = useState('')
+  const [draftSessions, setDraftSessions] = useState<SessionType[]>([])
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const selected = templates?.find((tpl) => tpl.id === selectedId) ?? null
+  const dirty =
+    !!selected &&
+    (draftPrompt !== selected.systemPrompt || !sameSessions(draftSessions, selected.sessionTypes))
+
+  const load = useCallback(() => {
+    window.lazyaudio.summary
+      .listTemplates()
+      .then((result) => {
+        setTemplates(result.templates)
+        const nextSelected =
+          result.templates.find((tpl) => tpl.id === selectedId) ?? result.templates[0]
+        if (nextSelected) {
+          setSelectedId(nextSelected.id)
+          setDraftPrompt(nextSelected.systemPrompt)
+          setDraftSessions(nextSelected.sessionTypes)
+        }
+      })
+      .catch((e) => setMessage(String(e)))
+  }, [selectedId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const selectTemplate = useCallback(
+    (tpl: SummaryTemplate) => {
+      if (dirty && !window.confirm(t('common:settingsPage.templates.confirmSwitch'))) return
+      setSelectedId(tpl.id)
+      setDraftPrompt(tpl.systemPrompt)
+      setDraftSessions(tpl.sessionTypes)
+      setMessage(null)
+    },
+    [dirty, t],
+  )
+
+  const toggleSession = useCallback((sessionType: SessionType) => {
+    setDraftSessions((prev) => {
+      if (prev.includes(sessionType)) {
+        return prev.length > 1 ? prev.filter((s) => s !== sessionType) : prev
+      }
+      return [...prev, sessionType]
+    })
+  }, [])
+
+  const save = useCallback(() => {
+    if (!selected) return
+    setSaving(true)
+    setMessage(null)
+    window.lazyaudio.summary
+      .setTemplate({ id: selected.id, systemPrompt: draftPrompt, sessionTypes: draftSessions })
+      .then((result) => {
+        setTemplates((prev) =>
+          prev ? prev.map((tpl) => (tpl.id === result.template.id ? result.template : tpl)) : prev,
+        )
+        setDraftPrompt(result.template.systemPrompt)
+        setDraftSessions(result.template.sessionTypes)
+        setMessage(t('common:settingsPage.templates.saved'))
+      })
+      .catch((e) => setMessage(String(e)))
+      .finally(() => setSaving(false))
+  }, [draftPrompt, draftSessions, selected, t])
+
+  const reset = useCallback(() => {
+    if (!selected) return
+    if (!window.confirm(t('common:settingsPage.templates.confirmReset', { name: selected.name })))
+      return
+    setSaving(true)
+    setMessage(null)
+    window.lazyaudio.summary
+      .resetTemplate(selected.id)
+      .then((result) => {
+        setTemplates((prev) =>
+          prev ? prev.map((tpl) => (tpl.id === result.template.id ? result.template : tpl)) : prev,
+        )
+        setDraftPrompt(result.template.systemPrompt)
+        setDraftSessions(result.template.sessionTypes)
+        setMessage(t('common:settingsPage.templates.resetDone'))
+      })
+      .catch((e) => setMessage(String(e)))
+      .finally(() => setSaving(false))
+  }, [selected, t])
+
+  return (
+    <>
+      <div className="set-page-head template-head">
+        <div>
+          <h2>{t('common:settingsPage.templates.title')}</h2>
+          <div className="sub">{t('common:settingsPage.templates.subtitle')}</div>
+        </div>
+        <button type="button" className="btn-compact-ghost" disabled={!selected} onClick={reset}>
+          {t('common:settingsPage.templates.resetDefault')}
+        </button>
+      </div>
+
+      {templates === null ? (
+        <div className="set-loading">{t('common:library.loading')}</div>
+      ) : (
+        <div className="template-editor">
+          <aside className="template-list">
+            {templates.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                className={`template-nav-item${tpl.id === selectedId ? ' is-active' : ''}`}
+                onClick={() => selectTemplate(tpl)}
+              >
+                <span className="template-icon">{TEMPLATE_ICON[tpl.id]}</span>
+                <span className="template-nav-text">
+                  <span>{tpl.name}</span>
+                  <span>
+                    {tpl.isCustomized
+                      ? t('common:settingsPage.templates.customized')
+                      : t('common:settingsPage.templates.default')}
+                  </span>
+                </span>
+              </button>
+            ))}
+            <button type="button" className="template-new" disabled>
+              {t('common:settingsPage.templates.newTemplate')}
+            </button>
+          </aside>
+
+          <section className="template-detail">
+            {selected ? (
+              <>
+                <div className="template-field">
+                  <label>{t('common:settingsPage.templates.templateName')}</label>
+                  <input className="text-input" value={selected.name} disabled />
+                </div>
+                <div className="template-field">
+                  <label>{t('common:settingsPage.templates.applyTo')}</label>
+                  <div className="session-chip-wrap">
+                    {SESSION_TYPES.map((sessionType) => (
+                      <button
+                        key={sessionType}
+                        type="button"
+                        className={`session-chip${draftSessions.includes(sessionType) ? ' is-on' : ''}`}
+                        onClick={() => toggleSession(sessionType)}
+                      >
+                        {t(`common:${SESSION_I18N_KEY[sessionType]}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="template-field grow">
+                  <label>{t('common:settingsPage.templates.prompt')}</label>
+                  <textarea
+                    className="template-prompt"
+                    value={draftPrompt}
+                    onChange={(e) => setDraftPrompt(e.currentTarget.value)}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="template-actions">
+                  {message ? <span className="template-msg">{message}</span> : <span />}
+                  <button type="button" className="btn-compact-ghost danger" onClick={reset}>
+                    {t('common:settingsPage.templates.resetPrompt')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-compact"
+                    disabled={!dirty || saving}
+                    onClick={save}
+                  >
+                    {saving
+                      ? t('common:settingsPage.templates.saving')
+                      : t('common:settingsPage.templates.save')}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </section>
+        </div>
+      )}
+    </>
+  )
+}
+
+function sameSessions(a: SessionType[], b: SessionType[]): boolean {
+  if (a.length !== b.length) return false
+  const set = new Set(a)
+  return b.every((x) => set.has(x))
+}
+
 function ComingSoon({ navId }: { navId: NavId }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -811,6 +1015,7 @@ export function App(): React.JSX.Element {
     if (nav === 'general') return <GeneralTab settings={settings} patch={patchGeneral} />
     if (nav === 'shortcuts') return <ShortcutsTab settings={settings} setShortcut={setShortcut} />
     if (nav === 'engine') return <EngineTab />
+    if (nav === 'templates') return <TemplatesTab />
     return <ComingSoon navId={nav} />
   }, [nav, settings, patchGeneral, setShortcut])
 

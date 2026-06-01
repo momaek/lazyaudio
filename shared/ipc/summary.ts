@@ -3,6 +3,8 @@
 import { z } from 'zod'
 import { SUMMARY as CHANNEL } from './channels'
 import { SummaryStatus } from '../recording/meta'
+import { TEMPLATE_IDS } from '../llm/templates'
+import { SessionType } from './record'
 
 export { CHANNEL, SummaryStatus }
 
@@ -35,6 +37,46 @@ export const TestArgs = z.object({}).optional()
 export type TestArgs = z.infer<typeof TestArgs>
 export const TestResult = z.object({ ok: z.boolean(), error: z.string().optional() })
 export type TestResult = z.infer<typeof TestResult>
+
+export const TemplateId = z.enum(TEMPLATE_IDS)
+export type TemplateId = z.infer<typeof TemplateId>
+
+export const SummaryTemplate = z.object({
+  id: TemplateId,
+  name: z.string(),
+  icon: z.string(),
+  sessionTypes: z.array(SessionType),
+  systemPrompt: z.string(),
+  defaultSystemPrompt: z.string(),
+  output: z.object({
+    maxTokens: z.number().int().positive(),
+    temperature: z.number().nonnegative(),
+  }),
+  isCustomized: z.boolean(),
+})
+export type SummaryTemplate = z.infer<typeof SummaryTemplate>
+
+export const ListTemplatesArgs = z.object({}).optional()
+export type ListTemplatesArgs = z.infer<typeof ListTemplatesArgs>
+export const ListTemplatesResult = z.object({
+  templates: z.array(SummaryTemplate),
+  templatePerSessionType: z.partialRecord(SessionType, TemplateId),
+})
+export type ListTemplatesResult = z.infer<typeof ListTemplatesResult>
+
+export const SetTemplateArgs = z.object({
+  id: TemplateId,
+  systemPrompt: z.string().min(1),
+  sessionTypes: z.array(SessionType).min(1),
+})
+export type SetTemplateArgs = z.infer<typeof SetTemplateArgs>
+export const SetTemplateResult = z.object({ ok: z.boolean(), template: SummaryTemplate })
+export type SetTemplateResult = z.infer<typeof SetTemplateResult>
+
+export const ResetTemplateArgs = z.object({ id: TemplateId })
+export type ResetTemplateArgs = z.infer<typeof ResetTemplateArgs>
+export const ResetTemplateResult = z.object({ ok: z.boolean(), template: SummaryTemplate })
+export type ResetTemplateResult = z.infer<typeof ResetTemplateResult>
 
 // ---- 流式事件 ----
 export const ChunkEvent = z.object({ recordingId: z.string(), delta: z.string() })

@@ -45,6 +45,10 @@ import type {
   ChunkEvent as SummaryChunkEvent,
   DoneEvent as SummaryDoneEvent,
   ErrorEvent as SummaryErrorEvent,
+  ListTemplatesResult,
+  SetTemplateArgs,
+  SetTemplateResult,
+  ResetTemplateResult,
 } from '../ipc/summary'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
@@ -131,6 +135,12 @@ export interface LazyAudioApi {
     get(recordingId: string): Promise<SummaryGetResult>
     /** 用当前云端设置测试连接 */
     testConnection(): Promise<SummaryTestResult>
+    /** T52:列出内置模板 + 用户覆盖 */
+    listTemplates(): Promise<ListTemplatesResult>
+    /** T52:保存某模板的 prompt / sessionType 映射 */
+    setTemplate(args: SetTemplateArgs): Promise<SetTemplateResult>
+    /** T52:清掉某模板的用户覆盖 */
+    resetTemplate(templateId: string): Promise<ResetTemplateResult>
     /** 订阅流式 delta;返回取消订阅函数 */
     onChunk(cb: (event: SummaryChunkEvent) => void): () => void
     /** 订阅完成事件 */

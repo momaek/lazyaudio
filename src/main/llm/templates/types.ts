@@ -12,4 +12,7 @@ export interface Template {
   output: { maxTokens: number; temperature: number }
   /** system prompt 全文(user message = 组装后的转录文本) */
   systemPrompt: string
+  /** 内置默认 prompt;用户覆盖后 systemPrompt 会变,这里仍保留默认值用于 reset / diff。 */
+  defaultSystemPrompt?: string
+  isCustomized?: boolean
 }

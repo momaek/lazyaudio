@@ -63,6 +63,10 @@ import type {
   CancelResult as SummaryCancelResult,
   GetResult as SummaryGetResult,
   TestResult as SummaryTestResult,
+  ListTemplatesResult,
+  SetTemplateArgs,
+  SetTemplateResult,
+  ResetTemplateResult,
   ChunkEvent as SummaryChunkEvent,
   DoneEvent as SummaryDoneEvent,
   ErrorEvent as SummaryErrorEvent,
@@ -157,6 +161,10 @@ export function makeApi(): LazyAudioApi {
       cancel: (recordingId: string) => invoke<SummaryCancelResult>(SUMMARY.cancel, { recordingId }),
       get: (recordingId: string) => invoke<SummaryGetResult>(SUMMARY.get, { recordingId }),
       testConnection: () => invoke<SummaryTestResult>(SUMMARY.testConnection, {}),
+      listTemplates: () => invoke<ListTemplatesResult>(SUMMARY.listTemplates, {}),
+      setTemplate: (args: SetTemplateArgs) => invoke<SetTemplateResult>(SUMMARY.setTemplate, args),
+      resetTemplate: (templateId: string) =>
+        invoke<ResetTemplateResult>(SUMMARY.resetTemplate, { id: templateId }),
       onChunk: (cb) => {
         const handler = (_e: unknown, event: SummaryChunkEvent): void => cb(event)
         ipcRenderer.on(SUMMARY.chunk, handler)

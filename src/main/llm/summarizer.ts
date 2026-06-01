@@ -121,7 +121,9 @@ export async function summarize(
   const apiKey = getCloudApiKey()
   // 预算:上下文窗 - 系统 prompt 估算 - 输出预留 - buffer
   const sysEst = Math.ceil(template.systemPrompt.length / 1.5)
-  const budget = Math.max(1000, cloud.contextWindow - sysEst - template.output.maxTokens - 500)
+  const maxTokens = template.output.maxTokens
+  const temperature = template.output.temperature
+  const budget = Math.max(1000, cloud.contextWindow - sysEst - maxTokens - 500)
 
   const ac = new AbortController()
   active.set(recordingId, ac)
@@ -135,8 +137,8 @@ export async function summarize(
       model: cloud.chatModel,
       systemPrompt: template.systemPrompt,
       userMessage,
-      temperature: template.output.temperature,
-      maxTokens: template.output.maxTokens,
+      temperature,
+      maxTokens,
       signal: ac.signal,
       onChunk: (delta) => bc.onChunk(recordingId, delta),
     })
