@@ -1,8 +1,8 @@
 # 开发进度（live）
 
-> **最后更新**：2026-06-01
+> **最后更新**：2026-06-02
 > **当前里程碑**：M5（库 + LLM 摘要 + onboarding）
-> **当前焦点**：M5 起步:T50 onboarding done(#38/#39),T51 LLM 摘要核心 done(#37)。T52 模板 tab 已实现(feat/T52-llm-templates),typecheck/test/lint 已过,待 GUI 手测/开 PR。下一候选 T53 云端转录 / T54 导出。剩 spike-012 压测 + T15a 崩溃恢复手测
+> **当前焦点**：M5 起步:T50 onboarding done(#38/#39),T51 LLM 摘要核心 done(#37)。T52 模板 tab 已实现(feat/T52-llm-templates),typecheck/test/lint 已过,待 GUI 手测/开 PR。**🔄 fix/M4-passA-live-seg**(已开 PR):修 Pass A 实时转录两个 P0 —— ① VAD `front()` 返回 external buffer 被 Electron 拒(`External buffers are not allowed`),confirmed 段从来出不来 → 改 `front(false)` 后又重构成「不依赖 VAD 闭合段、只用 isDetected 门控」;② 重构分段为「攒 ~13s 或真实停顿才固化」,实时质量从 1-3 词碎片提到 4-13s 连贯块。单测 5 个(含 front 回归守卫)+ 全量 82 过;**待真机手测质量版**。新增候选 **T41 Pass A 渐进精修(live multi-pass)** 写进 dev-plan。下一候选 T53 云端转录 / T54 导出。剩 spike-012 压测 + T15a 崩溃恢复手测
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
