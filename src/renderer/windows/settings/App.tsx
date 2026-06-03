@@ -529,7 +529,12 @@ function CloudForm(): React.JSX.Element {
   }, [])
 
   const persist = useCallback(
-    (patch: { baseUrl?: string; chatModel?: string; autoSummary?: boolean }) => {
+    (patch: {
+      baseUrl?: string
+      chatModel?: string
+      transcribeModel?: string
+      autoSummary?: boolean
+    }) => {
       void window.lazyaudio.settings.set({ cloud: patch })
     },
     [],
@@ -578,6 +583,15 @@ function CloudForm(): React.JSX.Element {
             onBlur={saveApiKey}
           />
         </SetRow>
+        <SetRow label={t('common:settingsPage.engine.transcribeModel')}>
+          <input
+            className="text-input"
+            value={cloud.transcribeModel}
+            placeholder="whisper-1"
+            onChange={(e) => setCloud({ ...cloud, transcribeModel: e.currentTarget.value })}
+            onBlur={() => persist({ transcribeModel: cloud.transcribeModel })}
+          />
+        </SetRow>
         <SetRow label={t('common:settingsPage.engine.chatModel')}>
           <input
             className="text-input"
@@ -620,9 +634,28 @@ function CloudForm(): React.JSX.Element {
 
 function EngineTab(): React.JSX.Element {
   const { t } = useTranslation()
+  // T53 — 本地/云端切换驱动 onboarding.privacyMode(转录路由信号)
   const [mode, setMode] = useState<'local' | 'cloud'>('local')
   const [models, setModels] = useState<ModelListEntry[] | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    window.lazyaudio.settings
+      .get()
+      .then((s) => {
+        if (!cancelled) setMode(s.onboarding.privacyMode)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const onModeChange = useCallback((v: 'local' | 'cloud') => {
+    setMode(v)
+    void window.lazyaudio.settings.set({ onboarding: { privacyMode: v } })
+  }, [])
 
   const refresh = useCallback(() => {
     window.lazyaudio.model
@@ -692,7 +725,7 @@ function EngineTab(): React.JSX.Element {
 
       <Segmented<'local' | 'cloud'>
         value={mode}
-        onChange={setMode}
+        onChange={onModeChange}
         options={[
           { value: 'local', label: t('common:settingsPage.engine.modeLocal') },
           { value: 'cloud', label: t('common:settingsPage.engine.modeCloud') },

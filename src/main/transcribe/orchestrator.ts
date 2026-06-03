@@ -11,7 +11,8 @@ import type { UtilityProcess } from 'electron'
 import type { Sources } from '@shared/ipc/record'
 import { readMeta, writeMeta } from '../recording/meta-store'
 import { getMixedFilePath, getAudioFilePath } from '../recording/paths'
-import { spawnAsrUtility, runTranscribe } from './offline/spawn'
+import { spawnAsrUtility, runTranscribe, type TranscribeRunResult } from './offline/spawn'
+import { runCloudTranscribe } from './offline/openai-compatible'
 import { startStreamingSession, type StreamingSession } from './streaming/spawn'
 import { listModelEntries, SILERO_VAD_KEY } from './model/registry'
 import { isModelDownloaded, downloadModel } from './model/downloader'
@@ -19,7 +20,7 @@ import { getModelDir } from './model/paths'
 import { writeTranscript } from './transcript-store'
 import { writeLiveTranscript } from './live-store'
 import { summarize, isCloudConfigured } from '../llm/summarizer'
-import { getSettings } from '../settings/settings-store'
+import { getSettings, getCloudApiKey } from '../settings/settings-store'
 import { Transcript, type TranscriptSegment } from '@shared/transcribe/transcript'
 import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
 import type { TranscribeMeta, TranscribeStatus } from '@shared/recording/meta'
@@ -116,6 +117,11 @@ async function persistLive(state: LiveState, partial: boolean): Promise<void> {
 export async function startLive(recordingId: string, _sources: Sources): Promise<void> {
   if (live) {
     logger.warn('[passA] already active, skip', { recordingId })
+    return
+  }
+  // T53/PRD F4.9 — 云端模式默认禁 Pass A 实时转录(只跑录后 Pass B 云端转录)
+  if (getSettings().onboarding.privacyMode === 'cloud') {
+    logger.info('[passA] cloud mode, skip live captions (PRD F4.9)', { recordingId })
     return
   }
   const asrKey = defaultAsrModelKey()
@@ -256,6 +262,70 @@ async function transcribeOne(recordingId: string, force: boolean): Promise<void>
     return
   }
 
+  // T53 — privacyMode='cloud' 走云端 Pass B(OpenAI 兼容);否则本地 SenseVoice
+  if (getSettings().onboarding.privacyMode === 'cloud') {
+    await transcribeCloud(recordingId, source)
+  } else {
+    await transcribeLocal(recordingId, source)
+  }
+}
+
+/** 写 transcript.json + 标 meta done + 广播 + (配了云端则)触发自动摘要。本地 / 云端共用。 */
+async function finishTranscript(
+  recordingId: string,
+  engine: NonNullable<TranscribeMeta['engine']>,
+  modelKey: string,
+  startedAt: number,
+  idPrefix: string,
+  result: TranscribeRunResult,
+): Promise<void> {
+  const segments: TranscriptSegment[] = result.segments.map((s, i) => ({
+    segmentId: `${recordingId}-${idPrefix}-${i}`,
+    start: s.start,
+    end: s.end,
+    text: s.text,
+    speaker: result.speaker,
+    stability: 'confirmed',
+  }))
+
+  const transcript = Transcript.parse({
+    schemaVersion: 1,
+    recordingId,
+    pass: 'offline',
+    engine,
+    modelKey,
+    language: result.language,
+    generatedAt: Date.now(),
+    durationMs: result.durationMs,
+    segments,
+  })
+  await writeTranscript(transcript)
+  await patchTranscribeMeta(recordingId, {
+    status: 'done',
+    engine,
+    modelKey,
+    startedAt,
+    finishedAt: Date.now(),
+  })
+  broadcaster({ recordingId, status: 'done' })
+  overwriteBroadcaster(recordingId) // T36:Pass B 覆盖 → renderer 整体换 transcript.json
+  logger.info('[transcribe] done', {
+    recordingId,
+    engine,
+    segments: segments.length,
+    durationMs: result.durationMs,
+  })
+  // T51:转录完且云端已配置 + autoSummary → 自动生成摘要(失败只记 meta,不影响转录)
+  if (isCloudConfigured() && getSettings().cloud.autoSummary) {
+    void summarize(recordingId)
+  }
+}
+
+/** 本地 Pass B:fork SenseVoice utility 转录。 */
+async function transcribeLocal(
+  recordingId: string,
+  source: { wavPath: string; speaker: string },
+): Promise<void> {
   const modelKey = defaultAsrModelKey()
   if (!modelKey || !(await isModelDownloaded(modelKey))) {
     logger.info('[transcribe] model not ready', { recordingId, modelKey })
@@ -298,46 +368,7 @@ async function transcribeOne(recordingId: string, force: boolean): Promise<void>
           broadcaster({ recordingId, status: 'running', processedSec, totalSec }),
       },
     )
-
-    const segments: TranscriptSegment[] = result.segments.map((s, i) => ({
-      segmentId: `${recordingId}-b-${i}`,
-      start: s.start,
-      end: s.end,
-      text: s.text,
-      speaker: result.speaker,
-      stability: 'confirmed',
-    }))
-
-    const transcript = Transcript.parse({
-      schemaVersion: 1,
-      recordingId,
-      pass: 'offline',
-      engine: 'local-sense-voice',
-      modelKey,
-      language: result.language,
-      generatedAt: Date.now(),
-      durationMs: result.durationMs,
-      segments,
-    })
-    await writeTranscript(transcript)
-    await patchTranscribeMeta(recordingId, {
-      status: 'done',
-      engine: 'local-sense-voice',
-      modelKey,
-      startedAt,
-      finishedAt: Date.now(),
-    })
-    broadcaster({ recordingId, status: 'done' })
-    overwriteBroadcaster(recordingId) // T36:Pass B 覆盖 → renderer 整体换 transcript.json
-    logger.info('[transcribe] done', {
-      recordingId,
-      segments: segments.length,
-      durationMs: result.durationMs,
-    })
-    // T51:转录完且云端已配置 + autoSummary → 自动生成摘要(失败只记 meta,不影响转录)
-    if (isCloudConfigured() && getSettings().cloud.autoSummary) {
-      void summarize(recordingId)
-    }
+    await finishTranscript(recordingId, 'local-sense-voice', modelKey, startedAt, 'b', result)
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     logger.error('[transcribe] failed', { recordingId, message })
@@ -351,5 +382,63 @@ async function transcribeOne(recordingId: string, force: boolean): Promise<void>
     broadcaster({ recordingId, status: 'failed', error: message })
   } finally {
     if (child) child.kill()
+  }
+}
+
+/** 云端 Pass B(T53):上传 WAV 到 OpenAI 兼容 Audio API 拿 segments。 */
+async function transcribeCloud(
+  recordingId: string,
+  source: { wavPath: string; speaker: string },
+): Promise<void> {
+  const { cloud } = getSettings()
+  const apiKey = getCloudApiKey()
+  if (!cloud.baseUrl || !cloud.transcribeModel || !apiKey) {
+    logger.info('[transcribe] cloud not configured', { recordingId })
+    await patchTranscribeMeta(recordingId, {
+      status: 'failed',
+      engine: 'openai-compatible',
+      error: 'cloud-not-configured',
+    })
+    broadcaster({ recordingId, status: 'failed', error: 'cloud-not-configured' })
+    return
+  }
+
+  const startedAt = Date.now()
+  await patchTranscribeMeta(recordingId, {
+    status: 'running',
+    engine: 'openai-compatible',
+    modelKey: cloud.transcribeModel,
+    startedAt,
+  })
+  broadcaster({ recordingId, status: 'running' })
+
+  try {
+    const result = await runCloudTranscribe({
+      wavPath: source.wavPath,
+      speaker: source.speaker,
+      language: 'auto',
+      baseUrl: cloud.baseUrl,
+      apiKey,
+      model: cloud.transcribeModel,
+    })
+    await finishTranscript(
+      recordingId,
+      'openai-compatible',
+      cloud.transcribeModel,
+      startedAt,
+      'cloud',
+      result,
+    )
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    logger.error('[transcribe] cloud failed', { recordingId, message })
+    await patchTranscribeMeta(recordingId, {
+      status: 'failed',
+      engine: 'openai-compatible',
+      modelKey: cloud.transcribeModel,
+      startedAt,
+      error: message,
+    })
+    broadcaster({ recordingId, status: 'failed', error: message })
   }
 }
