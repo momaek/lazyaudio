@@ -466,7 +466,251 @@ T64 [M6]  release pre-flight
   - dogfood 数据迁移：自己的真实录音从 dev userData → 正式 userData，全部能播 + 显示
 ```
 
-### 6.2 退出条件
+### 6.2 T61 转录效果与实时转录优化专项 spec
+
+> 触发条件：M4/M5 功能闭环后，按 dogfood 录音和用户反馈收敛。原则是**先量化，再优化**；没有指标或用户痛点支撑的优化不进 v0.1。
+
+#### 6.2.1 优化目标
+
+| 维度                 | v0.1 目标                                                         | 观测方式                                                         |
+| -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 离线准确率（Pass B） | 普通中文会议 / 笔记可直接读，专有名词错误可通过术语表纠正         | 中文 CER、专有名词命中率、人工修改量                             |
+| 实时体验（Pass A）   | 用户说话后 0.5–3s 内看到稳定 hypothesis，confirmed 原地替换不闪烁 | 首字延迟、confirmed 延迟 p50/p95、hypothesis 改写率、UI mount 数 |
+| 可读性               | final 文本标点、断句、分段自然；字幕导出时间轴可用                | 标点/分段人工抽检、SRT 播放抽检                                  |
+| 性能                 | 录音 + Pass A 不拖慢 UI；Pass B 不长期占满机器                    | RTF、CPU、RSS、主窗口 FPS / 卡顿日志                             |
+| 成本 / 隐私          | 本地优先；云端只在用户显式选择时上传                              | 设置状态 + 上传前确认链路                                        |
+
+核心产品指标：**用户从转录稿改到可用稿需要花多久**。CER 只是辅助指标，不能替代真实 dogfood 反馈。
+
+#### 6.2.2 音频输入、预处理与增强
+
+原则：**原始音频照常保存，只给 VAD/ASR 喂一份“增强后的副本”**。增强链路必须可关闭、可回退；任何增强算法不得破坏录音回放、导出和后续重新转录。
+
+实时 Pass A 推荐链路：
+
+```text
+麦克风 / mixed PCM 流
+  ├─ 原始 PCM/WAV：直接落盘，用于回放、导出、重新转录
+  └─ ASR 副本：48k stereo → 16k mono
+       → DC offset / high-pass 基础处理
+       → 音量检测 + clipping / silence 检测
+       → 轻量归一化 / noise gate（可选）
+       → VAD
+       → 3–6s 滑动窗口 ASR
+```
+
+实时链路只做**轻量、低延迟、可证明收益**的处理：
+
+- **必做基础处理**：`48k stereo → 16k mono`、PCM16 输入规范化、DC offset / high-pass 这类低成本处理；重采样失败要 fail fast 并提示。
+- **必做质量检测**：音量过低、持续削波 / clipping、长时间静音、采样率异常、输入设备断开、mic/system 某一路缺失时，在 UI 给非阻塞提示。
+- **建议轻量增强**：语音段内音量归一化、有限增益 AGC、noise gate；增益必须有上限，静音段不能被 AGC 拉高成噪声。
+- **可选轻量降噪**：WebRTC Noise Suppression / RNNoise 这类低延迟方案只能在 A/B 指标证明收益后默认开启；否则作为设置项保留。
+- **暂不默认做重型增强**：深度学习降噪、人声分离、去混响、音乐/背景声分离不进实时默认链路，避免增加延迟、CPU 和语音细节损伤。
+- **Pass A 只在 VAD 判定有人声时送模型**；静音段不推理，降低 CPU 和无意义 hypothesis。
+- 蓝牙耳机 / 远场麦克风等低质量输入只提示风险，不自动改用户设备。
+
+mic + system 双轨场景要特别注意“系统声被麦克风二次收录”：
+
+- v0.1 Pass A 仍按现状送 mixed 单声道，先不做复杂回声消除。
+- dogfood 如发现系统声重复导致识别变差，再做 P1/P2：检测 mic 与 system 的相关性，必要时降低 mic 中高相关系统声权重，或提示用户改用耳机。
+- Pass B 离线阶段可基于原始双轨分别增强 / 分段 / ASR，再按时间戳合并；这类重处理不影响实时链路。
+
+离线 Pass B 可做更重的增强，但也必须基于原始 WAV 生成增强副本，不覆盖原始文件：
+
+```text
+原始 WAV
+  → 可选增强副本（降噪 / 去混响 / 分轨策略，需 A/B 证明）
+  → VAD 分段
+  → SenseVoice / 云端 ASR
+  → 术语表
+  → 标点断句
+  → 最终转录稿
+```
+
+#### 6.2.3 VAD 与分段策略
+
+Pass A 已按 ADR-0004 走 `Silero VAD + SenseVoice 短窗伪流式`，T61 优化重点是参数和边界处理：
+
+- VAD 起声阈值目标：200–300ms，避免键盘声 / 咳嗽误触发。
+- 短暂停顿容忍：500–800ms，防止一句话被切成碎片。
+- 句末 finalize 停顿：800–1500ms，按 dogfood 调参；会议偏短、课程/播客偏长。
+- 最大短窗：10–20s；超过上限强制切段，防止长无停顿语段导致 Pass A 延迟和内存峰值上升。
+- Pass B 长音频分段要优先 VAD，再按 max duration 兜底；必要时保留 1–2s overlap，转录后做去重 / 合并。
+- 段落 `segmentId/startMs` 必须稳定；同一逻辑段 hypothesis → confirmed 不换 id。
+
+#### 6.2.4 实时转录 UI / 状态机
+
+- 明确双层结果：
+  - `hypothesis`：临时结果，允许改写，只更新当前段；灰色 / 斜体。
+  - `confirmed`：VAD endpoint 后确认，进入历史段，不再被 Pass A 改写。
+- UI 更新限流：最多约 200ms 一次，避免每个模型事件都整面板重渲染。
+- 只替换当前 hypothesis 段，不整体替换 transcript；Pass B 完成后再整体覆盖为离线精修稿。
+- 自动滚动规则：用户在底部时跟随最新段；用户手动回看历史时暂停自动滚动。
+- Pass A 失败不影响录音和 Pass B；详情区显示“实时转录已降级，录音结束后仍会离线转录”。
+- 云端模式默认禁用 Pass A；用户主动打开时提示网络抖动可能导致字幕跳变 / 缺失。
+
+#### 6.2.5 术语表、上下文与后处理
+
+- v0.1 优先做**后处理术语表纠错**，不阻塞 ASR 主链路：
+
+  ```json
+  {
+    "雷泽奥迪欧": "LazyAudio",
+    "懒音频": "LazyAudio",
+    "威艾迪": "VAD",
+    "克劳德": "Claude"
+  }
+  ```
+
+- 术语来源：用户自定义词表 + 最近 confirmed 文本里的高置信专有名词 + 会话类型模板。
+- 本地 SenseVoice 不强依赖 prompt；如果后续云端 ASR 支持 prompt / keywords，再把会话上下文传给云端。
+- final 后处理只处理 confirmed / Pass B 结果：标点、断句、数字格式、中英文空格、术语统一。
+- 提供两种输出取向：
+  - 保真模式：字幕 / 访谈 / 证据场景，只修明显错字和标点。
+  - 阅读模式：笔记 / 会议纪要场景，可去口头禅、合并重复表达，但必须标明是整理稿。
+- LLM 修正文稿不能覆盖原始转录；原始稿、离线精修稿、整理稿要可区分。
+
+#### 6.2.6 评测集与验收指标
+
+T61 开始前先建立一个小型 dogfood fixture 集：
+
+- 5–10 段真实录音，每段 1–5min，覆盖会议、独白、技术讨论、中英混杂、噪声环境。
+- 每段保留人工校对文本，标注专有名词表。
+- 每次优化记录同一批样本的指标变化，不接受“听起来更好”但无数据的结论。
+
+验收指标建议：
+
+| 指标                       | 目标 / 用途                                          |
+| -------------------------- | ---------------------------------------------------- |
+| Pass B CER                 | dogfood 样本逐步下降；若上升必须说明换来了什么       |
+| 专有名词命中率             | 术语表启用后明显提升                                 |
+| Pass A first-token latency | p95 < 3s，越低越好但不牺牲稳定性                     |
+| Pass A confirmed latency   | p95 < 3s；长无停顿语段允许 max-window 兜底           |
+| hypothesis 改写率          | 只允许当前段改写；历史 confirmed 不回滚              |
+| UI 稳定性                  | hypothesis 改写时 DOM mount 数≈段数，不跳行 / 不闪烁 |
+| RTF / CPU / RSS            | 不突破 PRD §7.1；低配机不达标则自动降级 Pass A       |
+| 人工修改量                 | 用户把转录稿改成可用稿的时间下降                     |
+
+#### 6.2.7 基础优化工具清单
+
+后续开发优先按“**先不用新重依赖，先做检测 + 埋点 + 自写轻量 DSP**”推进。只有 dogfood / fixture A/B 证明收益后，才把第三方增强库接进产品默认链路。
+
+P0：基础优化必备工具（优先自写 / 使用现有能力）：
+
+| 工具 / 模块                            | 用途                                                          | 备注                                   |
+| -------------------------------------- | ------------------------------------------------------------- | -------------------------------------- |
+| `AudioWorklet`                         | renderer 侧实时采集 PCM、按 20ms/100ms chunk 推送             | 继续沿用现有采集链路                   |
+| `Float32Array` / `Int16Array` DSP util | downmix、重采样前后 buffer 处理、RMS、peak、clipping、silence | 不需要先引入 ffmpeg / sox              |
+| `pcm-fork` / ASR 副本链路              | 原始 PCM 落盘，同时 fork 一份 `48k → 16k mono` 给 Pass A      | 扩展时保持“原始音频不破坏”             |
+| `AudioQualityMonitor`（待建）          | 音量过低、clipping、长静音、断流、采样率异常、mic/system 缺路 | 输出 warning 给 UI，不自动改变用户设备 |
+| `sherpa-onnx-node` + Silero VAD        | Pass A / Pass B 的 VAD 能力                                   | 基础优化先调参数，不换引擎             |
+| SenseVoice                             | ASR 主模型                                                    | Pass A 短窗 + Pass B 离线复用          |
+| 自写 eval 脚本                         | CER、专有名词命中率、latency、RTF、CPU/RSS 汇总               | 优化必须带对比数据                     |
+
+建议先落的内部小工具：
+
+```text
+src/main/transcribe/audio-quality-monitor.ts
+src/main/transcribe/dsp/audio-metrics.ts
+src/main/transcribe/dsp/noise-gate.ts        # P1 prototype
+src/main/transcribe/dsp/lite-agc.ts          # P1 prototype
+scripts/eval-transcribe-fixtures.ts
+```
+
+`AudioQualityMonitor` 推荐输出结构：
+
+```ts
+interface AudioQualitySnapshot {
+  rmsDb: number
+  peakDb: number
+  clippingRatio: number
+  silenceMs: number
+  hasSignal: boolean
+  droppedChunks: number
+  warnings: Array<
+    | 'mic-volume-low'
+    | 'clipping'
+    | 'long-silence'
+    | 'input-disconnected'
+    | 'sample-rate-unexpected'
+    | 'mic-missing'
+    | 'system-missing'
+  >
+}
+```
+
+P1：轻量增强候选（先实验，后默认）：
+
+| 工具 / 方案                                                             | 用途                            | 接入原则                           |
+| ----------------------------------------------------------------------- | ------------------------------- | ---------------------------------- |
+| 自写 noise gate                                                         | 压低静音段底噪，减少 VAD 误触发 | 阈值保守，不能吞掉轻声开头         |
+| 自写 lite AGC                                                           | 语音段轻量增益，改善音量偏低    | 只在语音段内增益；最大增益有限制   |
+| WebRTC Audio Processing / 浏览器 `noiseSuppression` / `autoGainControl` | 降噪、AGC、回声处理             | 平台差异大，只能 A/B 后启用        |
+| RNNoise                                                                 | 轻量神经网络降噪                | 需评估 native/wasm 打包、延迟、CPU |
+| SpeexDSP                                                                | AGC / denoise / AEC             | 需评估 native 集成和跨平台成本     |
+
+P2：离线 / 高级增强工具（不进实时默认链路）：
+
+| 工具 / 方案                             | 用途                                     | 备注                             |
+| --------------------------------------- | ---------------------------------------- | -------------------------------- |
+| `ffmpeg`                                | 离线重采样、滤波、音频分析               | 产品内引入前评估体积和跨平台打包 |
+| `sox`                                   | 开发期音频分析、normalize、noise profile | 更适合作为实验工具               |
+| `pydub` / `librosa`                     | fixture 分析、研究脚本                   | 不进 Electron runtime            |
+| DeepFilterNet                           | 离线降噪                                 | P2，必须 A/B 证明 ASR 收益       |
+| Demucs                                  | 人声 / 背景分离                          | P2，成本高，不碰实时             |
+| speaker diarization / speaker embedding | 多说话人分离                             | v0.2 backlog                     |
+
+评测脚本建议输入 / 输出：
+
+```text
+fixtures/transcribe/
+  sample-001.wav
+  sample-001.ref.txt
+  sample-001.terms.json
+  sample-002.wav
+  ...
+```
+
+```json
+{
+  "cer": 0.082,
+  "termHitRate": 0.91,
+  "passAFirstTokenP95Ms": 820,
+  "passAConfirmedP95Ms": 1700,
+  "rtf": 0.034,
+  "rssPeakMb": 620
+}
+```
+
+工具选择结论：v0.1 基础优化优先做 `AudioQualityMonitor`、TypedArray DSP metrics、VAD 参数调优、Pass A latency / RTF 埋点、dogfood fixture eval；**暂不把 WebRTC APM / RNNoise / ffmpeg 作为默认产品依赖**。
+
+#### 6.2.8 优先级
+
+P0（v0.1 dogfood 必做，如果反馈命中）：
+
+1. VAD 参数 + max-window 调优。
+2. hypothesis / confirmed 更新节流与当前段局部替换。
+3. Pass A 失败降级文案和状态显示。
+4. Pass B final 标点、断句、基础格式化。
+
+P1（v0.1 可做，取决于时间）：
+
+1. 用户术语表 + 后处理纠错。
+2. 最近上下文参与术语统一。
+3. 音频质量自检提示。
+4. SRT/VTT 导出的时间轴抽检与修正。
+5. 轻量降噪 / AGC 默认开启前的 A/B 评测。
+6. mic/system 相关性检测与系统声二次收录提示。
+
+P2（进 v0.2 backlog，不阻塞 v0.1）：
+
+1. 多说话人 diarization / 声纹绑定。
+2. 真流式模型替换或双模型候选。
+3. 重型降噪 / 人声分离。
+4. 场景预设（会议 / 播客 / 课程 / 编程技术）自动切参数。
+5. 实时摘要 / 实时行动项提取。
+
+### 6.3 退出条件
 
 - [ ] 7 天 dogfood 0 崩溃
 - [ ] 所有 P0 / P1 issue 关闭

@@ -207,13 +207,13 @@
 
 ### 4.5 M6 — Dogfood（T60-T64）
 
-| ID  | 标题               | 状态    | 起  | 完  | 备注                    |
-| --- | ------------------ | ------- | --- | --- | ----------------------- |
-| T60 | 自己每天用一周     | 🔲 todo | —   | —   | 记 friction，不修 P0 外 |
-| T61 | 性能优化           | 🔲 todo | —   | —   | 按 dogfood 反馈         |
-| T62 | bug 收尾           | 🔲 todo | —   | —   | 关所有 P0/P1            |
-| T63 | 文案 review        | 🔲 todo | —   | —   | design-system §7.2      |
-| T64 | release pre-flight | 🔲 todo | —   | —   | 三平台干净机器          |
+| ID  | 标题               | 状态    | 起  | 完  | 备注                                                   |
+| --- | ------------------ | ------- | --- | --- | ------------------------------------------------------ |
+| T60 | 自己每天用一周     | 🔲 todo | —   | —   | 记 friction，不修 P0 外                                |
+| T61 | 性能优化           | 🔲 todo | —   | —   | 按 dogfood 反馈；专项 spec 见 development-plan.md §6.2 |
+| T62 | bug 收尾           | 🔲 todo | —   | —   | 关所有 P0/P1                                           |
+| T63 | 文案 review        | 🔲 todo | —   | —   | design-system §7.2                                     |
+| T64 | release pre-flight | 🔲 todo | —   | —   | 三平台干净机器                                         |
 
 **M6 退出条件**：7 天 dogfood 0 崩溃；P0/P1 全关；三平台 packaged OK；changelog v0.1.0 写完。
 
@@ -261,6 +261,7 @@ _暂无周报记录。_
 
 | 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-03 | development-plan.md §6.2 新增 T61 转录效果与实时转录优化专项 spec，并补充实时音频增强与基础优化工具清单：原始音频落盘不破坏、ASR 副本轻量增强、质量检测、noise gate/AGC A/B、mic/system 二次收录风险、AudioQualityMonitor、TypedArray DSP metrics、eval fixture、重型增强留给 Pass B/P2；progress T61 备注同步指向该 spec。                                                                                                                              |
 | 2026-06-01 | T52 设置 - LLM 模板 tab wip(feat/T52-llm-templates):summary 模板 IPC(list/set/reset)+ settings.templates 覆盖持久化 + pickTemplate 读用户映射 + 设置页模板列表/prompt 编辑/sessionType chip/恢复默认;typecheck/test/lint 已过;待 GUI 手测，再开 PR 转 done                                                                                                                                                                                               |
 | 2026-05-31 | M5 起步:T51 LLM 摘要核心 done(feat/M5-summary):SummarizerFacade + OpenAI 兼容 SSE 流式 + 5 内置模板(meeting/note 照 llm-templates.md,interview-as-interviewer/candidate + lecture 新写,§0 表标 ✅)+ settings.cloud(safeStorage 密钥)+ 摘要面板(react-markdown)+ 自动/手动触发;71 单测(含本地 SSE server 端到端)。真 LLM 端到端待用户配 key                                                                                                               |
 | 2026-05-31 | M4 Pass A 实时 done(T34/35/36/T40 最小版,feat/M4-passa):Silero VAD(进 registry,github 单源)切片 + 复用 SenseVoice;streaming-asr utility(hypothesis 尾部 15s 滑窗 + confirmed VAD 闭合段,同 segmentId 原地替换)+ pcm-fork(receiver tap 48k→16k mono mic+sys 合一路)+ Pass A→B 串行切换(守 2.5GB)+ live UI 灰斜体 hypothesis + T40 banner。POC 真录音验过。simplifications:mic+sys 合一路 speaker=mixed、T40 最小版、hypothesis 重识别滑窗(POC RTF~0.36)。 |
