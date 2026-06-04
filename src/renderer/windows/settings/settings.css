@@ -795,3 +795,168 @@ body,
   font-size: 12px;
   color: var(--color-gray-500);
 }
+
+/* ---- T57 录音 / 隐私 / 关于 tab ---- */
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.path-row .text-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.inline-ctl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.num-input {
+  width: 72px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-l1);
+  color: var(--color-gray-900);
+  font: inherit;
+  font-size: 13px;
+}
+
+.num-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.unit {
+  font-size: 12px;
+  color: var(--color-gray-500);
+}
+
+.readonly-val {
+  font-size: 13px;
+  color: var(--color-gray-600);
+}
+
+.link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* 危险区 */
+.danger-zone {
+  margin-top: 28px;
+  padding: 16px;
+  border: 1px solid var(--color-danger);
+  border-radius: 10px;
+}
+
+.danger-zone-title {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-danger);
+}
+
+.danger-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-danger-outline,
+.btn-danger {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-danger-outline {
+  border: 1px solid var(--color-danger);
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.btn-danger-outline:hover {
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+}
+
+.btn-danger {
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger);
+  color: #fff;
+}
+
+/* 关于 */
+.about-version {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 24px;
+}
+
+.about-logo {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.about-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-gray-950);
+}
+
+.about-ver {
+  font-size: 12px;
+  color: var(--color-gray-500);
+}
+
+.about-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.about-licenses {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.about-license-row {
+  font-size: 13px;
+  color: var(--color-gray-700);
+}
+
+.about-credits {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-gray-700);
+}

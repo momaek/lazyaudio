@@ -87,6 +87,7 @@ function mergeSettings(current: Settings, patch: SetArgs): Settings {
     ...current,
     general: { ...current.general, ...(patch.general ?? {}) },
     shortcuts: { ...current.shortcuts, ...(patch.shortcuts ?? {}) },
+    recording: { ...current.recording, ...(patch.recording ?? {}) },
     cloud: nextCloud,
     templates: {
       ...current.templates,

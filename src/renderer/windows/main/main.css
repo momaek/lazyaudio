@@ -217,6 +217,7 @@
 }
 
 .lib-item {
+  position: relative;
   width: calc(100% - 12px);
   height: 56px;
   padding: 8px 12px;
@@ -899,33 +900,43 @@
   gap: 8px;
 }
 
-/* T54 — 导出按钮 + 下拉小菜单(临时落在详情头) */
-.dh-export {
+/* T55 — 详情头图标按钮(重转 / 导出 / 更多) */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-gray-600);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--color-bg-l3);
+  color: var(--color-gray-900);
+}
+
+.dh-menu-wrap {
   position: relative;
 }
 
-.dh-export .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.dh-export-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 20;
-  min-width: 160px;
+/* T55 — 通用弹出菜单(列表项右键 / ⋯ / 详情头下拉) */
+.pop-menu {
+  z-index: 40;
+  min-width: 168px;
   padding: 4px;
   display: flex;
   flex-direction: column;
-  background: var(--color-surface-panel, var(--color-white));
+  background: var(--color-bg-l1, var(--color-white));
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
 }
 
-.dh-export-menu button {
+.pop-menu-item {
   height: 30px;
   padding: 0 10px;
   border: none;
@@ -935,10 +946,60 @@
   color: var(--color-gray-800);
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.dh-export-menu button:hover {
-  background: var(--color-gray-100);
+.pop-menu-item:hover {
+  background: var(--color-bg-l3);
+}
+
+.pop-menu-item.danger {
+  color: var(--color-record, #dc2626);
+}
+
+/* T55 — 列表项 hover 出 ⋯ */
+.lib-item-more {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--color-gray-500);
+  opacity: 0;
+}
+
+.lib-item:hover .lib-item-more {
+  opacity: 1;
+}
+
+.lib-item-more:hover {
+  background: var(--color-bg-l4, var(--color-bg-l3));
+  color: var(--color-gray-900);
+}
+
+/* T55 — 行内重命名输入 */
+.lib-item.is-renaming {
+  cursor: default;
+}
+
+.lib-rename-input {
+  grid-column: 2 / 4;
+  grid-row: 1 / span 2;
+  align-self: center;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-gray-950);
+  background: var(--color-bg-l1, var(--color-white));
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(31 111 235 / 0.15);
 }
 
 .btn-rec-pause {

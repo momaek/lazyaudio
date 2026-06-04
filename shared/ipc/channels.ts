@@ -3,6 +3,8 @@
 
 export const SYSTEM = {
   ping: 'system:ping',
+  // T57 — 用默认浏览器打开外链(关于页 官网 / GitHub / 反馈)
+  openExternal: 'system:open-external',
 } as const
 
 // T50 — 首启 onboarding:状态 / 步骤持久化 / 完成后进入主流程。
@@ -34,6 +36,12 @@ export const RECORD = {
 
 export const LIBRARY = {
   list: 'library:list',
+  // T55 — 列表项操作:重命名(改 meta.title)/ 删除(rm 录音目录)/ 在 Finder 显示
+  rename: 'library:rename',
+  delete: 'library:delete',
+  showInFolder: 'library:show-in-folder',
+  // T56 — main → renderer:点系统通知后定位到该录音(主窗口选中)
+  activate: 'library:activate',
 } as const
 
 // T16 — 录音音频的自定义流式协议(main 注册 protocol.handle,renderer 拿来喂 <audio>)。
@@ -54,6 +62,10 @@ export const SETTINGS = {
   get: 'settings:get',
   set: 'settings:set',
   changed: 'settings:changed',
+  // T57 — 选录音保存目录(弹目录对话框)/ 在 Finder 显示录音目录 / 危险操作(清空 / 重置)
+  pickRecordingsDir: 'settings:pick-recordings-dir',
+  openRecordingsDir: 'settings:open-recordings-dir',
+  dangerAction: 'settings:danger-action',
 } as const
 
 // T51 — LLM 摘要:生成 / 取消 / 取结果 / 测连接 + 流式事件广播

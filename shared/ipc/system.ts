@@ -17,3 +17,10 @@ export const PingResult = z.object({
   electronVersion: z.string(),
 })
 export type PingResult = z.infer<typeof PingResult>
+
+// ---- T57 open-external(关于页外链)----
+export const OpenExternalArgs = z.object({ url: z.string().url() })
+export type OpenExternalArgs = z.infer<typeof OpenExternalArgs>
+
+export const OpenExternalResult = z.object({ ok: z.boolean(), error: z.string().optional() })
+export type OpenExternalResult = z.infer<typeof OpenExternalResult>

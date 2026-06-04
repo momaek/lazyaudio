@@ -35,6 +35,7 @@ import { RecordingSession } from '../recording/session'
 import { setCurrentSession, getCurrentSession } from '../recording'
 import { runMixdown } from '../recording/mixer'
 import { enqueueTranscription, startLive, stopLive } from '../transcribe/orchestrator'
+import { getSettings } from '../settings/settings-store'
 import { startPcmFork, stopPcmFork } from '../audio/pcm-fork'
 import { purgeRecordingTracks } from '../audio/receiver'
 import { getMicStatus, requestMic, isMicGranted, openMicSettings } from '../permission/mic'
@@ -199,7 +200,11 @@ export function register(): void {
         stopLive(finishedId).catch((e) =>
           logger.error(`stopLive unhandled: ${String(e)}`, { recordingId: finishedId }),
         ),
-      ]).finally(() => enqueueTranscription(finishedId))
+      ]).finally(() => {
+        // T57:录音结束自动转录(设置可关;关了需手动在详情区触发)
+        if (getSettings().recording.autoTranscribe) enqueueTranscription(finishedId)
+        else logger.info('record:stop → autoTranscribe off, skip', { recordingId: finishedId })
+      })
     }
 
     transitionToIdle()

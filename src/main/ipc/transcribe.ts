@@ -4,7 +4,7 @@
 //   - transcribe:search         → 全文搜索
 //   - transcribe:status-changed → main → renderer 状态广播(编排器经 broadcaster 触发)
 
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, Notification } from 'electron'
 import {
   CHANNEL,
   GetTranscriptArgs,
@@ -15,9 +15,11 @@ import {
   SearchResult,
   type StatusChangedEvent,
 } from '@shared/ipc/transcribe'
+import { LIBRARY } from '@shared/ipc/channels'
 import { readMeta } from '../recording/meta-store'
 import { readTranscript } from '../transcribe/transcript-store'
 import { readLiveTranscript } from '../transcribe/live-store'
+import { getMainWindow, showMainWindow } from '../windows/main-window'
 import {
   enqueueTranscription,
   setTranscribeBroadcaster,
@@ -37,6 +39,30 @@ function broadcast(channel: string, payload: unknown): void {
 
 function broadcastStatus(event: StatusChangedEvent): void {
   broadcast(CHANNEL.statusChanged, event)
+  if (event.status === 'done' || event.status === 'failed') {
+    void notifyTranscribeResult(event.recordingId, event.status)
+  }
+}
+
+// T56 — 转录完成 / 失败弹系统通知;点通知 → 主窗口 + 定位到该录音。
+// 主窗口已聚焦时不打扰(用户正看着)。
+async function notifyTranscribeResult(
+  recordingId: string,
+  status: 'done' | 'failed',
+): Promise<void> {
+  if (!Notification.isSupported()) return
+  if (getMainWindow()?.isFocused()) return
+  const meta = await readMeta(recordingId)
+  const name = meta?.title ?? '录音'
+  const n = new Notification({
+    title: status === 'done' ? '转录完成' : '转录失败',
+    body: status === 'done' ? name : `${name} — 转录失败，点按查看`,
+  })
+  n.on('click', () => {
+    showMainWindow()
+    broadcast(LIBRARY.activate, { recordingId })
+  })
+  n.show()
 }
 
 export function register(): void {
