@@ -16,6 +16,7 @@ import {
   MODEL,
   TRANSCRIBE,
   SUMMARY,
+  EXPORT,
 } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
 import type { PingResult } from '@shared/ipc/system'
@@ -71,6 +72,7 @@ import type {
   DoneEvent as SummaryDoneEvent,
   ErrorEvent as SummaryErrorEvent,
 } from '@shared/ipc/summary'
+import type { ExportFormat, RunResult as ExportRunResult } from '@shared/ipc/export'
 import type { StartCaptureArgs, StopCaptureArgs } from '@shared/audio/messages'
 import { invoke } from './invoke'
 
@@ -180,6 +182,10 @@ export function makeApi(): LazyAudioApi {
         ipcRenderer.on(SUMMARY.error, handler)
         return () => ipcRenderer.off(SUMMARY.error, handler)
       },
+    },
+    export: {
+      run: (recordingId: string, format: ExportFormat) =>
+        invoke<ExportRunResult>(EXPORT.run, { recordingId, format }),
     },
     audio: {
       // capture window 订阅 main 发的启 capture 信令

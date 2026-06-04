@@ -8,6 +8,7 @@ import { register as registerPermission } from './permission'
 import { register as registerModel } from './model'
 import { register as registerTranscribe } from './transcribe'
 import { register as registerSummary } from './summary'
+import { register as registerExport } from './export'
 
 export function registerIpc(): void {
   registerSystem()
@@ -19,4 +20,5 @@ export function registerIpc(): void {
   registerModel()
   registerTranscribe()
   registerSummary()
+  registerExport()
 }
