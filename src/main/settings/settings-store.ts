@@ -97,6 +97,8 @@ function mergeSettings(current: Settings, patch: SetArgs): Settings {
         ...(patch.templates?.templatePerSessionType ?? {}),
       },
     },
+    // T53 — 设置页切本地/云端写 privacyMode;其余 onboarding 字段沿用 onboarding 域 IPC
+    onboarding: { ...current.onboarding, ...(patch.onboarding ?? {}) },
   })
 }
 

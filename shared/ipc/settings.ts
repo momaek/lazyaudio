@@ -53,6 +53,9 @@ export type ShortcutSettings = z.infer<typeof ShortcutSettings>
 export const CloudSettings = z.object({
   baseUrl: z.string(),
   chatModel: z.string(),
+  /** T53 — 云端转录模型名(OpenAI 兼容 Audio API,如 whisper-1);'' 表示未配置。
+   *  .default 保证老 settings.json(已有 cloud 但无此字段)仍能 parse,不丢已配的 key */
+  transcribeModel: z.string().default(''),
   contextWindow: z.number().int().positive(),
   autoSummary: z.boolean(),
   apiKeyCipher: z.string(),
@@ -111,6 +114,7 @@ export const DEFAULT_ONBOARDING: OnboardingSettings = {
 export const DEFAULT_CLOUD: CloudSettings = {
   baseUrl: '',
   chatModel: '',
+  transcribeModel: '',
   contextWindow: 128000,
   autoSummary: true,
   apiKeyCipher: '',
@@ -159,6 +163,7 @@ export type GetArgs = z.infer<typeof GetArgs>
 export const CloudSetArgs = z.object({
   baseUrl: z.string().optional(),
   chatModel: z.string().optional(),
+  transcribeModel: z.string().optional(),
   contextWindow: z.number().int().positive().optional(),
   autoSummary: z.boolean().optional(),
   apiKey: z.string().optional(),
@@ -171,5 +176,7 @@ export const SetArgs = z.object({
   shortcuts: ShortcutSettings.partial().optional(),
   cloud: CloudSetArgs.optional(),
   templates: TemplateSettings.partial().optional(),
+  // T53 — 设置页「转录引擎」本地/云端切换写 onboarding.privacyMode(转录路由信号)
+  onboarding: OnboardingSettings.partial().optional(),
 })
 export type SetArgs = z.infer<typeof SetArgs>

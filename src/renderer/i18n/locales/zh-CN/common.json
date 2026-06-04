@@ -71,6 +71,7 @@
       "baseUrl": "Base URL",
       "apiKey": "API Key",
       "apiKeySet": "已配置 ••••••（重新输入以更换）",
+      "transcribeModel": "转录模型",
       "chatModel": "Chat 模型",
       "autoSummary": "转录完自动生成摘要",
       "testConnection": "测试连接",
