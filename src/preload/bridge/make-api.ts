@@ -37,7 +37,12 @@ import type {
   ShowPrepResult,
   RecorderSnapshot,
 } from '@shared/ipc/record'
-import type { ListResult } from '@shared/ipc/library'
+import type {
+  ListResult,
+  RenameResult as LibraryRenameResult,
+  DeleteResult as LibraryDeleteResult,
+  ShowInFolderResult as LibraryShowInFolderResult,
+} from '@shared/ipc/library'
 import type { Settings, SetArgs } from '@shared/ipc/settings'
 import type {
   MicStatusResult,
@@ -110,6 +115,11 @@ export function makeApi(): LazyAudioApi {
     },
     library: {
       list: () => invoke<ListResult>(LIBRARY.list, {}),
+      rename: (recordingId: string, title: string) =>
+        invoke<LibraryRenameResult>(LIBRARY.rename, { recordingId, title }),
+      delete: (recordingId: string) => invoke<LibraryDeleteResult>(LIBRARY.delete, { recordingId }),
+      showInFolder: (recordingId: string) =>
+        invoke<LibraryShowInFolderResult>(LIBRARY.showInFolder, { recordingId }),
     },
     settings: {
       get: () => invoke<Settings>(SETTINGS.get, {}),

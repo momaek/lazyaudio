@@ -4,7 +4,8 @@
 > **当前里程碑**：M5（库 + LLM 摘要 + onboarding）
 > **当前焦点**：M5 起步:T50 onboarding done(#38/#39),T51 LLM 摘要核心 done(#37)。T52 模板 tab 已实现(feat/T52-llm-templates),typecheck/test/lint 已过,待 GUI 手测/开 PR。**🔄 fix/M4-passA-live-seg**(已开 PR):修 Pass A 实时转录两个 P0 —— ① VAD `front()` 返回 external buffer 被 Electron 拒(`External buffers are not allowed`),confirmed 段从来出不来 → 改 `front(false)` 后又重构成「不依赖 VAD 闭合段、只用 isDetected 门控」;② 重构分段为「攒 ~13s 或真实停顿才固化」,实时质量从 1-3 词碎片提到 4-13s 连贯块。单测 5 个(含 front 回归守卫)+ 全量 82 过;**待真机手测质量版**。新增候选 **T41 Pass A 渐进精修(live multi-pass)** 写进 dev-plan。下一候选 T53 云端转录 / T54 导出。剩 spike-012 压测 + T15a 崩溃恢复手测
 > **T53 云端转录已合并(PR #43)**,仍 🔄 待真机手测(需真云端 key)。
-> **🔄 feat/T54-export(PR #44)**:导出 md/txt/srt 代码完成 —— export 域(IPC + 纯函数生成器 + save dialog 落盘)+ 详情头临时导出按钮(T55 ⋯ 菜单接管);10 单测(SRT 精确字节+md/txt 结构)+ 全量 99 过/typecheck/lint 净;**待真机手测**(dialog 落盘 + 打开正常)
+> **T54 导出已合并(PR #44)**,仍 🔄 待真机手测。
+> **🔄 feat/T55-list-actions**:列表项操作代码完成 —— 右键/hover ⋯ 菜单(全 6 项)+ 双击行内重命名 + 详情头图标组 [重转][导出][更多⋯](替掉 T54 临时按钮);新增 library:rename/delete(录音中守卫)/show-in-folder;mockup↔spec 冲突用户裁决「两边都做」;typecheck/test 99/lint 净;**待真机手测**
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -85,7 +86,7 @@
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 45 (M3-M7 T) = **62** |
 | ✅ done                   | 43                                              |
-| 🔄 wip                    | 4（T15a,T52,T53,T54）                           |
+| 🔄 wip                    | 5（T15a,T52,T53,T54,T55）                       |
 | ⛔ blocked                | 0                                               |
 | 🔲 todo                   | 17                                              |
 | 本周燃尽                  | —                                               |
@@ -96,8 +97,10 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
+- [ ] T55 列表项操作完整：右键/⋯ 菜单的重命名/删除/导出/Finder/重转/重摘每个都能跑 + 删除带确认
+  - 代码已就绪(typecheck/test 99/lint 净)；验证：**待真机手测**(列表项右键+hover ⋯+双击重命名+详情头图标组;删除确认 dialog;Finder 打开)
 - [ ] T54 导出：导出 md / txt / srt 三种文件用 VS Code / 字幕编辑器打开都正常
-  - 生成器已单测(SRT 精确字节 + md/txt 结构 + 时间戳四舍五入,全量 99 过)；验证：**待真机手测**(详情头导出按钮 → save dialog → 落盘 → 三种文件打开正常)
+  - 生成器已单测(SRT 精确字节 + md/txt 结构 + 时间戳四舍五入,全量 99 过,已合 PR #44)；验证：**待真机手测**(详情头导出 → save dialog → 落盘 → 三种文件打开正常)
 - [ ] T53 云端转录：云端模式下录 1 min → 转录结果回来 → 显示
   - 代码已就绪(typecheck/test/lint 净,已合 PR #43)；验证：**待真机手测**(privacyMode=cloud + 配真云端 baseUrl/key/transcribeModel → 录 1min → transcript 回显)
 - [ ] T15a 崩溃恢复扫描：录音中异常退出后，重启可在库里看到 partial 录音
@@ -204,7 +207,7 @@
 | T52 | 设置 - LLM 模板 tab         | 🔄 wip  | feat/T52-llm-templates                                                         | 2026-06-01 | —          | 5 模板列表 + prompt 编辑 + sessionType→templateId 映射已接通;typecheck/test/lint 已过;待 GUI 手测/开 PR 后转 ✅                                                                                                                                                                                                                                                                                                                               |
 | T53 | 云端转录                    | 🔄 wip  | feat/T53-cloud-transcribe ([#43](https://github.com/momaek/lazyaudio/pull/43)) | 2026-06-03 | —          | OpenAI 兼容 Audio API(`/audio/transcriptions` multipart 直传 WAV,verbose_json,429/5xx 退避×3)+ 编排器按 privacyMode 路由 Pass B(engine `openai-compatible`)+ 云端模式禁 Pass A(F4.9)+ settings.cloud.transcribeModel + 设置页本地/云端切换接 privacyMode + 转录模型输入。按「远端处理任意大小」直传,不引 ffmpeg/不切片。7 单测(本地 http server 端到端)+ 全量 89 过,typecheck/lint 净。**待真机手测 AC(需真云端 key)**;切换未配置弹提示留 T57 |
 | T54 | 导出（md/txt/srt）          | 🔄 wip  | feat/T54-export ([#44](https://github.com/momaek/lazyaudio/pull/44))           | 2026-06-04 | —          | export 域(IPC export:run + collect + 纯函数生成器 format.ts)：md=元信息+摘要+转录(行内[HH:MM:SS]) / txt=元信息+摘要+纯文本 / srt=标准 `HH:MM:SS,mmm` 时间轴；main 弹 save dialog 落盘；详情头临时「导出」按钮(md/txt/srt 小菜单),T55 的 ⋯ 菜单上线后接管。10 单测(SRT 精确字节 + md/txt 结构 + 时间戳四舍五入)+ 全量 99 过,typecheck/lint 净。**待真机手测**(dialog 落盘 + VS Code/字幕器打开)                                                |
-| T55 | 列表项操作完整              | 🔲 todo | —                                                                              | —          | —          | 依赖 T16                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| T55 | 列表项操作完整              | 🔄 wip  | feat/T55-list-actions                                                          | 2026-06-04 | —          | 列表项右键 + hover ⋯ 菜单(全 6 项)+ 双击行内重命名 + 详情头 mockup 图标组 [重转][导出][更多⋯](替掉 T54 临时导出按钮)。新增 library:rename/delete(录音中守卫)/show-in-folder IPC;重转/重摘/导出复用 T37/T51/T54;删除带 confirm。mockup(详情头按钮)↔spec(列表项 ⋯ 菜单)冲突 → 用户裁决「两边都做」。typecheck/test 99/lint 净。**待真机手测**(6 操作 + 删除确认 + Finder)                                                                       |
 | T56 | 系统通知                    | 🔲 todo | —                                                                              | —          | —          | 依赖 T32                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | T57 | 设置完整                    | 🔲 todo | —                                                                              | —          | —          | 依赖 T52                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | T58 | 深色模式 toggle + 过渡      | 🔲 todo | —                                                                              | —          | —          | 依赖 T18                                                                                                                                                                                                                                                                                                                                                                                                                                      |

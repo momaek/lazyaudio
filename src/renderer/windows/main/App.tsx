@@ -113,26 +113,109 @@ function ListItem({
   entry,
   selected,
   onSelect,
+  isRenaming,
+  onStartRename,
+  onEndRename,
+  refresh,
 }: {
   entry: LibraryEntry
   selected: boolean
   onSelect: () => void
+  isRenaming: boolean
+  onStartRename: () => void
+  onEndRename: () => void
+  refresh: () => void
 }): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      className={`lib-item ${selected ? 'is-selected' : ''}`}
-      data-type={SESSION_UI_TYPE[entry.sessionType]}
-      onClick={onSelect}
-    >
-      <span className="lib-item-dot" />
-      <div className="lib-item-title">
-        <b>{entry.title}</b>
-        <span className="timeofday">{formatTimeOfDay(entry.startedAt)}</span>
+  const { t } = useTranslation()
+  const items = useRecordingMenuItems(entry.id, { refresh, startRename: onStartRename })
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+
+  const commitRename = useCallback(
+    (raw: string) => {
+      const title = raw.trim()
+      if (title && title !== entry.title) {
+        window.lazyaudio.library
+          .rename(entry.id, title)
+          .then((r) => {
+            if (r.ok) refresh()
+          })
+          .catch((e) => console.warn('rename failed', e))
+      }
+      onEndRename()
+    },
+    [entry.id, entry.title, refresh, onEndRename],
+  )
+
+  if (isRenaming) {
+    return (
+      <div
+        className={`lib-item is-renaming ${selected ? 'is-selected' : ''}`}
+        data-type={SESSION_UI_TYPE[entry.sessionType]}
+      >
+        <span className="lib-item-dot" />
+        <input
+          className="lib-rename-input"
+          defaultValue={entry.title}
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitRename(e.currentTarget.value)
+            else if (e.key === 'Escape') onEndRename()
+          }}
+          onBlur={(e) => commitRename(e.currentTarget.value)}
+        />
       </div>
-      <div className="lib-item-dur">{formatDuration(entry.durationMs)}</div>
-      <div className="lib-item-preview">{sourcePreview(entry)}</div>
-    </button>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`lib-item ${selected ? 'is-selected' : ''}`}
+        data-type={SESSION_UI_TYPE[entry.sessionType]}
+        onClick={onSelect}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setMenu({ x: e.clientX, y: e.clientY })
+        }}
+      >
+        <span className="lib-item-dot" />
+        <div className="lib-item-title">
+          <b
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              onStartRename()
+            }}
+          >
+            {entry.title}
+          </b>
+          <span className="timeofday">{formatTimeOfDay(entry.startedAt)}</span>
+        </div>
+        <div className="lib-item-dur">{formatDuration(entry.durationMs)}</div>
+        <div className="lib-item-preview">{sourcePreview(entry)}</div>
+        <span
+          className="lib-item-more"
+          role="button"
+          tabIndex={-1}
+          aria-label={t('common:library.moreActions')}
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            setMenu({ x: r.right - 168, y: r.bottom + 4 })
+          }}
+        >
+          <MoreIcon />
+        </span>
+      </button>
+      {menu ? (
+        <Menu
+          items={items}
+          style={{ position: 'fixed', left: menu.x, top: menu.y }}
+          onClose={() => setMenu(null)}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -142,12 +225,20 @@ function LibrarySidebar({
   onSelect,
   onSelectId,
   recording,
+  renamingId,
+  onStartRename,
+  onEndRename,
+  refresh,
 }: {
   groups: LibraryGroup[]
   selectedId: string | null
   onSelect: (entry: LibraryEntry) => void
   onSelectId: (id: string) => void
   recording: RecordingInfo | null
+  renamingId: string | null
+  onStartRename: (id: string) => void
+  onEndRename: () => void
+  refresh: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
@@ -247,6 +338,10 @@ function LibrarySidebar({
                       entry={entry}
                       selected={entry.id === selectedId}
                       onSelect={() => onSelect(entry)}
+                      isRenaming={entry.id === renamingId}
+                      onStartRename={() => onStartRename(entry.id)}
+                      onEndRename={onEndRename}
+                      refresh={refresh}
                     />
                   ))}
                 </div>
@@ -259,64 +354,229 @@ function LibrarySidebar({
   )
 }
 
-// T54 — 导出按钮(临时落在详情头;T55 的列表项 ⋯ 右键菜单上线后接管 / 移除)。
-// 点开小菜单选 md / txt / srt → main 弹保存对话框落盘。
-function ExportButton({ recordingId }: { recordingId: string }): React.JSX.Element {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+// ---- T55 列表项操作:右键 / ⋯ 菜单 + 详情头操作 ----
+function RefreshIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M13.5 8a5.5 5.5 0 1 1-1.7-3.95" />
+      <path d="M13.5 2.5V5h-2.5" />
+    </svg>
+  )
+}
+function DownloadIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 2v8.5" />
+      <path d="m4.5 7 3.5 3.5L11.5 7" />
+      <path d="M3 13.5h10" />
+    </svg>
+  )
+}
+function MoreIcon(): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+      <circle cx="3.5" cy="8" r="1.3" />
+      <circle cx="8" cy="8" r="1.3" />
+      <circle cx="12.5" cy="8" r="1.3" />
+    </svg>
+  )
+}
 
+interface MenuItem {
+  key: string
+  label: string
+  danger?: boolean
+  onSelect: () => void
+}
+
+// 弹出菜单:outside-click / Esc 关闭。定位由调用方经 style 给(列表项用 fixed 光标位,详情头用 absolute 锚定)。
+function Menu({
+  items,
+  style,
+  onClose,
+}: {
+  items: MenuItem[]
+  style: React.CSSProperties
+  onClose: () => void
+}): React.JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!open) return
     const onDoc = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
     }
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  const run = useCallback(
-    (format: 'md' | 'txt' | 'srt') => {
-      setOpen(false)
-      setBusy(true)
-      window.lazyaudio.export
-        .run(recordingId, format)
-        .catch((e) => console.warn('export failed', e))
-        .finally(() => setBusy(false))
-    },
-    [recordingId],
-  )
-
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
   return (
-    <div className="dh-export" ref={ref}>
-      <button
-        type="button"
-        className="btn btn-secondary btn-compact"
-        disabled={busy}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {t('common:library.export')}
-        <ChevronDownIcon />
-      </button>
-      {open ? (
-        <div className="dh-export-menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => run('md')}>
-            {t('common:library.exportMd')}
-          </button>
-          <button type="button" role="menuitem" onClick={() => run('txt')}>
-            {t('common:library.exportTxt')}
-          </button>
-          <button type="button" role="menuitem" onClick={() => run('srt')}>
-            {t('common:library.exportSrt')}
-          </button>
-        </div>
-      ) : null}
+    <div className="pop-menu" ref={ref} style={style} role="menu">
+      {items.map((it) => (
+        <button
+          key={it.key}
+          type="button"
+          role="menuitem"
+          className={`pop-menu-item${it.danger ? ' danger' : ''}`}
+          onClick={() => {
+            onClose()
+            it.onSelect()
+          }}
+        >
+          {it.label}
+        </button>
+      ))}
     </div>
   )
 }
 
-function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX.Element {
+// 某录音的全部操作项(列表项右键菜单 / 详情头共用)。导出/重转/重摘复用 T54/T37/T51 的 IPC。
+function useRecordingMenuItems(
+  recordingId: string,
+  opts: { refresh: () => void; startRename: () => void },
+): MenuItem[] {
+  const { t } = useTranslation()
+  const { refresh, startRename } = opts
+  const del = useCallback(() => {
+    if (!window.confirm(t('common:library.deleteConfirm'))) return
+    window.lazyaudio.library
+      .delete(recordingId)
+      .then((r) => {
+        if (r.ok) refresh()
+        else if (r.error === 'recording-active') window.alert(t('common:library.deleteActiveError'))
+      })
+      .catch((e) => console.warn('delete failed', e))
+  }, [recordingId, refresh, t])
+
+  const exportAs = (fmt: 'md' | 'txt' | 'srt'): void => {
+    window.lazyaudio.export.run(recordingId, fmt).catch((e) => console.warn('export failed', e))
+  }
+
+  return [
+    { key: 'rename', label: t('common:library.actionRename'), onSelect: startRename },
+    {
+      key: 'retranscribe',
+      label: t('common:library.actionRetranscribe'),
+      onSelect: () =>
+        window.lazyaudio.transcribe
+          .retry(recordingId)
+          .catch((e) => console.warn('retry failed', e)),
+    },
+    {
+      key: 'resummarize',
+      label: t('common:library.actionResummarize'),
+      onSelect: () =>
+        window.lazyaudio.summary
+          .generate(recordingId)
+          .catch((e) => console.warn('resummarize failed', e)),
+    },
+    { key: 'export-md', label: t('common:library.exportMd'), onSelect: () => exportAs('md') },
+    { key: 'export-txt', label: t('common:library.exportTxt'), onSelect: () => exportAs('txt') },
+    { key: 'export-srt', label: t('common:library.exportSrt'), onSelect: () => exportAs('srt') },
+    {
+      key: 'finder',
+      label: t('common:library.actionShowInFolder'),
+      onSelect: () =>
+        window.lazyaudio.library
+          .showInFolder(recordingId)
+          .catch((e) => console.warn('showInFolder failed', e)),
+    },
+    { key: 'delete', label: t('common:library.actionDelete'), danger: true, onSelect: del },
+  ]
+}
+
+// 详情头操作(已完成录音):mockup 的 [重新转录][导出][更多⋯] 图标组。
+function DoneHeaderActions({
+  recordingId,
+  refresh,
+  startRename,
+}: {
+  recordingId: string
+  refresh: () => void
+  startRename: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const items = useRecordingMenuItems(recordingId, { refresh, startRename })
+  const [open, setOpen] = useState<null | 'export' | 'more'>(null)
+  const exportItems = items.filter((i) => i.key.startsWith('export-'))
+  const moreItems = items.filter((i) =>
+    ['rename', 'resummarize', 'finder', 'delete'].includes(i.key),
+  )
+  const retranscribe = items.find((i) => i.key === 'retranscribe')
+  const anchor: React.CSSProperties = { position: 'absolute', top: 'calc(100% + 4px)', right: 0 }
+  return (
+    <div className="dh-actions">
+      <button
+        type="button"
+        className="icon-btn"
+        title={t('common:library.actionRetranscribe')}
+        onClick={() => retranscribe?.onSelect()}
+      >
+        <RefreshIcon />
+      </button>
+      <div className="dh-menu-wrap">
+        <button
+          type="button"
+          className="icon-btn"
+          title={t('common:library.export')}
+          onClick={() => setOpen((m) => (m === 'export' ? null : 'export'))}
+        >
+          <DownloadIcon />
+        </button>
+        {open === 'export' ? (
+          <Menu items={exportItems} style={anchor} onClose={() => setOpen(null)} />
+        ) : null}
+      </div>
+      <div className="dh-menu-wrap">
+        <button
+          type="button"
+          className="icon-btn"
+          title={t('common:library.moreActions')}
+          onClick={() => setOpen((m) => (m === 'more' ? null : 'more'))}
+        >
+          <MoreIcon />
+        </button>
+        {open === 'more' ? (
+          <Menu items={moreItems} style={anchor} onClose={() => setOpen(null)} />
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function DetailPlaceholder({
+  entry,
+  onStartRename,
+  refresh,
+}: {
+  entry: LibraryEntry | null
+  onStartRename: (id: string) => void
+  refresh: () => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   if (!entry) {
     return (
@@ -376,9 +636,11 @@ function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX
           <span className="dot-sep" />
           <span>{sourcePreview(entry)}</span>
         </span>
-        <div className="dh-actions">
-          <ExportButton recordingId={entry.id} />
-        </div>
+        <DoneHeaderActions
+          recordingId={entry.id}
+          refresh={refresh}
+          startRename={() => onStartRename(entry.id)}
+        />
       </header>
       <DetailBody entry={entry} />
     </section>
@@ -1000,6 +1262,7 @@ export function App(): React.JSX.Element {
   const { t } = useTranslation()
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
   const [recState, setRecState] = useState<RecorderSnapshot | null>(null)
   const [nowTs, setNowTs] = useState<number>(() => Date.now())
   const recStatusRef = useRef<RecorderSnapshot['status'] | null>(null)
@@ -1096,6 +1359,13 @@ export function App(): React.JSX.Element {
     window.lazyaudio.record.stop().catch((e) => console.warn('record.stop failed', e))
   }, [])
 
+  // T55:开始行内重命名(同时确保该条被选中);结束 = 清除编辑态
+  const startRename = useCallback((id: string) => {
+    setSelectedId(id)
+    setRenamingId(id)
+  }, [])
+  const endRename = useCallback(() => setRenamingId(null), [])
+
   const selectedEntry = useMemo(() => {
     if (state.kind !== 'ready' || !selectedId) return null
     for (const group of state.groups) {
@@ -1126,11 +1396,19 @@ export function App(): React.JSX.Element {
           onSelect={(entry) => setSelectedId(entry.id)}
           onSelectId={(id) => setSelectedId(id)}
           recording={recordingInfo}
+          renamingId={renamingId}
+          onStartRename={startRename}
+          onEndRename={endRename}
+          refresh={refetchLibrary}
         />
         {recordingInfo ? (
           <DetailRecording info={recordingInfo} onStop={handleStop} />
         ) : (
-          <DetailPlaceholder entry={selectedEntry} />
+          <DetailPlaceholder
+            entry={selectedEntry}
+            onStartRename={startRename}
+            refresh={refetchLibrary}
+          />
         )}
       </div>
     </main>

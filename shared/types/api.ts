@@ -19,7 +19,12 @@ import type {
   ShowPrepResult,
   RecorderSnapshot,
 } from '../ipc/record'
-import type { ListResult } from '../ipc/library'
+import type {
+  ListResult,
+  RenameResult as LibraryRenameResult,
+  DeleteResult as LibraryDeleteResult,
+  ShowInFolderResult as LibraryShowInFolderResult,
+} from '../ipc/library'
 import type { Settings, SetArgs } from '../ipc/settings'
 import type { MicStatusResult, RequestMicResult, OpenMicSettingsResult } from '../ipc/permission'
 import type {
@@ -84,6 +89,12 @@ export interface LazyAudioApi {
   library: {
     /** T15 录音库 v0.1:按日期分组返回 recordings 下的 meta 快照 */
     list(): Promise<ListResult>
+    /** T55 重命名(改 meta.title) */
+    rename(recordingId: string, title: string): Promise<LibraryRenameResult>
+    /** T55 删除录音(rm 目录;正在录这条会被拒) */
+    delete(recordingId: string): Promise<LibraryDeleteResult>
+    /** T55 在 Finder / 资源管理器显示录音目录 */
+    showInFolder(recordingId: string): Promise<LibraryShowInFolderResult>
   }
   settings: {
     /** 拉当前完整 settings(窗口 mount 时调) */

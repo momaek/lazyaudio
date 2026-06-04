@@ -34,6 +34,10 @@ export const RECORD = {
 
 export const LIBRARY = {
   list: 'library:list',
+  // T55 — 列表项操作:重命名(改 meta.title)/ 删除(rm 录音目录)/ 在 Finder 显示
+  rename: 'library:rename',
+  delete: 'library:delete',
+  showInFolder: 'library:show-in-folder',
 } as const
 
 // T16 — 录音音频的自定义流式协议(main 注册 protocol.handle,renderer 拿来喂 <audio>)。
