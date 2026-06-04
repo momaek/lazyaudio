@@ -899,6 +899,48 @@
   gap: 8px;
 }
 
+/* T54 — 导出按钮 + 下拉小菜单(临时落在详情头) */
+.dh-export {
+  position: relative;
+}
+
+.dh-export .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dh-export-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-panel, var(--color-white));
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.dh-export-menu button {
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--color-gray-800);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dh-export-menu button:hover {
+  background: var(--color-gray-100);
+}
+
 .btn-rec-pause {
   height: 28px;
   padding: 0 10px;

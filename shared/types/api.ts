@@ -50,6 +50,7 @@ import type {
   SetTemplateResult,
   ResetTemplateResult,
 } from '../ipc/summary'
+import type { ExportFormat, RunResult as ExportRunResult } from '../ipc/export'
 import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../audio/messages'
 
 export interface LazyAudioApi {
@@ -147,6 +148,10 @@ export interface LazyAudioApi {
     onDone(cb: (event: SummaryDoneEvent) => void): () => void
     /** 订阅失败事件 */
     onError(cb: (event: SummaryErrorEvent) => void): () => void
+  }
+  export: {
+    /** T54:导出某录音为 md / txt / srt(弹保存对话框);canceled=true 表示用户取消 */
+    run(recordingId: string, format: ExportFormat): Promise<ExportRunResult>
   }
   audio: {
     /** capture window 订阅:main 发"启 capture"信令(T12) */

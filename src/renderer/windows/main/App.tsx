@@ -259,6 +259,63 @@ function LibrarySidebar({
   )
 }
 
+// T54 — 导出按钮(临时落在详情头;T55 的列表项 ⋯ 右键菜单上线后接管 / 移除)。
+// 点开小菜单选 md / txt / srt → main 弹保存对话框落盘。
+function ExportButton({ recordingId }: { recordingId: string }): React.JSX.Element {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const run = useCallback(
+    (format: 'md' | 'txt' | 'srt') => {
+      setOpen(false)
+      setBusy(true)
+      window.lazyaudio.export
+        .run(recordingId, format)
+        .catch((e) => console.warn('export failed', e))
+        .finally(() => setBusy(false))
+    },
+    [recordingId],
+  )
+
+  return (
+    <div className="dh-export" ref={ref}>
+      <button
+        type="button"
+        className="btn btn-secondary btn-compact"
+        disabled={busy}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {t('common:library.export')}
+        <ChevronDownIcon />
+      </button>
+      {open ? (
+        <div className="dh-export-menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => run('md')}>
+            {t('common:library.exportMd')}
+          </button>
+          <button type="button" role="menuitem" onClick={() => run('txt')}>
+            {t('common:library.exportTxt')}
+          </button>
+          <button type="button" role="menuitem" onClick={() => run('srt')}>
+            {t('common:library.exportSrt')}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX.Element {
   const { t } = useTranslation()
   if (!entry) {
@@ -319,6 +376,9 @@ function DetailPlaceholder({ entry }: { entry: LibraryEntry | null }): React.JSX
           <span className="dot-sep" />
           <span>{sourcePreview(entry)}</span>
         </span>
+        <div className="dh-actions">
+          <ExportButton recordingId={entry.id} />
+        </div>
       </header>
       <DetailBody entry={entry} />
     </section>

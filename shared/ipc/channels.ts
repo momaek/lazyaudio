@@ -101,6 +101,11 @@ export const PERMISSION = {
   openMicSettings: 'permission:open-mic-settings',
 } as const
 
+// T54 — 导出:某录音 → md / txt / srt(弹保存对话框 + 落盘)
+export const EXPORT = {
+  run: 'export:run',
+} as const
+
 // T12 — audio capture control 信令(main → capture-window renderer)
 // PCM 数据流走独立 MessagePort,不在这里;详见 audio-capture.md §4 + ipc-contract.md §2.3
 export const AUDIO = {
