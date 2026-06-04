@@ -48,6 +48,44 @@ export const ShortcutSettings = z.object({
 })
 export type ShortcutSettings = z.infer<typeof ShortcutSettings>
 
+/** T57 — 录音设置(settings.md Tab2)。saveDir='' 用默认 recordings 目录;
+ *  字段级 .default 保证老 settings.json 缺 recording 块仍能 parse。
+ *  注:采样率/分轨/混音/命名/静音自停/最短录音/电平表 在 v0.1 持久化保存,
+ *  录音管线接入后才真正生效(本任务先存,标「录制时生效」)。 */
+export const WavSampleRate = z.union([z.literal(16000), z.literal(24000), z.literal(48000)])
+export type WavSampleRate = z.infer<typeof WavSampleRate>
+
+export const RecordingSettings = z.object({
+  saveDir: z.string().default(''),
+  autoTranscribe: z.boolean().default(true),
+  autoCleanupEnabled: z.boolean().default(false),
+  autoCleanupDays: z.number().int().min(7).max(365).default(90),
+  generateTracks: z.boolean().default(true),
+  generateMixed: z.boolean().default(true),
+  wavSampleRate: WavSampleRate.default(16000),
+  fileNameFormat: z.string().min(1).default('{sessionType}_{date}_{time}'),
+  minDurationSec: z.number().int().min(0).max(10).default(2),
+  silenceAutoStopEnabled: z.boolean().default(false),
+  silenceAutoStopSec: z.number().int().min(30).max(600).default(60),
+  showLevelMeter: z.boolean().default(true),
+})
+export type RecordingSettings = z.infer<typeof RecordingSettings>
+
+export const DEFAULT_RECORDING: RecordingSettings = {
+  saveDir: '',
+  autoTranscribe: true,
+  autoCleanupEnabled: false,
+  autoCleanupDays: 90,
+  generateTracks: true,
+  generateMixed: true,
+  wavSampleRate: 16000,
+  fileNameFormat: '{sessionType}_{date}_{time}',
+  minDurationSec: 2,
+  silenceAutoStopEnabled: false,
+  silenceAutoStopSec: 60,
+  showLevelMeter: true,
+}
+
 /** T51 — 云端 LLM 配置(OpenAI 兼容)。apiKeyCipher = safeStorage 加密后的 base64,
  *  '' 表示未配置;renderer 只读密文(无法解密,safeStorage 在 main),永不见明文。 */
 export const CloudSettings = z.object({
@@ -124,6 +162,8 @@ export const Settings = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION.settings),
   general: GeneralSettings,
   shortcuts: ShortcutSettings,
+  // .default 保证老 settings.json(无 recording 字段)仍能 parse
+  recording: RecordingSettings.default(DEFAULT_RECORDING),
   // .default 保证老 settings.json(无 cloud 字段)仍能 parse,不丢用户已有设置
   cloud: CloudSettings.default(DEFAULT_CLOUD),
   templates: TemplateSettings.default(DEFAULT_TEMPLATES),
@@ -149,6 +189,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shortcuts: {
     toggleRecord: DEFAULT_TOGGLE_RECORD_ACCEL,
   },
+  recording: DEFAULT_RECORDING,
   cloud: DEFAULT_CLOUD,
   templates: DEFAULT_TEMPLATES,
   onboarding: DEFAULT_ONBOARDING,
@@ -174,9 +215,35 @@ export type CloudSetArgs = z.infer<typeof CloudSetArgs>
 export const SetArgs = z.object({
   general: GeneralSettings.partial().optional(),
   shortcuts: ShortcutSettings.partial().optional(),
+  recording: RecordingSettings.partial().optional(),
   cloud: CloudSetArgs.optional(),
   templates: TemplateSettings.partial().optional(),
   // T53 — 设置页「转录引擎」本地/云端切换写 onboarding.privacyMode(转录路由信号)
   onboarding: OnboardingSettings.partial().optional(),
 })
 export type SetArgs = z.infer<typeof SetArgs>
+
+// ---- T57 录音目录选择 / Finder / 危险操作 ----
+export const PickDirArgs = z.object({}).optional()
+export const PickDirResult = z.object({
+  canceled: z.boolean(),
+  /** 选中的目录绝对路径(canceled=false 时有) */
+  path: z.string().optional(),
+})
+export type PickDirResult = z.infer<typeof PickDirResult>
+
+export const OpenDirResult = z.object({ ok: z.boolean(), error: z.string().optional() })
+export type OpenDirResult = z.infer<typeof OpenDirResult>
+
+export const DangerAction = z.enum(['clear-recordings', 'clear-models', 'reset-app', 'wipe-all'])
+export type DangerAction = z.infer<typeof DangerAction>
+
+export const DangerActionArgs = z.object({ action: DangerAction })
+export type DangerActionArgs = z.infer<typeof DangerActionArgs>
+
+export const DangerActionResult = z.object({
+  ok: z.boolean(),
+  /** 'recording-active' = 录音中,清空录音被拒 */
+  error: z.string().optional(),
+})
+export type DangerActionResult = z.infer<typeof DangerActionResult>

@@ -7,6 +7,7 @@ import { BrowserWindow } from 'electron'
 import { RECORD } from '@shared/ipc/channels'
 import type { RecorderSnapshot } from '@shared/ipc/record'
 import { getRecorderState } from './recorder-state'
+import { updateTrayRecording } from '../menu/tray'
 
 export function getRecorderSnapshot(): RecorderSnapshot {
   const s = getRecorderState()
@@ -21,6 +22,8 @@ export function getRecorderSnapshot(): RecorderSnapshot {
 
 export function broadcastRecorderState(): void {
   const snapshot = getRecorderSnapshot()
+  // T57:录音中 tray「退出」变灰
+  updateTrayRecording(snapshot.status === 'recording' || snapshot.status === 'stopping')
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send(RECORD.stateChanged, snapshot)

@@ -1,11 +1,12 @@
 # 开发进度（live）
 
-> **最后更新**：2026-06-04
+> **最后更新**：2026-06-05
 > **当前里程碑**：M5（库 + LLM 摘要 + onboarding）
 > **当前焦点**：M5 起步:T50 onboarding done(#38/#39),T51 LLM 摘要核心 done(#37)。T52 模板 tab 已实现(feat/T52-llm-templates),typecheck/test/lint 已过,待 GUI 手测/开 PR。**🔄 fix/M4-passA-live-seg**(已开 PR):修 Pass A 实时转录两个 P0 —— ① VAD `front()` 返回 external buffer 被 Electron 拒(`External buffers are not allowed`),confirmed 段从来出不来 → 改 `front(false)` 后又重构成「不依赖 VAD 闭合段、只用 isDetected 门控」;② 重构分段为「攒 ~13s 或真实停顿才固化」,实时质量从 1-3 词碎片提到 4-13s 连贯块。单测 5 个(含 front 回归守卫)+ 全量 82 过;**待真机手测质量版**。新增候选 **T41 Pass A 渐进精修(live multi-pass)** 写进 dev-plan。下一候选 T53 云端转录 / T54 导出。剩 spike-012 压测 + T15a 崩溃恢复手测
 > **T53 云端转录已合并(PR #43)**,仍 🔄 待真机手测(需真云端 key)。
 > **T54 导出已合并(PR #44)**,仍 🔄 待真机手测。
 > **🔄 feat/T55-list-actions(PR #45)**:列表项操作代码完成 —— 右键/hover ⋯ 菜单(全 6 项)+ 双击行内重命名 + 详情头图标组 [重转][导出][更多⋯](替掉 T54 临时按钮);新增 library:rename/delete(录音中守卫)/show-in-folder;mockup↔spec 冲突用户裁决「两边都做」;typecheck/test 99/lint 净;**待真机手测**
+> **🔄 T56 系统通知 + T57 设置完整(并入 PR #45)**:T56 转录完成/失败弹系统通知,点击跳回该录音;T57 录音/隐私/关于三 tab 可生效子集(保存目录可改/自动转录门控/合规开关/danger-zone/关于外链/退出录音中变灰),管线相关项持久化标「录制时生效」;typecheck/test 99/lint 净;**待真机手测**
 > **配套**：[`development-plan.md`](./development-plan.md)（任务定义 + AC + 依赖）
 
 ---
@@ -86,7 +87,7 @@
 | ------------------------- | ----------------------------------------------- |
 | 总任务（T + spike + ADR） | 4 + 9 + 4 = 17（pre-M3）/ 45 (M3-M7 T) = **62** |
 | ✅ done                   | 43                                              |
-| 🔄 wip                    | 5（T15a,T52,T53,T54,T55）                       |
+| 🔄 wip                    | 7（T15a,T52,T53,T54,T55,T56,T57）               |
 | ⛔ blocked                | 0                                               |
 | 🔲 todo                   | 17                                              |
 | 本周燃尽                  | —                                               |
@@ -97,6 +98,10 @@
 
 > 同时不超过 2-3 项。空着也行，表示在选下一个任务。
 
+- [ ] T56 系统通知:录完音切到别的窗口 → 转录完看到通知 → 点能跳回该录音
+  - 代码已就绪(typecheck/test 99/lint 净)；验证：**待真机手测**(切走窗口→等转录完→系统通知→点击跳回选中)
+- [ ] T57 设置完整:录音/隐私/关于三 tab 内容齐全 + 改设置即时生效
+  - 可生效子集代码已就绪(typecheck/test 99/lint 净)；验证：**待真机手测**(保存目录改后新录音落新路径/自动转录关后停录不转/合规开关/danger-zone 双确认/关于外链/退出录音中 tray 变灰;采样率等持久化项标录制时生效)
 - [ ] T55 列表项操作完整：右键/⋯ 菜单的重命名/删除/导出/Finder/重转/重摘每个都能跑 + 删除带确认
   - 代码已就绪(typecheck/test 99/lint 净)；验证：**待真机手测**(列表项右键+hover ⋯+双击重命名+详情头图标组;删除确认 dialog;Finder 打开)
 - [ ] T54 导出：导出 md / txt / srt 三种文件用 VS Code / 字幕编辑器打开都正常
@@ -208,8 +213,8 @@
 | T53 | 云端转录                    | 🔄 wip  | feat/T53-cloud-transcribe ([#43](https://github.com/momaek/lazyaudio/pull/43)) | 2026-06-03 | —          | OpenAI 兼容 Audio API(`/audio/transcriptions` multipart 直传 WAV,verbose_json,429/5xx 退避×3)+ 编排器按 privacyMode 路由 Pass B(engine `openai-compatible`)+ 云端模式禁 Pass A(F4.9)+ settings.cloud.transcribeModel + 设置页本地/云端切换接 privacyMode + 转录模型输入。按「远端处理任意大小」直传,不引 ffmpeg/不切片。7 单测(本地 http server 端到端)+ 全量 89 过,typecheck/lint 净。**待真机手测 AC(需真云端 key)**;切换未配置弹提示留 T57 |
 | T54 | 导出（md/txt/srt）          | 🔄 wip  | feat/T54-export ([#44](https://github.com/momaek/lazyaudio/pull/44))           | 2026-06-04 | —          | export 域(IPC export:run + collect + 纯函数生成器 format.ts)：md=元信息+摘要+转录(行内[HH:MM:SS]) / txt=元信息+摘要+纯文本 / srt=标准 `HH:MM:SS,mmm` 时间轴；main 弹 save dialog 落盘；详情头临时「导出」按钮(md/txt/srt 小菜单),T55 的 ⋯ 菜单上线后接管。10 单测(SRT 精确字节 + md/txt 结构 + 时间戳四舍五入)+ 全量 99 过,typecheck/lint 净。**待真机手测**(dialog 落盘 + VS Code/字幕器打开)                                                |
 | T55 | 列表项操作完整              | 🔄 wip  | feat/T55-list-actions ([#45](https://github.com/momaek/lazyaudio/pull/45))     | 2026-06-04 | —          | 列表项右键 + hover ⋯ 菜单(全 6 项)+ 双击行内重命名 + 详情头 mockup 图标组 [重转][导出][更多⋯](替掉 T54 临时导出按钮)。新增 library:rename/delete(录音中守卫)/show-in-folder IPC;重转/重摘/导出复用 T37/T51/T54;删除带 confirm。mockup(详情头按钮)↔spec(列表项 ⋯ 菜单)冲突 → 用户裁决「两边都做」。typecheck/test 99/lint 净。**待真机手测**(6 操作 + 删除确认 + Finder)                                                                       |
-| T56 | 系统通知                    | 🔲 todo | —                                                                              | —          | —          | 依赖 T32                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| T57 | 设置完整                    | 🔲 todo | —                                                                              | —          | —          | 依赖 T52                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| T56 | 系统通知                    | 🔄 wip  | feat/T55-list-actions ([#45](https://github.com/momaek/lazyaudio/pull/45))     | 2026-06-05 | —          | 转录完成/失败弹 Electron Notification(主窗口聚焦时不打扰);点通知 → showMainWindow + library:activate → renderer 选中该录音。typecheck/test 99/lint 净。**待真机手测**;**合并在 PR #45**                                                                                                                                                                                                                                                       |
+| T57 | 设置完整                    | 🔄 wip  | feat/T55-list-actions ([#45](https://github.com/momaek/lazyaudio/pull/45))     | 2026-06-05 | —          | 录音/隐私/关于三 tab(可生效子集):保存目录可改(真生效)/Finder/录音结束自动转录(真生效)/合规开关;隐私 danger-zone(清空录音/模型/重置/完全清除,双确认+录音中守卫)+只读数据位置/Keychain+崩溃/统计灰显;关于(版本/外链/协议/致谢,检查更新灰显);退出录音中 tray 变灰。采样率/分轨/命名等持久化标「录制时生效」。typecheck/test 99/lint 净。**待真机手测**;**合并在 PR #45**                                                                         |
 | T58 | 深色模式 toggle + 过渡      | 🔲 todo | —                                                                              | —          | —          | 依赖 T18                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 **M5 退出条件**：首启 → onboarding → 录音 → 转录 → 摘要全自动；LLM 模板自动套用；至少一家云端走通；e2e CI 过。

@@ -64,3 +64,7 @@ export const ShowInFolderResult = z.object({
   error: z.string().optional(),
 })
 export type ShowInFolderResult = z.infer<typeof ShowInFolderResult>
+
+// T56 — 点系统通知后 main 发给 renderer:定位到该录音
+export const ActivateEvent = z.object({ recordingId: z.string() })
+export type ActivateEvent = z.infer<typeof ActivateEvent>

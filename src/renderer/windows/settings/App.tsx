@@ -12,13 +12,15 @@ type NavId = 'general' | 'recording' | 'engine' | 'templates' | 'shortcuts' | 'p
 
 const NAV_ITEMS: { id: NavId; glyph: string; enabled: boolean }[] = [
   { id: 'general', glyph: '⚙', enabled: true },
-  { id: 'recording', glyph: '⏺', enabled: false },
+  { id: 'recording', glyph: '⏺', enabled: true },
   { id: 'engine', glyph: '⌁', enabled: true },
   { id: 'templates', glyph: '✦', enabled: true },
   { id: 'shortcuts', glyph: '⌘', enabled: true },
-  { id: 'privacy', glyph: '◉', enabled: false },
-  { id: 'about', glyph: 'ⓘ', enabled: false },
+  { id: 'privacy', glyph: '◉', enabled: true },
+  { id: 'about', glyph: 'ⓘ', enabled: true },
 ]
+
+const APP_VERSION = 'v0.1.0' // 关于页展示用;真实版本注入留后续
 
 const SESSION_TYPES: SessionType[] = [
   'general',
@@ -975,6 +977,391 @@ function sameSessions(a: SessionType[], b: SessionType[]): boolean {
   return b.every((x) => set.has(x))
 }
 
+// ---- T57 录音 tab ----
+const DEFAULT_DIR_DISPLAY = '~/Library/Application Support/LazyAudio/recordings/'
+
+function RecordingTab({
+  settings,
+  patch,
+}: {
+  settings: Settings
+  patch: (next: Partial<Settings['recording']>) => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const r = settings.recording
+
+  const pickDir = useCallback(() => {
+    window.lazyaudio.settings
+      .pickRecordingsDir()
+      .then((res) => {
+        if (!res.canceled && res.path) patch({ saveDir: res.path })
+      })
+      .catch((e) => console.warn('pickRecordingsDir failed', e))
+  }, [patch])
+
+  return (
+    <>
+      <div className="set-page-head">
+        <h2>{t('common:settingsPage.recording.title')}</h2>
+        <div className="sub">{t('common:settingsPage.recording.subtitle')}</div>
+      </div>
+
+      <h3 className="setting-group-title">{t('common:settingsPage.recording.sectionLocation')}</h3>
+      <div className="setting-rows">
+        <SetRow label={t('common:settingsPage.recording.saveDir')}>
+          <div className="path-row">
+            <input className="text-input" readOnly value={r.saveDir || DEFAULT_DIR_DISPLAY} />
+            <button type="button" className="btn btn-secondary btn-compact" onClick={pickDir}>
+              {t('common:settingsPage.recording.choose')}
+            </button>
+          </div>
+        </SetRow>
+        <SetRow label={t('common:settingsPage.recording.showInFinder')}>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => void window.lazyaudio.settings.openRecordingsDir()}
+          >
+            {t('common:settingsPage.recording.openFinder')}
+          </button>
+        </SetRow>
+        <SetRow label={t('common:settingsPage.recording.autoCleanup')}>
+          <div className="inline-ctl">
+            <Toggle
+              on={r.autoCleanupEnabled}
+              onChange={(v) => patch({ autoCleanupEnabled: v })}
+              label={t('common:settingsPage.recording.autoCleanup')}
+            />
+            {r.autoCleanupEnabled ? (
+              <input
+                type="number"
+                className="num-input"
+                min={7}
+                max={365}
+                value={r.autoCleanupDays}
+                onChange={(e) =>
+                  patch({ autoCleanupDays: clampInt(e.currentTarget.value, 7, 365, 90) })
+                }
+              />
+            ) : null}
+            <span className="unit">{t('common:settingsPage.recording.days')}</span>
+          </div>
+        </SetRow>
+      </div>
+
+      <h3 className="setting-group-title">
+        {t('common:settingsPage.recording.sectionFiles')}
+        <span className="set-section-helper">
+          {t('common:settingsPage.recording.pipelineNote')}
+        </span>
+      </h3>
+      <div className="setting-rows">
+        <SetRow label={t('common:settingsPage.recording.tracks')}>
+          <Toggle
+            on={r.generateTracks}
+            // 分轨 / 混音不可同时关:关分轨时若混音也关则忽略
+            onChange={(v) => {
+              if (!v && !r.generateMixed) return
+              patch({ generateTracks: v })
+            }}
+            label={t('common:settingsPage.recording.tracks')}
+          />
+        </SetRow>
+        <SetRow label={t('common:settingsPage.recording.mixed')}>
+          <Toggle
+            on={r.generateMixed}
+            onChange={(v) => {
+              if (!v && !r.generateTracks) return
+              patch({ generateMixed: v })
+            }}
+            label={t('common:settingsPage.recording.mixed')}
+          />
+        </SetRow>
+        <SetRow
+          label={t('common:settingsPage.recording.sampleRate')}
+          helper={t('common:settingsPage.recording.sampleRateHelper')}
+        >
+          <SelectControl<string>
+            value={String(r.wavSampleRate)}
+            options={[
+              { value: '16000', label: '16000 Hz' },
+              { value: '24000', label: '24000 Hz' },
+              { value: '48000', label: '48000 Hz' },
+            ]}
+            onChange={(v) => patch({ wavSampleRate: Number(v) as 16000 | 24000 | 48000 })}
+          />
+        </SetRow>
+        <SetRow
+          label={t('common:settingsPage.recording.nameFormat')}
+          helper="{sessionType} {date} {time} {title}"
+        >
+          <input
+            className="text-input"
+            value={r.fileNameFormat}
+            onChange={(e) => patch({ fileNameFormat: e.currentTarget.value })}
+          />
+        </SetRow>
+      </div>
+
+      <h3 className="setting-group-title">
+        {t('common:settingsPage.recording.sectionBehavior')}
+        <span className="set-section-helper">
+          {t('common:settingsPage.recording.pipelineNote')}
+        </span>
+      </h3>
+      <div className="setting-rows">
+        <SetRow label={t('common:settingsPage.recording.autoTranscribe')}>
+          <Toggle
+            on={r.autoTranscribe}
+            onChange={(v) => patch({ autoTranscribe: v })}
+            label={t('common:settingsPage.recording.autoTranscribe')}
+          />
+        </SetRow>
+        <SetRow label={t('common:settingsPage.recording.levelMeter')}>
+          <Toggle
+            on={r.showLevelMeter}
+            onChange={(v) => patch({ showLevelMeter: v })}
+            label={t('common:settingsPage.recording.levelMeter')}
+          />
+        </SetRow>
+        <SetRow label={t('common:settingsPage.recording.silenceStop')}>
+          <div className="inline-ctl">
+            <Toggle
+              on={r.silenceAutoStopEnabled}
+              onChange={(v) => patch({ silenceAutoStopEnabled: v })}
+              label={t('common:settingsPage.recording.silenceStop')}
+            />
+            {r.silenceAutoStopEnabled ? (
+              <input
+                type="number"
+                className="num-input"
+                min={30}
+                max={600}
+                value={r.silenceAutoStopSec}
+                onChange={(e) =>
+                  patch({ silenceAutoStopSec: clampInt(e.currentTarget.value, 30, 600, 60) })
+                }
+              />
+            ) : null}
+            <span className="unit">{t('common:settingsPage.recording.seconds')}</span>
+          </div>
+        </SetRow>
+        <SetRow label={t('common:settingsPage.recording.minDuration')}>
+          <div className="inline-ctl">
+            <input
+              type="number"
+              className="num-input"
+              min={0}
+              max={10}
+              value={r.minDurationSec}
+              onChange={(e) => patch({ minDurationSec: clampInt(e.currentTarget.value, 0, 10, 2) })}
+            />
+            <span className="unit">{t('common:settingsPage.recording.seconds')}</span>
+          </div>
+        </SetRow>
+      </div>
+    </>
+  )
+}
+
+function clampInt(raw: string, min: number, max: number, fallback: number): number {
+  const n = Number.parseInt(raw, 10)
+  if (Number.isNaN(n)) return fallback
+  return Math.min(max, Math.max(min, n))
+}
+
+// ---- T57 隐私 tab ----
+function PrivacyTab({ settings }: { settings: Settings }): React.JSX.Element {
+  const { t } = useTranslation()
+  // 「录音合规提示」开 = 录音前提示(complianceReminderHidden=false)
+  const complianceOn = !settings.onboarding.complianceReminderHidden
+
+  const danger = useCallback(
+    (
+      action: 'clear-recordings' | 'clear-models' | 'reset-app' | 'wipe-all',
+      confirmKey: string,
+    ) => {
+      if (!window.confirm(t(`common:settingsPage.privacy.${confirmKey}`))) return
+      if (!window.confirm(t('common:settingsPage.privacy.confirmAgain'))) return
+      window.lazyaudio.settings
+        .dangerAction(action)
+        .then((r) => {
+          if (r.ok) window.alert(t('common:settingsPage.privacy.done'))
+          else if (r.error === 'recording-active')
+            window.alert(t('common:settingsPage.privacy.activeError'))
+          else window.alert(t('common:settingsPage.privacy.failed'))
+        })
+        .catch((e) => console.warn('dangerAction failed', e))
+    },
+    [t],
+  )
+
+  return (
+    <>
+      <div className="set-page-head">
+        <h2>{t('common:settingsPage.privacy.title')}</h2>
+        <div className="sub">{t('common:settingsPage.privacy.subtitle')}</div>
+      </div>
+
+      <h3 className="setting-group-title">{t('common:settingsPage.privacy.sectionData')}</h3>
+      <div className="setting-rows">
+        <SetRow label={t('common:settingsPage.privacy.dataLocation')}>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => void window.lazyaudio.settings.openRecordingsDir()}
+          >
+            {t('common:settingsPage.recording.openFinder')}
+          </button>
+        </SetRow>
+        <SetRow label={t('common:settingsPage.privacy.keyStorage')}>
+          <span className="readonly-val">{t('common:settingsPage.privacy.keychain')}</span>
+        </SetRow>
+        <SetRow label={t('common:settingsPage.privacy.compliance')}>
+          <Toggle
+            on={complianceOn}
+            onChange={(v) =>
+              void window.lazyaudio.settings.set({
+                onboarding: { complianceReminderHidden: !v },
+              })
+            }
+            label={t('common:settingsPage.privacy.compliance')}
+          />
+        </SetRow>
+      </div>
+
+      <h3 className="setting-group-title">{t('common:settingsPage.privacy.sectionReport')}</h3>
+      <div className="setting-rows">
+        <SetRow
+          label={t('common:settingsPage.privacy.crashReport')}
+          helper={t('common:settingsPage.privacy.disabledHelper')}
+        >
+          <Toggle
+            on={false}
+            onChange={() => {}}
+            label={t('common:settingsPage.privacy.crashReport')}
+          />
+        </SetRow>
+        <SetRow
+          label={t('common:settingsPage.privacy.usageStats')}
+          helper={t('common:settingsPage.privacy.disabledHelper')}
+        >
+          <Toggle
+            on={false}
+            onChange={() => {}}
+            label={t('common:settingsPage.privacy.usageStats')}
+          />
+        </SetRow>
+      </div>
+
+      <div className="danger-zone">
+        <h3 className="danger-zone-title">{t('common:settingsPage.privacy.sectionDanger')}</h3>
+        <div className="danger-rows">
+          <button
+            type="button"
+            className="btn-danger-outline"
+            onClick={() => danger('clear-recordings', 'confirmClearRecordings')}
+          >
+            {t('common:settingsPage.privacy.clearRecordings')}
+          </button>
+          <button
+            type="button"
+            className="btn-danger-outline"
+            onClick={() => danger('clear-models', 'confirmClearModels')}
+          >
+            {t('common:settingsPage.privacy.clearModels')}
+          </button>
+          <button
+            type="button"
+            className="btn-danger-outline"
+            onClick={() => danger('reset-app', 'confirmResetApp')}
+          >
+            {t('common:settingsPage.privacy.resetApp')}
+          </button>
+          <button
+            type="button"
+            className="btn-danger"
+            onClick={() => danger('wipe-all', 'confirmWipeAll')}
+          >
+            {t('common:settingsPage.privacy.wipeAll')}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---- T57 关于 tab ----
+function AboutTab(): React.JSX.Element {
+  const { t } = useTranslation()
+  const open = (url: string): void => {
+    void window.lazyaudio.system.openExternal(url)
+  }
+  const LICENSES = [
+    'LazyAudio — MIT',
+    'sherpa-onnx — Apache-2.0',
+    'SenseVoice — MIT',
+    'Silero VAD — MIT',
+    'onnxruntime — MIT',
+    'Electron — MIT',
+    'lucide icons — ISC',
+  ]
+  return (
+    <>
+      <div className="set-page-head">
+        <h2>{t('common:settingsPage.about.title')}</h2>
+        <div className="sub">{t('common:settingsPage.about.subtitle')}</div>
+      </div>
+
+      <div className="about-version">
+        <div className="about-logo">LA</div>
+        <div className="about-name">LazyAudio</div>
+        <div className="about-ver">{APP_VERSION}</div>
+        <div className="about-links">
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => open('https://github.com/momaek/lazyaudio')}
+          >
+            {t('common:settingsPage.about.github')}
+          </button>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => open('https://github.com/momaek/lazyaudio/issues')}
+          >
+            {t('common:settingsPage.about.feedback')}
+          </button>
+        </div>
+      </div>
+
+      <h3 className="setting-group-title">{t('common:settingsPage.about.sectionUpdate')}</h3>
+      <div className="setting-rows">
+        <SetRow
+          label={t('common:settingsPage.about.checkUpdate')}
+          helper={t('common:settingsPage.about.updateDisabled')}
+        >
+          <button type="button" className="btn btn-secondary btn-compact" disabled>
+            {t('common:settingsPage.about.checkUpdate')}
+          </button>
+        </SetRow>
+      </div>
+
+      <h3 className="setting-group-title">{t('common:settingsPage.about.sectionLicense')}</h3>
+      <div className="about-licenses">
+        {LICENSES.map((l) => (
+          <div key={l} className="about-license-row">
+            {l}
+          </div>
+        ))}
+      </div>
+
+      <h3 className="setting-group-title">{t('common:settingsPage.about.sectionCredits')}</h3>
+      <p className="about-credits">{t('common:settingsPage.about.credits')}</p>
+    </>
+  )
+}
+
 function ComingSoon({ navId }: { navId: NavId }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -1043,14 +1430,22 @@ export function App(): React.JSX.Element {
     void window.lazyaudio.settings.set({ shortcuts: { toggleRecord: accel } })
   }, [])
 
+  const patchRecording = useCallback((next: Partial<Settings['recording']>) => {
+    setSettings((prev) => (prev ? { ...prev, recording: { ...prev.recording, ...next } } : prev))
+    void window.lazyaudio.settings.set({ recording: next })
+  }, [])
+
   const content = useMemo(() => {
     if (!settings) return null
     if (nav === 'general') return <GeneralTab settings={settings} patch={patchGeneral} />
+    if (nav === 'recording') return <RecordingTab settings={settings} patch={patchRecording} />
     if (nav === 'shortcuts') return <ShortcutsTab settings={settings} setShortcut={setShortcut} />
     if (nav === 'engine') return <EngineTab />
     if (nav === 'templates') return <TemplatesTab />
+    if (nav === 'privacy') return <PrivacyTab settings={settings} />
+    if (nav === 'about') return <AboutTab />
     return <ComingSoon navId={nav} />
-  }, [nav, settings, patchGeneral, setShortcut])
+  }, [nav, settings, patchGeneral, patchRecording, setShortcut])
 
   return (
     <div className="settings-window">

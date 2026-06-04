@@ -16,6 +16,7 @@ import { showPrepWindow } from '../windows/prep-window'
 import { logger } from '../logger'
 
 let tray: Tray | null = null
+let recording = false
 
 function buildIdleMenu(): Menu {
   return Menu.buildFromTemplate([
@@ -49,11 +50,20 @@ function buildIdleMenu(): Menu {
       click: () => openSettingsWindow(),
     },
     {
-      label: '退出 LazyAudio',
+      // T57:录音中「退出」变灰 + 文案提示(避免误退丢录音;⌘Q 仍走 T17 退出确认)
+      label: recording ? '退出 LazyAudio（录音中不可退）' : '退出 LazyAudio',
       accelerator: 'CommandOrControl+Q',
+      enabled: !recording,
       click: () => app.quit(),
     },
   ])
+}
+
+/** T57 — 录音状态变化时刷新 tray(切换「退出」可用性) */
+export function updateTrayRecording(isRecording: boolean): void {
+  if (recording === isRecording) return
+  recording = isRecording
+  if (tray) tray.setContextMenu(buildIdleMenu())
 }
 
 export function createTray(): Tray {

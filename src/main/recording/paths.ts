@@ -8,9 +8,23 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { app } from 'electron'
+import { getSettings } from '../settings/settings-store'
 
-export function getRecordingsDir(): string {
+/** 默认录音目录(userData/recordings)。 */
+export function getDefaultRecordingsDir(): string {
   return path.join(app.getPath('userData'), 'recordings')
+}
+
+/** T57 — 录音目录:settings.recording.saveDir 非空则用它,否则默认。
+ *  saveDir 改后只影响新录音(已有录音不迁移,settings.md Tab2)。 */
+export function getRecordingsDir(): string {
+  try {
+    const custom = getSettings().recording.saveDir
+    if (custom) return custom
+  } catch {
+    /* settings 未就绪(极早期调用)→ 退回默认 */
+  }
+  return getDefaultRecordingsDir()
 }
 
 export function getRecordingDir(recordingId: string): string {

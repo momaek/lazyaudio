@@ -19,7 +19,7 @@ import {
   EXPORT,
 } from '@shared/ipc/channels'
 import type { LazyAudioApi } from '@shared/types/api'
-import type { PingResult } from '@shared/ipc/system'
+import type { PingResult, OpenExternalResult as SystemOpenExternalResult } from '@shared/ipc/system'
 import type {
   StatusResult as OnboardingStatusResult,
   SetStepArgs as OnboardingSetStepArgs,
@@ -42,8 +42,16 @@ import type {
   RenameResult as LibraryRenameResult,
   DeleteResult as LibraryDeleteResult,
   ShowInFolderResult as LibraryShowInFolderResult,
+  ActivateEvent as LibraryActivateEvent,
 } from '@shared/ipc/library'
-import type { Settings, SetArgs } from '@shared/ipc/settings'
+import type {
+  Settings,
+  SetArgs,
+  PickDirResult as SettingsPickDirResult,
+  OpenDirResult as SettingsOpenDirResult,
+  DangerAction as SettingsDangerAction,
+  DangerActionResult as SettingsDangerActionResult,
+} from '@shared/ipc/settings'
 import type {
   MicStatusResult,
   RequestMicResult,
@@ -85,6 +93,7 @@ export function makeApi(): LazyAudioApi {
   return {
     system: {
       ping: () => invoke<PingResult>(SYSTEM.ping),
+      openExternal: (url: string) => invoke<SystemOpenExternalResult>(SYSTEM.openExternal, { url }),
     },
     onboarding: {
       status: () => invoke<OnboardingStatusResult>(ONBOARDING.status, {}),
@@ -120,10 +129,19 @@ export function makeApi(): LazyAudioApi {
       delete: (recordingId: string) => invoke<LibraryDeleteResult>(LIBRARY.delete, { recordingId }),
       showInFolder: (recordingId: string) =>
         invoke<LibraryShowInFolderResult>(LIBRARY.showInFolder, { recordingId }),
+      onActivate: (cb) => {
+        const handler = (_e: unknown, event: LibraryActivateEvent): void => cb(event)
+        ipcRenderer.on(LIBRARY.activate, handler)
+        return () => ipcRenderer.off(LIBRARY.activate, handler)
+      },
     },
     settings: {
       get: () => invoke<Settings>(SETTINGS.get, {}),
       set: (patch: SetArgs) => invoke<Settings>(SETTINGS.set, patch),
+      pickRecordingsDir: () => invoke<SettingsPickDirResult>(SETTINGS.pickRecordingsDir, {}),
+      openRecordingsDir: () => invoke<SettingsOpenDirResult>(SETTINGS.openRecordingsDir, {}),
+      dangerAction: (action: SettingsDangerAction) =>
+        invoke<SettingsDangerActionResult>(SETTINGS.dangerAction, { action }),
       onChanged: (cb) => {
         const handler = (_e: unknown, settings: Settings): void => cb(settings)
         ipcRenderer.on(SETTINGS.changed, handler)

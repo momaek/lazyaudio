@@ -1321,10 +1321,16 @@ export function App(): React.JSX.Element {
         refetchLibrary()
       }
     })
+    // T56:点系统通知 → main 发 activate → 选中该录音(若不在当前列表则刷新后再选)
+    const offActivate = window.lazyaudio.library.onActivate(({ recordingId }) => {
+      setSelectedId(recordingId)
+      refetchLibrary()
+    })
     return () => {
       cancelled = true
       off()
       offTranscribe()
+      offActivate()
     }
   }, [refetchLibrary])
 

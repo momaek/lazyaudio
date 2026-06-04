@@ -1,7 +1,7 @@
 // preload 通过 contextBridge 暴露给 renderer 的 API 接口。
 // renderer 在 src/renderer/global.d.ts 把 window.lazyaudio: LazyAudioApi 注册成全局类型。
 
-import type { PingResult } from '../ipc/system'
+import type { PingResult, OpenExternalResult as SystemOpenExternalResult } from '../ipc/system'
 import type {
   StatusResult as OnboardingStatusResult,
   SetStepArgs as OnboardingSetStepArgs,
@@ -24,8 +24,16 @@ import type {
   RenameResult as LibraryRenameResult,
   DeleteResult as LibraryDeleteResult,
   ShowInFolderResult as LibraryShowInFolderResult,
+  ActivateEvent as LibraryActivateEvent,
 } from '../ipc/library'
-import type { Settings, SetArgs } from '../ipc/settings'
+import type {
+  Settings,
+  SetArgs,
+  PickDirResult as SettingsPickDirResult,
+  OpenDirResult as SettingsOpenDirResult,
+  DangerAction as SettingsDangerAction,
+  DangerActionResult as SettingsDangerActionResult,
+} from '../ipc/settings'
 import type { MicStatusResult, RequestMicResult, OpenMicSettingsResult } from '../ipc/permission'
 import type {
   ListResult as ModelListResult,
@@ -61,6 +69,8 @@ import type { StartCaptureArgs, StopCaptureArgs, CaptureFailedArgs } from '../au
 export interface LazyAudioApi {
   system: {
     ping(): Promise<PingResult>
+    /** T57 用默认浏览器打开外链(关于页) */
+    openExternal(url: string): Promise<SystemOpenExternalResult>
   }
   onboarding: {
     status(): Promise<OnboardingStatusResult>
@@ -95,12 +105,20 @@ export interface LazyAudioApi {
     delete(recordingId: string): Promise<LibraryDeleteResult>
     /** T55 在 Finder / 资源管理器显示录音目录 */
     showInFolder(recordingId: string): Promise<LibraryShowInFolderResult>
+    /** T56 订阅:点系统通知后定位到该录音 */
+    onActivate(cb: (event: LibraryActivateEvent) => void): () => void
   }
   settings: {
     /** 拉当前完整 settings(窗口 mount 时调) */
     get(): Promise<Settings>
     /** 部分更新 settings;main 合并落盘后返回新的完整 settings */
     set(patch: SetArgs): Promise<Settings>
+    /** T57 选录音保存目录(弹目录对话框);返回路径(取消则 canceled) */
+    pickRecordingsDir(): Promise<SettingsPickDirResult>
+    /** T57 在 Finder / 资源管理器打开录音目录 */
+    openRecordingsDir(): Promise<SettingsOpenDirResult>
+    /** T57 危险操作(清空录音 / 模型 / 重置 / 完全清除) */
+    dangerAction(action: SettingsDangerAction): Promise<SettingsDangerActionResult>
     /** 订阅 settings 变更广播;返回取消订阅函数 */
     onChanged(cb: (settings: Settings) => void): () => void
   }
