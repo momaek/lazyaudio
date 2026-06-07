@@ -66,6 +66,7 @@
       "sampleRateHelper": "16000 是转录最佳速率",
       "nameFormat": "文件命名格式",
       "sectionBehavior": "录音中行为",
+      "behaviorNote": "电平表 / 静音自停 / 最短时长在下次录制时生效",
       "autoTranscribe": "录音结束自动转录",
       "levelMeter": "录音中显示电平表",
       "silenceStop": "检测到长时间静音自动停止",

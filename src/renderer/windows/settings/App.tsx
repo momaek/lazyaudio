@@ -1106,7 +1106,7 @@ function RecordingTab({
       <h3 className="setting-group-title">
         {t('common:settingsPage.recording.sectionBehavior')}
         <span className="set-section-helper">
-          {t('common:settingsPage.recording.pipelineNote')}
+          {t('common:settingsPage.recording.behaviorNote')}
         </span>
       </h3>
       <div className="setting-rows">

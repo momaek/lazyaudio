@@ -211,15 +211,32 @@ export const CloudSetArgs = z.object({
 })
 export type CloudSetArgs = z.infer<typeof CloudSetArgs>
 
+/** zod 的 .partial() 不会剥掉字段上的 .default():parse 一个只含部分键的 patch 时,
+ *  缺失字段会被默认值回填(如 RecordingSettings.partial().parse({silenceAutoStopSec:90})
+ *  会带出 silenceAutoStopEnabled:false)。随后 mergeSettings 里 {...current, ...patch}
+ *  就把用户已设的值覆盖回默认(典型:改静音秒数时开关被打回 false)。
+ *  这里先 removeDefault 再 .partial(),保证 patch 只携带调用方真正传的键。
+ *  removeDefault 不改输出类型,故 cast 回 ZodObject<T> 是安全的。 */
+function patchSchema<T extends z.ZodRawShape>(schema: z.ZodObject<T>): z.ZodObject<T> {
+  const shape = schema.shape as unknown as Record<string, z.ZodType>
+  const next: Record<string, z.ZodType> = {}
+  for (const key of Object.keys(shape)) {
+    const field = shape[key] as z.ZodType
+    next[key] =
+      field instanceof z.ZodDefault ? (field.removeDefault() as unknown as z.ZodType) : field
+  }
+  return z.object(next) as unknown as z.ZodObject<T>
+}
+
 /** set:部分更新(只传要改的子键);main 合并后整体校验再落盘 */
 export const SetArgs = z.object({
-  general: GeneralSettings.partial().optional(),
-  shortcuts: ShortcutSettings.partial().optional(),
-  recording: RecordingSettings.partial().optional(),
+  general: patchSchema(GeneralSettings).partial().optional(),
+  shortcuts: patchSchema(ShortcutSettings).partial().optional(),
+  recording: patchSchema(RecordingSettings).partial().optional(),
   cloud: CloudSetArgs.optional(),
-  templates: TemplateSettings.partial().optional(),
+  templates: patchSchema(TemplateSettings).partial().optional(),
   // T53 — 设置页「转录引擎」本地/云端切换写 onboarding.privacyMode(转录路由信号)
-  onboarding: OnboardingSettings.partial().optional(),
+  onboarding: patchSchema(OnboardingSettings).partial().optional(),
 })
 export type SetArgs = z.infer<typeof SetArgs>
 
