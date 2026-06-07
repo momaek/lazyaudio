@@ -3,6 +3,24 @@
  * 这里是实际 Electron 360×220 BrowserWindow；背景改为不透明，避免背后内容干扰阅读。
  */
 
+/* T58:本窗口已用 `.dark .xxx` 规则**手写**了整套深色样式(gray-50=浅字等旧语义)。
+ * 全局 dark.css 在 T58 反转了 gray 阶供其它窗口自动适配,会和这里的手写规则冲突。
+ * prep.css 在 globals.css 之后加载,这里把 gray 阶**钉回原始(未反转)值**,
+ * 让本窗口继续走自己的手写深色,不受全局反转影响。新增 prep 元素需手动加 `.dark` 覆盖。 */
+.dark {
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-900: #18181b;
+  --color-gray-950: #09090b;
+}
+
 html,
 body {
   width: 100%;

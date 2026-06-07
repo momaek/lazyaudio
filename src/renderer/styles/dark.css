@@ -7,6 +7,21 @@
  */
 
 .dark {
+  /* §9 中性灰阶深色映射(T58):浅色下大量文字直接用 raw gray token
+   * (color: var(--color-gray-900/700/...)),深色必须反转否则暗字压暗底看不清。
+   * 不是纯对称反转 —— muted 档(400/500)按可读性微调,保证在深色面上对比足够。 */
+  --color-gray-50: #18181b;
+  --color-gray-100: #27272a;
+  --color-gray-200: #3f3f46;
+  --color-gray-300: #52525b;
+  --color-gray-400: #8b8b94; /* 更弱的 muted / icon */
+  --color-gray-500: #a1a1aa; /* muted 正文(用量最大)→ 可读浅灰 */
+  --color-gray-600: #c4c4cc;
+  --color-gray-700: #d4d4d8; /* 次级文字 → 浅 */
+  --color-gray-800: #e4e4e7;
+  --color-gray-900: #f4f4f5; /* 主文字 → 近白 */
+  --color-gray-950: #fafafa; /* 最深文字 → 白 */
+
   /* §2.2 brand + status 深色变体 */
   --color-accent: #4493f8;
   --color-record: #ff6369;

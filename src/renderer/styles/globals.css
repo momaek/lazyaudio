@@ -26,9 +26,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dark body {
-  color: var(--color-gray-50);
-  background: var(--color-bg-l1);
+/* T58:深色不再单独覆盖 body 颜色 —— dark.css 反转了 gray 阶,
+ * 上面 body 的 var(--color-gray-900)/var(--color-bg-l1) 在深色下已自动取浅字 + 深底。 */
+
+/* ---- T58 主题切换过渡 ----
+ * 仅在切换瞬间(initTheme 加 .theme-switching,200ms 后移除)给颜色相关属性
+ * 150ms 过渡:满足「切换有过渡、无闪烁」,又不影响日常 hover/focus 交互、开窗不动画。
+ * prefers-reduced-motion 用户直接跳过。 */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-switching,
+  html.theme-switching * {
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease,
+      fill 150ms ease,
+      stroke 150ms ease !important;
+  }
 }
 
 /* ---- 呼吸红点动画(design-system §5.2) ---- */
