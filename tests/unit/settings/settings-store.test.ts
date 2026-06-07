@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DEFAULT_SETTINGS } from '@shared/ipc/settings'
+import { DEFAULT_SETTINGS, SetArgs } from '@shared/ipc/settings'
 
 const STORE = '../../../src/main/settings/settings-store'
 const LOGGER = '../../../src/main/logger'
@@ -49,6 +49,22 @@ describe('settings-store', () => {
     // 其它字段保持默认
     expect(next.general.theme).toBe(DEFAULT_SETTINGS.general.theme)
     expect(next.shortcuts.toggleRecord).toBe(DEFAULT_SETTINGS.shortcuts.toggleRecord)
+  })
+
+  // 回归:经 SetArgs.parse 的部分 patch 不能用字段默认值覆盖其它已设字段。
+  // zod .partial() 不剥 .default(),曾导致「改静音秒数把开关打回 false」。
+  it('SetArgs.parse 后的部分 recording patch 不污染其它字段', async () => {
+    const store = await import(STORE)
+    await store.loadSettings()
+    // 先打开静音自停
+    await store.updateSettings(SetArgs.parse({ recording: { silenceAutoStopEnabled: true } }))
+    // 只改秒数:不应把 silenceAutoStopEnabled 打回默认 false,也不动分轨/混音
+    const next = await store.updateSettings(
+      SetArgs.parse({ recording: { silenceAutoStopSec: 90 } }),
+    )
+    expect(next.recording.silenceAutoStopSec).toBe(90)
+    expect(next.recording.silenceAutoStopEnabled).toBe(true)
+    expect(next.recording.generateTracks).toBe(DEFAULT_SETTINGS.recording.generateTracks)
   })
 
   it('改设置 → 落盘 settings.json', async () => {

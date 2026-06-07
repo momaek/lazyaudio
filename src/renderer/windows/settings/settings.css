@@ -111,6 +111,12 @@ body,
   gap: 24px;
 }
 
+/* 滚动 flex 列里子项默认会被压缩(flex-shrink:1),叠加卡片自身的
+   overflow:hidden 就会把行裁掉。锁死不收缩,让 .set-content 自己滚。 */
+.set-content > * {
+  flex-shrink: 0;
+}
+
 .set-loading,
 .set-coming-soon {
   color: var(--color-gray-500);
