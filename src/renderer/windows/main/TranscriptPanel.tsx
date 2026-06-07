@@ -4,7 +4,7 @@
 //   按 segmentId 原地替换不跳行(spike-013);Pass B 完成(onOfflineOverwrite)→ 整体换 transcript.json。
 // - T37 失败:failed → 文案 + [重试](no-audio/model-missing 特判)。
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Transcript } from '@shared/transcribe/transcript'
 import type { TranscribeStatus } from '@shared/recording/meta'
@@ -51,7 +51,7 @@ function SegmentRow({
     .filter(Boolean)
     .join(' ')
   return (
-    <div className={cls} data-speaker={speakerIndex(seg.speaker)}>
+    <div className={cls} data-speaker={speakerIndex(seg.speaker)} data-seg-id={seg.segmentId}>
       <button
         type="button"
         className="tr-ts"
@@ -85,6 +85,36 @@ export function TranscriptPanel({
   // Pass A 实时段(in-memory,按 segmentId)
   const [liveSegs, setLiveSegs] = useState<Record<string, LiveSegmentPayload>>({})
 
+  // 自动跟随滚动(spec main-window-states §转录文本):
+  // - 录音中:新段到来时贴底,跟住最新内容
+  // - 回放时:当前播放段滚到视口偏上 1/3
+  // - 用户手动滚动后 5s 内暂停跟随,5s 后恢复(suspendUntilRef)
+  const listRef = useRef<HTMLDivElement>(null)
+  const suspendUntilRef = useRef(0)
+  // 记录上一次「程序设定」的 scrollTop,用来在 onScroll 里区分程序滚动 vs 用户手动滚动
+  const lastProgrammaticTopRef = useRef<number | null>(null)
+
+  const programmaticScroll = useCallback((top: number) => {
+    const el = listRef.current
+    if (!el) return
+    el.scrollTop = top
+    // 读回 clamp 后的真实值,供 onScroll 比对
+    lastProgrammaticTopRef.current = el.scrollTop
+  }, [])
+
+  const onListScroll = useCallback(() => {
+    const el = listRef.current
+    if (!el) return
+    // 与刚设定的程序滚动位置一致 → 不是手动滚动,忽略
+    if (
+      lastProgrammaticTopRef.current !== null &&
+      Math.abs(el.scrollTop - lastProgrammaticTopRef.current) < 2
+    ) {
+      return
+    }
+    suspendUntilRef.current = Date.now() + 5000
+  }, [])
+
   const refresh = useCallback(() => {
     window.lazyaudio.transcribe
       .getTranscript(recordingId)
@@ -101,6 +131,8 @@ export function TranscriptPanel({
   useEffect(() => {
     setProgress(null)
     setLiveSegs({})
+    suspendUntilRef.current = 0
+    lastProgrammaticTopRef.current = null
     refresh()
     const offStatus = window.lazyaudio.transcribe.onStatusChanged((event) => {
       if (event.recordingId !== recordingId) return
@@ -163,6 +195,26 @@ export function TranscriptPanel({
 
   const isRefined = status === 'done' && transcript?.pass === 'offline'
 
+  // 录音中:新段到来贴底跟随(用户手动上滚后 5s 内不抢)
+  useEffect(() => {
+    if (!isRecording) return
+    if (Date.now() < suspendUntilRef.current) return
+    programmaticScroll(Number.MAX_SAFE_INTEGER) // clamp 到底
+  }, [segments, isRecording, programmaticScroll])
+
+  // 回放:当前播放段滚到视口偏上 1/3(用户手动滚动后 5s 内不抢)
+  useEffect(() => {
+    if (isRecording) return
+    if (!activeId) return
+    if (Date.now() < suspendUntilRef.current) return
+    const el = listRef.current
+    if (!el) return
+    const row = el.querySelector<HTMLElement>(`[data-seg-id="${CSS.escape(activeId)}"]`)
+    if (!row) return
+    const delta = row.getBoundingClientRect().top - el.getBoundingClientRect().top
+    programmaticScroll(el.scrollTop + delta - el.clientHeight / 3)
+  }, [activeId, isRecording, programmaticScroll])
+
   return (
     <div className="transcript-panel">
       <div className="tr-head">
@@ -177,7 +229,7 @@ export function TranscriptPanel({
 
       {/* 有段就渲染(实时 / 离线);否则按状态显示占位 */}
       {segments.length > 0 ? (
-        <div className="tr-list">
+        <div className="tr-list" ref={listRef} onScroll={onListScroll}>
           {segments.map((seg) => (
             <SegmentRow
               key={seg.segmentId}
