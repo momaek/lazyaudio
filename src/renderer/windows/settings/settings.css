@@ -234,9 +234,7 @@ body,
   left: 13.5px;
 }
 
-.dark .toggle {
-  background: var(--color-gray-700);
-}
+/* T58:.dark .toggle 删除 —— 基础 .toggle 的 gray-300 在深色已反转成深轨(#52525b)。 */
 
 /* ---- Segmented control ---- */
 .segmented {
