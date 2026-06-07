@@ -1399,24 +1399,8 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
-  // 主题应用(T18 仅本窗口;全 app 主题 + 过渡是 T58)
-  useEffect(() => {
-    if (!settings) return
-    const mode = settings.general.theme
-    const root = document.documentElement
-    const apply = (dark: boolean): void => {
-      root.classList.toggle('dark', dark)
-    }
-    if (mode === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)')
-      apply(mq.matches)
-      const handler = (e: MediaQueryListEvent): void => apply(e.matches)
-      mq.addEventListener('change', handler)
-      return () => mq.removeEventListener('change', handler)
-    }
-    apply(mode === 'dark')
-    return undefined
-  }, [settings])
+  // T58:主题不再在本窗口单独应用 —— 改主题 → settings:set → main 写 nativeTheme.themeSource
+  // → 各窗口(含本窗口)initTheme() 监听 prefers-color-scheme 联动切 .dark + 过渡。
 
   const patchGeneral = useCallback((next: Partial<Settings['general']>) => {
     setSettings((prev) => (prev ? { ...prev, general: { ...prev.general, ...next } } : prev))

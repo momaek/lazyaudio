@@ -12,6 +12,7 @@ import { maybeRunAutotest } from './audio/autotest'
 import { isSmokeQuitRequested, maybeRunSmoke, maybeRunAsrSmoke } from './smoke'
 import { registerMediaScheme, registerMediaProtocol } from './media/protocol'
 import { loadSettings } from './settings/settings-store'
+import { applyThemeSource } from './settings/apply'
 import { createOnboardingWindow } from './windows/onboarding-window'
 import { bootstrapMainAppWindows, shouldShowOnboarding } from './ipc/onboarding'
 import { getPlatformSupport } from './onboarding/platform'
@@ -31,6 +32,7 @@ if (!acquireSingleInstanceLock()) {
     registerIpc()
     registerMediaProtocol()
     await loadSettings() // T18:启动读 settings.json(dev 在 .local-userdata/)
+    applyThemeSource() // T58:启动即把主题写进 nativeTheme,各窗口开窗就对(prefers-color-scheme 联动)
 
     const platform = getPlatformSupport()
     if (!platform.ok) {

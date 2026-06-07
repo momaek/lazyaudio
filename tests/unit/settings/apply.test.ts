@@ -10,12 +10,14 @@ const LOGGER = '../../../src/main/logger'
 
 const setLoginItemSettings = vi.fn()
 const registerToggleRecord = vi.fn()
+const nativeTheme = { themeSource: 'system' as 'system' | 'light' | 'dark' }
 
 beforeEach(() => {
   vi.resetModules()
   setLoginItemSettings.mockClear()
   registerToggleRecord.mockClear()
-  vi.doMock('electron', () => ({ app: { setLoginItemSettings } }))
+  nativeTheme.themeSource = 'light' // 与 getSettings 的 'system' 不同,便于断言被写入
+  vi.doMock('electron', () => ({ app: { setLoginItemSettings }, nativeTheme }))
   vi.doMock(STORE, () => ({
     getSettings: () => ({
       schemaVersion: 1,
@@ -59,5 +61,18 @@ describe('applySettingsEffects', () => {
     } else {
       expect(setLoginItemSettings).not.toHaveBeenCalled()
     }
+  })
+
+  // T58 — 主题写进 nativeTheme.themeSource(renderer prefers-color-scheme 据此联动)
+  it('applyThemeSource 把 settings.general.theme 写进 nativeTheme.themeSource', async () => {
+    const { applyThemeSource } = await import(APPLY)
+    applyThemeSource()
+    expect(nativeTheme.themeSource).toBe('system')
+  })
+
+  it('applySettingsEffects 也会同步主题', async () => {
+    const { applySettingsEffects } = await import(APPLY)
+    applySettingsEffects()
+    expect(nativeTheme.themeSource).toBe('system')
   })
 })
