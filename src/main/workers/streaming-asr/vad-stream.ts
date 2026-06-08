@@ -13,6 +13,7 @@
 //   (spike-013)。SenseVoice int8 在 M 系 RTF≈0.016(spike-012),重识别 ≤13s 成本可忽略。
 
 import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
+import { noopPassAMetrics, type PassAMetrics } from './passa-metrics'
 
 function int16ToFloat32(int16: Int16Array): Float32Array {
   const out = new Float32Array(int16.length)
@@ -78,13 +79,17 @@ export class VadStream {
     private speaker: string,
     private emit: (s: LiveSegment) => void,
     private onProgress: (processedMs: number) => void,
+    private metrics: PassAMetrics = noopPassAMetrics,
   ) {}
 
-  private recog(samples: Float32Array): string {
+  private recog(samples: Float32Array, stability: 'hypothesis' | 'confirmed'): string {
+    const t0 = Date.now()
     const s = this.rec.createStream()
     s.acceptWaveform({ samples, sampleRate: SR })
     this.rec.decode(s)
-    return cleanText(this.rec.getResult(s).text ?? '')
+    const text = cleanText(this.rec.getResult(s).text ?? '')
+    this.metrics.recognized(stability, (samples.length / SR) * 1000, Date.now() - t0)
+    return text
   }
 
   private resetCurrent(): void {
@@ -121,11 +126,12 @@ export class VadStream {
         this.curBuf = []
         this.curSamples = 0
         this.lastHypSample = -Infinity
+        this.metrics.segmentStarted(this.curId)
       }
       this.curBuf.push(win)
       this.curSamples += win.length
       if (this.curSamples >= COMMIT_TARGET_SAMPLES) {
-        this.commit() // 累计够长 → 强制固化
+        this.commit('max-window') // 累计够长 → 强制固化
       } else {
         this.maybeHypothesis()
       }
@@ -133,7 +139,7 @@ export class VadStream {
       // 静音:累计;够长 + 当前段已攒够内容 → 段落边界,固化
       this.silenceSamples += win.length
       if (this.silenceSamples >= SILENCE_COMMIT_SAMPLES && this.curSamples >= MIN_COMMIT_SAMPLES) {
-        this.commit()
+        this.commit('silence')
       }
     }
     // 不用 VAD 闭合段(front 是 external buffer),只 pop 清队列防原生侧无限堆积
@@ -144,7 +150,7 @@ export class VadStream {
     if (this.curId == null) return
     if (this.totalSamples - this.lastHypSample < HYP_INTERVAL_SAMPLES) return
     this.lastHypSample = this.totalSamples
-    const text = this.recog(concat(this.curBuf))
+    const text = this.recog(concat(this.curBuf), 'hypothesis')
     if (text) {
       this.emit({
         segmentId: this.curId,
@@ -158,15 +164,16 @@ export class VadStream {
   }
 
   /** 把当前段整段识别成 confirmed、开新段 */
-  private commit(): void {
+  private commit(reason: 'silence' | 'max-window' | 'flush'): void {
     if (this.curId == null || this.curSamples === 0) {
       this.resetCurrent()
       return
     }
-    const text = this.recog(concat(this.curBuf))
+    const segId = this.curId
+    const text = this.recog(concat(this.curBuf), 'confirmed')
     if (text) {
       this.emit({
-        segmentId: this.curId,
+        segmentId: segId,
         start: this.curStartSample / SR,
         end: this.totalSamples / SR,
         text,
@@ -174,11 +181,13 @@ export class VadStream {
         stability: 'confirmed',
       })
     }
+    this.metrics.committed(segId, reason)
     this.resetCurrent()
   }
 
   /** 录音 stop:把未固化的当前段识别落定 */
   flush(): void {
-    this.commit()
+    this.commit('flush')
+    this.metrics.flush()
   }
 }

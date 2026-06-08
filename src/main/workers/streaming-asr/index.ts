@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import type { StreamingTask, StreamingEvent } from '@shared/transcribe/streaming-protocol'
 import { loadRecognizer, type SherpaModule } from '../asr/recognize'
 import { VadStream, type VadInstance } from './vad-stream'
+import { createPassAMetrics } from './passa-metrics'
 
 const parentPort = process.parentPort
 
@@ -74,6 +75,7 @@ function handleInit(msg: Extract<StreamingTask, { type: 'init' }>): void {
       msg.speaker,
       (segment) => post({ type: 'segment', recordingId: currentRecordingId, segment }),
       (processedMs) => post({ type: 'progress', recordingId: currentRecordingId, processedMs }),
+      createPassAMetrics(),
     )
     post({
       type: 'ready',

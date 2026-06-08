@@ -1,0 +1,3 @@
+# dogfood 录音 fixture 是私有内容(真实会议 / 访谈 / 笔记),不进 git。
+# 只提交约定本身(README + 本文件);实际样本各自在本机维护。
+transcribe/sample-*
