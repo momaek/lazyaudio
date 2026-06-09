@@ -1,4 +1,4 @@
-// T34 — 实时 PCM fork:从 receiver tap 原始 48k Int16(mic 1ch / system 2ch)→
+// T34 — 实时 PCM fork:从 receiver tap 原始 48k Int16(按 track-open 声明的通道数)→
 // 各自下混 mono、48k→16k、按时间对齐相加成一路 → 喂 Pass A(orchestrator.pushLivePcm)。
 // 只在 live 会话 active 时工作;fork 失败不影响 WAV 落盘(receiver 那边独立)。
 //
@@ -18,6 +18,7 @@ interface Mixer {
   sysEnabled: boolean
   mic: Float32Array[]
   sys: Float32Array[]
+  channels: Partial<Record<'mic' | 'system', number>>
 }
 let mixer: Mixer | null = null
 
@@ -25,11 +26,28 @@ export function startPcmFork(
   recordingId: string,
   sources: { mic: boolean; system: boolean },
 ): void {
-  mixer = { recordingId, micEnabled: sources.mic, sysEnabled: sources.system, mic: [], sys: [] }
+  mixer = {
+    recordingId,
+    micEnabled: sources.mic,
+    sysEnabled: sources.system,
+    mic: [],
+    sys: [],
+    channels: {},
+  }
 }
 
 export function stopPcmFork(recordingId: string): void {
   if (mixer?.recordingId === recordingId) mixer = null
+}
+
+export function registerPcmTrack(
+  recordingId: string,
+  trackId: 'mic' | 'system',
+  channels: number,
+): void {
+  const mx = mixer
+  if (!mx || mx.recordingId !== recordingId) return
+  mx.channels[trackId] = channels
 }
 
 /** receiver 每来一块原始 Int16(48k interleaved)调这里 */
@@ -38,7 +56,8 @@ export function forkPcm(recordingId: string, trackId: 'mic' | 'system', pcm: Arr
   if (!mx || mx.recordingId !== recordingId) return
   if (!isLiveActive(recordingId)) return // live 还没起来 / 已停 → 丢弃,避免无界积压
 
-  const channels = trackId === 'system' ? 2 : 1
+  const channels = mx.channels[trackId]
+  if (!channels || channels <= 0) return
   const mono48 = int16ToMonoFloat32(new Int16Array(pcm), channels)
   const mono16 = resampleLinear(mono48, SRC_RATE, DST_RATE)
   if (trackId === 'mic') mx.mic.push(mono16)
