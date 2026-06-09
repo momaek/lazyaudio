@@ -7,6 +7,9 @@
 //   pnpm tsx scripts/eval-transcribe-fixtures.ts [fixturesDir]
 //   pnpm tsx scripts/eval-transcribe-fixtures.ts --model <modelDir> --json out.json --strip-punct
 //
+// 分段口径默认 = 生产 Pass B(定窗 ~15s)。`--vad` 是实验性 opt-in(Silero VAD 分段),
+// 经 dogfood A/B 否决(CER 回退),保留作将来调参对照;见 tech-feasibility「Pass B VAD 分段实验」。
+//
 // 模型目录默认探测顺序:--model > $LAZY_MODEL_DIR > .local-userdata/models/<KEY> >
 //   ~/Library/Application Support/LazyAudio/models/<KEY>
 //
@@ -21,12 +24,19 @@ import { performance } from 'node:perf_hooks'
 import {
   loadRecognizer,
   recognizeSamples,
+  recognizeSamplesVad,
   readWav16kMono,
   type SherpaModule,
+  type VadInstance,
 } from '../src/main/workers/asr/recognize'
 
 const SAMPLE_RATE = 16000
 const DEFAULT_MODEL_KEY = 'sense-voice-zh-en-ja-ko-yue-int8-2025-09-09'
+const SILERO_KEY = 'silero-vad-v5'
+// sherpa-onnx-node 无类型声明;VAD 分段需要 Vad 构造器
+interface EvalSherpa extends SherpaModule {
+  Vad: new (config: unknown, bufferSizeInSeconds: number) => VadInstance
+}
 // 输入音频扩展名(.wav 走内置 RIFF 解析;其余走 ffmpeg 解码)
 const AUDIO_EXTS = [
   '.wav',
@@ -48,6 +58,7 @@ interface Args {
   lang: string
   stripPunct: boolean
   dumpHyp: boolean
+  useVad: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -58,6 +69,7 @@ function parseArgs(argv: string[]): Args {
     lang: 'auto',
     stripPunct: false,
     dumpHyp: false,
+    useVad: false, // 默认 = 生产 Pass B(定窗);--vad 是实验性 opt-in
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -66,6 +78,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--lang') args.lang = argv[++i] ?? 'auto'
     else if (a === '--strip-punct') args.stripPunct = true
     else if (a === '--dump-hyp') args.dumpHyp = true
+    else if (a === '--vad') args.useVad = true
     else if (a && !a.startsWith('--')) args.fixturesDir = a
   }
   return args
@@ -98,6 +111,33 @@ function resolveModelDir(explicit: string | null): string {
   throw new Error(
     `找不到 SenseVoice 模型(model.int8.onnx)。试过:\n  ${candidates.join('\n  ')}\n` +
       `用 --model <dir> 或 $LAZY_MODEL_DIR 指定。`,
+  )
+}
+
+/** silero_vad.onnx:SenseVoice 模型目录的同级 silero-vad-v5/。找不到返回 null(回退定窗) */
+function resolveSileroPath(senseDir: string): string | null {
+  const p = path.join(path.dirname(senseDir), SILERO_KEY, 'silero_vad.onnx')
+  return fs.existsSync(p) ? p : null
+}
+
+/** 构造 Silero VAD(配置对齐生产 Pass B / Pass A worker) */
+function createEvalVad(sherpa: EvalSherpa, vadModelPath: string): VadInstance {
+  return new sherpa.Vad(
+    {
+      sileroVad: {
+        model: vadModelPath,
+        threshold: 0.5,
+        minSilenceDuration: 0.4,
+        minSpeechDuration: 0.25,
+        maxSpeechDuration: 30,
+        windowSize: 512,
+      },
+      sampleRate: 16000,
+      numThreads: 1,
+      provider: 'cpu',
+      debug: false,
+    },
+    60,
   )
 }
 
@@ -238,8 +278,15 @@ function main(): void {
 
   // package.json type=module → 用 createRequire 加载 CJS N-API addon(sherpa-onnx-node)
   const requireCjs = createRequire(path.join(process.cwd(), 'package.json'))
-  const sherpa = requireCjs('sherpa-onnx-node') as SherpaModule
+  const sherpa = requireCjs('sherpa-onnx-node') as EvalSherpa
   const rec = loadRecognizer(sherpa, modelDir, args.lang)
+
+  // 分段口径必须 = 生产 Pass B:默认 VAD 分段;--no-vad 退回定窗(用于 A/B 量改动收益)
+  const sileroPath = args.useVad ? resolveSileroPath(modelDir) : null
+  if (args.useVad && !sileroPath) {
+    console.info('提示:未找到 silero_vad.onnx,本次回退定窗切片(等价 --no-vad)')
+  }
+  console.info(`分段:${sileroPath ? 'VAD(silero)' : '定窗 15s'}\n`)
 
   const results: SampleResult[] = []
   let rssPeakMb = 0
@@ -251,7 +298,11 @@ function main(): void {
     const audioSec = samples.length / SAMPLE_RATE
 
     const t0 = performance.now()
-    const segments = recognizeSamples(rec, samples, () => {})
+    // 每段新建 VAD,避免跨文件残留内部状态
+    const vad = sileroPath ? createEvalVad(sherpa, sileroPath) : null
+    const segments = vad
+      ? recognizeSamplesVad(rec, vad, samples, () => {})
+      : recognizeSamples(rec, samples, () => {})
     const procMs = performance.now() - t0
     const rss = process.memoryUsage().rss / 1024 / 1024
     if (rss > rssPeakMb) rssPeakMb = rss

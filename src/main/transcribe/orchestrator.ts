@@ -339,6 +339,9 @@ async function transcribeLocal(
     return
   }
 
+  // Pass B 默认走定窗切片。VAD 分段(T61 实验)经 dogfood A/B 否决——CER +0.9(圆桌最差),
+  // 见 tech-feasibility「Pass B VAD 分段实验」。worker 仍支持 vadModelPath(留作将来调参),
+  // 这里默认不传 → 走定窗。
   const startedAt = Date.now()
   await patchTranscribeMeta(recordingId, {
     status: 'running',
