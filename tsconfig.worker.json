@@ -11,5 +11,10 @@
     // shared/ 用 ES 风格 export,worker 输出 CJS 由编译器转译;关掉 verbatim 才能消费
     "verbatimModuleSyntax": false
   },
-  "include": ["src/main/workers/**/*.cts", "src/main/workers/**/*.ts", "shared/**/*.ts"]
+  "include": [
+    "src/main/workers/**/*.cts",
+    "src/main/workers/**/*.ts",
+    "shared/**/*.ts",
+    "scripts/eval-transcribe-fixtures.ts"
+  ]
 }

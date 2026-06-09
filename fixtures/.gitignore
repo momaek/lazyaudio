@@ -1,0 +1,4 @@
+# 评测 fixture 是私有素材(真实录音 / 下载的参考音视频 + 校对稿),不进 git。
+# 忽略 transcribe/ 下一切,只提交约定本身(README)。
+transcribe/*
+!transcribe/README.md
