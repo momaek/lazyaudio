@@ -7,20 +7,22 @@
 
 ## 为什么 git 里看不到样本
 
-样本是真实 dogfood 录音(会议 / 访谈 / 笔记),含隐私内容。`fixtures/.gitignore` 已忽略
-`transcribe/sample-*`,**只提交本约定**;实际 wav / 校对稿 / 术语表各自在本机维护。
+样本是私有素材(真实录音 / 下载的参考音视频 + 校对稿),含隐私内容。`fixtures/.gitignore`
+用**白名单**:`transcribe/*` 忽略本目录下一切、`!transcribe/README.md` 只放行本文件。
+所以**文件叫什么都不会误进 git**(不依赖命名前缀),**只提交本约定**;实际素材各自在本机维护。
 
 ## 目录约定
 
-每段样本 = 一个音频 + 一份参考稿(同 basename 自动配对),术语表可选:
+每段样本 = 一个音频 + 一份参考稿(**同 basename 自动配对**),术语表可选。basename 用**任意描述性
+名字**即可(脚本不强制 `sample-NNN`,描述性名字更好认),例如:
 
 ```
 fixtures/transcribe/
-  sample-001.wav         # 输入音频
-  sample-001.ref.txt     # 人工校对的「正确」全文(UTF-8 纯文本)
-  sample-001.terms.json  # 该段出现的专有名词表(可选)
-  sample-002.m4a         # 输入也可以是 m4a/mp3/flac/... (见下)
-  sample-002.srt         # 参考稿也可以是 SRT(脚本自动去序号 + 时间轴,拼正文)
+  wizard_trump.m4a       # 输入音频(m4a/wav/mp3/flac/... 见下)
+  wizard_trump.srt       # 参考稿(srt 或 .ref.txt,见下)
+  wizard_trump.terms.json # 该段专有名词表(可选)
+  roundtable_kunlun.m4a
+  roundtable_kunlun.srt
   ...
 ```
 
@@ -29,7 +31,7 @@ fixtures/transcribe/
 - `.wav` 走内置 RIFF 解析(无外部依赖,任意采样率/声道,内部下混 + 重采样到 16k mono)。
 - 其它格式(`.m4a .mp3 .flac .aac .ogg .opus .mp4 .mov .webm`)走 **ffmpeg** 解码到 16k mono
   (`brew install ffmpeg`)。ffmpeg 只是 dev 评测工具,**不进产品 runtime**(dev-plan §6.2.7 P2)。
-- 适合直接拿「视频无损 remux 出来的音轨 + 平台字幕」当 fixture:`test.m4a` + `test.srt` 同名即可配对。
+- 适合直接拿「视频无损 remux 出来的音轨 + 平台字幕」当 fixture:`wizard_trump.m4a` + `wizard_trump.srt` 同名即可配对。
 
 ### 参考稿(`ref.txt` 或 `srt`)
 
@@ -66,8 +68,8 @@ fixtures/transcribe/
 # 默认扫 fixtures/transcribe/,用 dev userData 里下好的 SenseVoice 模型
 pnpm tsx scripts/eval-transcribe-fixtures.ts
 
-# 指定目录(如 dogfood/)/ 模型 / 导出 JSON / 忽略标点 / 把识别稿写出来肉眼 diff
-pnpm tsx scripts/eval-transcribe-fixtures.ts dogfood
+# 指定别的目录 / 模型 / 导出 JSON / 忽略标点 / 把识别稿写出来肉眼 diff
+pnpm tsx scripts/eval-transcribe-fixtures.ts <dir>
 pnpm tsx scripts/eval-transcribe-fixtures.ts --model <dir> --json out.json --strip-punct --dump-hyp
 ```
 
