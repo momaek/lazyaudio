@@ -14,8 +14,5 @@ test-results/
 # 本地 dev 时下载的模型 / 录音 / 用户数据
 .local-userdata/
 
-# dogfood 评测素材(私有录音 + 大二进制,只在本机维护)
-dogfood/
-
 # Claude Code 内部 sub-agent worktree(.claude/launch.json 仍提交,只忽略 worktree 目录)
 .claude/worktrees/
