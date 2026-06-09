@@ -13,7 +13,7 @@ import { logger } from '../logger'
 import { onAudioPortReady } from './port'
 import { getCurrentSession } from '../recording'
 import { recoverRecordingsOnStartup } from '../recording/recovery'
-import { forkPcm } from './pcm-fork'
+import { forkPcm, registerPcmTrack } from './pcm-fork'
 
 type TrackStat = {
   recordingId: string
@@ -108,6 +108,9 @@ function handleMessage(port: MessagePortMain, raw: unknown): void {
       `[audio] track-open ${key} ${msg.sampleRate}Hz × ${msg.channels}ch × ${msg.bitDepth}bit`,
     )
     startTickIfNeeded()
+    // T34:记录真实通道数给实时 PCM fork。mic 在部分设备上可能是 2ch,不能硬编码 1ch,
+    // 否则 Pass A 会把 stereo 当 mono 解释,时间轴膨胀 2x,VAD/实时转录迟迟不出字。
+    registerPcmTrack(msg.recordingId, msg.trackId, msg.channels)
     // T13:fork 给当前 session 让 WAV writer 接住这一路(同步建 entry,异步 open)
     const session = getCurrentSession()
     if (session && session.id === msg.recordingId) {
