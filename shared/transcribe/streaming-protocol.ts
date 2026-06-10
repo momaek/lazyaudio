@@ -27,11 +27,22 @@ export interface LiveSegment {
   stability: 'hypothesis' | 'confirmed'
 }
 
+/** T61 — Pass A 安全 debug 指标:不带正文,只用于中英混合/短窗 A/B。 */
+export interface LiveRecognitionDebug {
+  segmentId: string
+  stability: 'hypothesis' | 'confirmed'
+  audioMs: number
+  recognizeMs: number
+  rawTags: string[]
+  cleanChars: number
+}
+
 /** streaming utility → main */
 export type StreamingEvent =
   | { type: 'ready'; sherpaVersion: string }
   | { type: 'fatal'; code: AsrFatalCode; detail?: unknown }
   | { type: 'segment'; recordingId: string; segment: LiveSegment }
   | { type: 'progress'; recordingId: string; processedMs: number }
+  | { type: 'debug'; recordingId: string; debug: LiveRecognitionDebug }
   | { type: 'flushed'; recordingId: string } // 收到 stop 后 flush 完毕,准备退出
   | { type: 'error'; recordingId: string; message: string }
