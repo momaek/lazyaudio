@@ -19,6 +19,7 @@
 
 import type { LiveRecognitionDebug, LiveSegment } from '@shared/transcribe/streaming-protocol'
 import { noopPassAMetrics, type PassAMetrics } from './passa-metrics'
+import { collapseSpacedLetters } from '../asr/recognize'
 
 function int16ToFloat32(int16: Int16Array): Float32Array {
   const out = new Float32Array(int16.length)
@@ -64,7 +65,7 @@ export interface VadInstance {
 }
 
 function cleanText(text: string): string {
-  return text.replace(/<\|[^|]*\|>/g, '').trim()
+  return collapseSpacedLetters(text.replace(/<\|[^|]*\|>/g, '').trim())
 }
 
 function extractSenseVoiceTags(text: string): string[] {
