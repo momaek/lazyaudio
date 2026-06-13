@@ -76,6 +76,8 @@ function handleInit(msg: Extract<StreamingTask, { type: 'init' }>): void {
       (segment) => post({ type: 'segment', recordingId: currentRecordingId, segment }),
       (processedMs) => post({ type: 'progress', recordingId: currentRecordingId, processedMs }),
       createPassAMetrics(),
+      {},
+      (debug) => post({ type: 'debug', recordingId: currentRecordingId, debug }),
     )
     post({
       type: 'ready',

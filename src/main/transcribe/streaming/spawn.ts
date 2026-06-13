@@ -9,6 +9,7 @@ import type {
   StreamingEvent,
   StreamingTask,
   LiveSegment,
+  LiveRecognitionDebug,
 } from '@shared/transcribe/streaming-protocol'
 
 const SPAWN_TIMEOUT_MS = 15_000
@@ -29,6 +30,7 @@ export async function startStreamingSession(opts: {
   speaker: string
   onSegment: (seg: LiveSegment) => void
   onProgress?: (processedMs: number) => void
+  onDebug?: (debug: LiveRecognitionDebug) => void
 }): Promise<StreamingSession> {
   const platformDir = currentSherpaPlatformDir()
   ensureSherpaPlatformDir(platformDir)
@@ -47,11 +49,14 @@ export async function startStreamingSession(opts: {
     })
   })
 
-  // 持久监听:段 / 进度 / 错误(ready/fatal 由下面 init 握手单独处理)
+  // 持久监听:段 / 进度 / debug / 错误(ready/fatal 由下面 init 握手单独处理)
   child.on('message', (raw: StreamingEvent) => {
     if (raw.type === 'segment') opts.onSegment(raw.segment)
     else if (raw.type === 'progress') opts.onProgress?.(raw.processedMs)
-    else if (raw.type === 'error') logger.warn('[passA] runtime error', { message: raw.message })
+    else if (raw.type === 'debug') {
+      opts.onDebug?.(raw.debug)
+      logger.debug('[passA] recognize debug', raw.debug)
+    } else if (raw.type === 'error') logger.warn('[passA] runtime error', { message: raw.message })
   })
 
   await new Promise<void>((resolve, reject) => {
