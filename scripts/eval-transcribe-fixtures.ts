@@ -477,8 +477,11 @@ async function main(): Promise<void> {
     const cer = hasRef && refN.length > 0 ? editDistance(refN, hypN) / refN.length : NaN
 
     const terms = loadExpectedTerms(`${base}.terms.json`)
-    const hypLower = hyp.toLowerCase()
-    const termsHit = terms.filter((t) => hypLower.includes(t.toLowerCase())).length
+    // 命中判定去空格 + 小写:模型常把英文缩写识别成「c p o」带空格,不该算漏(CER 侧也去空格)
+    const hypNorm = hyp.replace(/\s+/g, '').toLowerCase()
+    const termsHit = terms.filter((t) =>
+      hypNorm.includes(t.replace(/\s+/g, '').toLowerCase()),
+    ).length
     const termHitRate = terms.length > 0 ? termsHit / terms.length : null
 
     results.push({

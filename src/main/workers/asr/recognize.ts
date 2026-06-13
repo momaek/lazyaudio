@@ -71,9 +71,18 @@ export function loadRecognizer(
   return rec
 }
 
-/** SenseVoice 偶发在 text 里夹 `<|lang|><|EMO|>` 之类特殊标记,去掉 + trim */
+/**
+ * SenseVoice 常把英文缩写输出成带空格的单字母「c p o」「g d p」;合并成「CPO」「GDP」。
+ * 只合并 ≥2 个连续单字母(避免误伤「B 站」这种单字母 + 中文);合并后大写(多为缩写)。
+ * dogfood 实测:这类「识别对但带空格」占术语漏报的 ~15 点,合并后用户看到正常缩写。
+ */
+export function collapseSpacedLetters(text: string): string {
+  return text.replace(/\b[a-zA-Z](?: [a-zA-Z])+\b/g, (m) => m.replace(/ /g, '').toUpperCase())
+}
+
+/** SenseVoice 偶发在 text 里夹 `<|lang|><|EMO|>` 之类特殊标记,去掉 + trim + 合并空格字母 */
 function cleanText(text: string): string {
-  return text.replace(/<\|[^|]*\|>/g, '').trim()
+  return collapseSpacedLetters(text.replace(/<\|[^|]*\|>/g, '').trim())
 }
 
 /** 识别一段连续样本 → 文本(空文本返回 '')。samples 必须是独立连续 buffer,不能传 subarray view 给 native。 */
