@@ -15,6 +15,7 @@
     "src/main/workers/**/*.cts",
     "src/main/workers/**/*.ts",
     "shared/**/*.ts",
-    "scripts/eval-transcribe-fixtures.ts"
+    "scripts/eval-*.ts",
+    "scripts/spike-*.ts"
   ]
 }

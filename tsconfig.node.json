@@ -14,5 +14,5 @@
     "shared/**/*.ts",
     "electron.vite.config.ts"
   ],
-  "exclude": ["src/main/workers/**", "scripts/eval-transcribe-fixtures.ts"]
+  "exclude": ["src/main/workers/**", "scripts/eval-*.ts", "scripts/spike-*.ts"]
 }

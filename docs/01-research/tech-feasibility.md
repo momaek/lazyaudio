@@ -493,3 +493,35 @@ ASR mock 还原 Pass A 实际行为:每 250ms 推一帧,共 21 帧、4 个 segme
 - Pass A engine 输出契约新增硬性要求:每个 segment 在第一次发出时绑定 `startMs`,后续同段改写不变。
 - transcription-pipeline.md 要回写这条契约(本 PR 暂只在 tech-feasibility 写结论,03-architecture 改动留给 T35 实施 PR 一并做,避免现在引入 unused 字段)。
 - T35 AC 加一条:"hypothesis 反复改写期间,DOM mount 数 = 段数"(测试侧可用 mount counter 验)。
+
+## spike — 流式 zh-zipformer + 热词 vs SenseVoice(2026-06-10)
+
+**状态**:❌ 否决(换模型 / 原生热词均不划算,留 SenseVoice + 后处理术语表)
+**起因**:SenseVoice 是 CTC,原理上不支持热词(sherpa-onnx 只有 transducer + modified_beam_search 支持)。想验「换支持热词的流式 zh-zipformer transducer」能否在 dogfood 上打平 SenseVoice 且热词救专有名词。
+**配套**:`scripts/spike-online-zh-hotwords.ts`(greedy/`--beam`/`--hotwords` 三档),CER 复用 `scripts/eval-lib.ts`(= 校准基线口径)。模型 `sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30`(multi-zh-hans,char-based)。
+
+### 数据(dogfood 5 段,校准 CER:数字归一 + 语气词剥除)
+
+| 样本                  | SenseVoice | zh greedy | zh beam+热词 |
+| --------------------- | ---------- | --------- | ------------ |
+| kunyuan_cpo           | **4.4%**   | 6.9%      | 6.0%         |
+| roundtable_kunlun     | 13.7%      | 13.4%     | **13.0%**    |
+| roundtable_sanxingdui | **13.4%**  | 13.4%     | 13.1%        |
+| wizard_lisa           | **17.6%**  | 21.6%     | 21.2%        |
+| wizard_trump          | 28.2%      | 28.5%     | **27.7%**    |
+| **平均**              | **15.4%**  | 16.8%     | 16.2%        |
+
+RTF:SenseVoice 0.017 / zh greedy 0.040 / zh beam 0.067(均 M2 arm64 int8)。
+
+### 关键观察
+
+1. **换模型不划算**:zh-zipformer 即便 modified_beam_search(16.2%)仍输 SenseVoice(15.4%)。纯中文也没赢——kunyuan 反而差 2.5 点,圆桌打平。
+2. **该模型无英文词表**(tokens.txt 0 个英文 token,英文走 byte-fallback):wizard_lisa/trump 英文名段更差,符合预期。SenseVoice 多语种(zh-en-ja-ko-yue)是真优势。
+3. **热词对我们的目标词完全失效**:想 bias 的「巫师 / 昆仑 / 三星堆」这些字不在 token 词表(byte-fallback 表示),热词编码器 `EncodeBase` 直接报 "Cannot find ID for token 巫" 并跳过。能编码的(光模块/立讯精密/创业板)本来就识别正确。beam+热词 比 greedy 好的 0.6 点纯来自 beam search,与热词无关(实测召回提升来自 beam 多探路径)。
+4. **推广教训**:char-based zh transducer 对**生僻字 / 人名**(恰恰是最想 bias 的词)往往只有 byte-fallback 覆盖,无法作为热词编码——热词在这类模型上对专有名词的价值远低于预期。
+
+### 决策
+
+- **v0.1 保持 SenseVoice + 后处理术语表**(§6.2.5)。术语表在 JS 侧做「错→对」替换,不受模型 token 词表限制,正是这条 spike 暴露的热词短板的解法。
+- 不引入第二个 ASR 模型;不为热词换主模型。
+- 留备选(P2,需新数据触发):若未来要原生热词,得选**词表含目标词、且支持热词**的 transducer(还要兼顾英文)——当前 sherpa 模型库里没有同时满足的。
