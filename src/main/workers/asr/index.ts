@@ -22,7 +22,19 @@ import type {
   AsrTranscribeMessage,
   AsrUtilityMessage,
 } from '@shared/transcribe/asr-protocol'
-import { loadRecognizer, recognizeSamples, readWav16kMono, type SherpaModule } from './recognize'
+import {
+  loadRecognizer,
+  recognizeSamples,
+  recognizeSamplesVad,
+  readWav16kMono,
+  type SherpaModule,
+  type VadInstance,
+} from './recognize'
+
+// sherpa-onnx-node 无类型声明;Pass B VAD 分段需要 Vad 构造器(SherpaModule 只声明了 OfflineRecognizer)
+interface AsrSherpa extends SherpaModule {
+  Vad: new (config: unknown, bufferSizeInSeconds: number) => VadInstance
+}
 
 const parentPort = process.parentPort
 
@@ -31,7 +43,7 @@ function post(msg: AsrUtilityMessage): void {
 }
 
 // require('sherpa-onnx-node') 成功后缓存模块引用(init 之后才有)
-let sherpa: SherpaModule | null = null
+let sherpa: AsrSherpa | null = null
 
 function handleInit(platformDir: string): void {
   // darwin / win:验证平台二进制与 .node 同目录可达(Linux 不在 v0.1 范围,跳过文件校验直接 require)
@@ -65,7 +77,7 @@ function handleInit(platformDir: string): void {
     // 必须惰性 require(在守卫之后):静态 import 会在模块顶层就触发加载,绕过上面的 dylib 校验。
     // sherpa-onnx-node 无类型声明。
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('sherpa-onnx-node') as { version?: unknown } & SherpaModule
+    const mod = require('sherpa-onnx-node') as { version?: unknown } & AsrSherpa
     sherpa = mod
     const sherpaVersion = typeof mod.version === 'string' ? mod.version : 'unknown'
     post({ type: 'ready', sherpaVersion })
@@ -74,8 +86,29 @@ function handleInit(platformDir: string): void {
   }
 }
 
+/** 构造 Silero VAD(配置对齐 Pass A streaming worker)。失败抛错,由调用方决定回退。 */
+function createVad(s: AsrSherpa, vadModelPath: string): VadInstance {
+  return new s.Vad(
+    {
+      sileroVad: {
+        model: vadModelPath,
+        threshold: 0.5,
+        minSilenceDuration: 0.4,
+        minSpeechDuration: 0.25,
+        maxSpeechDuration: 30,
+        windowSize: 512,
+      },
+      sampleRate: 16000,
+      numThreads: 1,
+      provider: 'cpu',
+      debug: false,
+    },
+    60,
+  )
+}
+
 function handleTranscribe(msg: AsrTranscribeMessage): void {
-  const { recordingId, wavPath, modelDir, language, speaker } = msg
+  const { recordingId, wavPath, modelDir, language, speaker, vadModelPath } = msg
   if (!sherpa) {
     post({
       type: 'transcribe-error',
@@ -103,10 +136,25 @@ function handleTranscribe(msg: AsrTranscribeMessage): void {
     return
   }
 
+  // 给了 vadModelPath 就走 VAD 分段(治定窗边界吞字);建 VAD 失败则回退定窗,不让转录整体失败
+  let vad: VadInstance | null = null
+  if (vadModelPath) {
+    try {
+      vad = createVad(sherpa, vadModelPath)
+    } catch (err) {
+      vad = null
+      // VAD 不可用,本次回退定窗切片(stderr 走 utility 日志)
+      console.error('[asr] VAD 构造失败,回退定窗切片', String(err))
+    }
+  }
+
   try {
-    const segments = recognizeSamples(rec, samples, (processedSec, totalSec) => {
+    const onProgress = (processedSec: number, totalSec: number): void => {
       post({ type: 'transcribe-progress', recordingId, processedSec, totalSec })
-    })
+    }
+    const segments = vad
+      ? recognizeSamplesVad(rec, vad, samples, onProgress)
+      : recognizeSamples(rec, samples, onProgress)
     post({
       type: 'transcribe-result',
       recordingId,

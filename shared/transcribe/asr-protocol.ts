@@ -27,6 +27,9 @@ export interface AsrTranscribeMessage {
   language: string
   /** 该 wav 对应的 speaker 标签:'mic' | 'system' | 'mixed' */
   speaker: string
+  /** silero_vad.onnx 绝对路径。给了就走 VAD 分段(治定窗边界吞字,dev-plan §6.2.3 P0 #1);
+   *  缺省则回退定窗 15s 切片(max-duration 兜底)。 */
+  vadModelPath?: string
 }
 
 /** utility 识别出的单段(start/end 秒) */

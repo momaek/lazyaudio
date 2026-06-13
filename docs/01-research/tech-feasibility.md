@@ -493,3 +493,41 @@ ASR mock 还原 Pass A 实际行为:每 250ms 推一帧,共 21 帧、4 个 segme
 - Pass A engine 输出契约新增硬性要求:每个 segment 在第一次发出时绑定 `startMs`,后续同段改写不变。
 - transcription-pipeline.md 要回写这条契约(本 PR 暂只在 tech-feasibility 写结论,03-architecture 改动留给 T35 实施 PR 一并做,避免现在引入 unused 字段)。
 - T35 AC 加一条:"hypothesis 反复改写期间,DOM mount 数 = 段数"(测试侧可用 mount counter 验)。
+
+## Pass B VAD 分段实验(T61,2026-06-09)
+
+**状态**:❌ 否决(VAD 分段回退 CER,生产保持定窗;实现保留作将来调参 infra)
+**对接**:dev-plan §6.2.8 P0 #1「VAD 参数 + max-window 调优」/ §6.2.3。配套 [`scripts/eval-transcribe-fixtures.ts`](../../scripts/eval-transcribe-fixtures.ts)(`--vad` opt-in)。
+
+### 假设
+
+dogfood 5 段基线发现:识别稿比参考稿短,且「内容丢失率」几乎线性决定 CER(纯中文丢 ~1%,中英混杂的 wizard_trump 丢 23%)。当时归因为 **Pass B 定窗 15s 边界切断词**,预期换 Silero VAD 在静音处切段能止血。
+
+### 方法学
+
+`recognizeSamplesVad`:Silero VAD(threshold 0.5)只用 `isDetected()` 门控,JS 侧按「累计语音 ~13s 强制切 / 静音 ~0.7s 且攒够 ~4s 段落边界」分段(口径对齐 Pass A vad-stream)。eval 脚本同一批 5 段(共 171min)A/B,只换分段方式,recognizer / 归一化口径不变。
+
+### 测量数据(M2 arm64,SenseVoice int8)
+
+| 样本                  | 场景           | 定窗 CER  | VAD CER   | Δ        |
+| --------------------- | -------------- | --------- | --------- | -------- |
+| kunyuan_cpo           | 独白           | 6.4%      | 6.5%      | +0.1     |
+| wizard_lisa           | 独白(英文名多) | 19.9%     | 20.1%     | +0.2     |
+| wizard_trump          | 独白(英文名多) | 31.5%     | 31.9%     | +0.4     |
+| roundtable_sanxingdui | 圆桌多人       | 14.7%     | 16.1%     | +1.4     |
+| roundtable_kunlun     | 圆桌多人       | 15.0%     | 17.2%     | +2.2     |
+| **平均**              |                | **17.5%** | **18.4%** | **+0.9** |
+
+RTF 0.017 → 0.019(VAD 开销),RSS 峰 2075 → 2244 MB。
+
+### 关键观察
+
+1. **假设证伪**:wizard_trump 丢 23% 内容,换 VAD 后 CER 几乎不动(31.5→31.9)——漏转是 **SenseVoice 模型层面**(英文密集 / 音乐 / 快剪根本没转出),不是窗口边界切掉的。VAD 救不了。
+2. **VAD 反伤圆桌**(+1.4 / +2.2):多说话人频繁轮替 → 静音边界多 → 切出更多短段 → SenseVoice(utterance 模型,喜欢 ~15-30s 上下文)上下文碎片化,识别更差。定窗的均匀 ~15s 反而稳。
+3. 结论:**Pass B 离线、密集语音内容,均匀定窗 ≥ VAD 微分段**。VAD 理论好处(干净边界、跳静音)在这种素材没兑现。
+
+### 决策
+
+- **生产 Pass B 保持定窗默认**(orchestrator 不传 `vadModelPath`)。
+- VAD 实现(`recognizeSamplesVad` + worker dispatch + 协议 `vadModelPath` + eval `--vad`)**保留**,作将来两类实验:(a) 调参（拉长段、少在静音切，逼近定窗上下文）；(b) 静音占比高的真实会议录音(本批 dogfood 是密集视频,VAD 跳静音的好处没机会体现)。
+- 方法学价值:harness 把这个「看着对、其实回退」的优化拦在上线前,正是「先量化再优化」的意义。
