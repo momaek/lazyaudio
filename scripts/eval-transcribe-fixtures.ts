@@ -1,14 +1,18 @@
-// T61 评测基建 — 离线 Pass B fixture 评测脚本(dev-plan §6.2.6 / §6.2.7)。
+// T61 评测基建 — fixture 转录评测脚本(dev-plan §6.2.6 / §6.2.7)。
 //
 // 「先量化,再优化」:每次转录优化前后跑同一批 fixture,产出 CER / 术语命中率 / RTF / RSS 的
-// 对比数据。复用产品同一条 Pass B 识别链(workers/asr/recognize.ts),保证评测口径 = 真实链路。
+// 对比数据。复用产品同一条识别链,保证评测口径 = 真实链路。
+//
+// 两种模式:
+//   - 默认 = Pass B 离线(workers/asr/recognize.ts,定窗切片)。
+//   - `--pass-a` = Pass A 实时模拟:把音频切块喂真实 VadStream(streaming-asr),收 confirmed 段算 CER,
+//     量 Pass A 的 RTF(含 hypothesis 重识别开销)+ 段数 / 改写数。`--realtime` 按 1x 节奏喂(慢,但
+//     让 latency 埋点真实;不加则尽快喂,只看 CER/RTF/计算量)。
 //
 // 用法:
 //   pnpm tsx scripts/eval-transcribe-fixtures.ts [fixturesDir]
-//   pnpm tsx scripts/eval-transcribe-fixtures.ts --model <modelDir> --json out.json --strip-punct
-//
-// 分段口径默认 = 生产 Pass B(定窗 ~15s)。`--vad` 是实验性 opt-in(Silero VAD 分段),
-// 经 dogfood A/B 否决(CER 回退),保留作将来调参对照;见 tech-feasibility「Pass B VAD 分段实验」。
+//   pnpm tsx scripts/eval-transcribe-fixtures.ts --pass-a [--realtime] --json out.json
+//   pnpm tsx scripts/eval-transcribe-fixtures.ts --model <modelDir> --strip-punct --dump-hyp
 //
 // 模型目录默认探测顺序:--model > $LAZY_MODEL_DIR > .local-userdata/models/<KEY> >
 //   ~/Library/Application Support/LazyAudio/models/<KEY>
@@ -24,18 +28,30 @@ import { performance } from 'node:perf_hooks'
 import {
   loadRecognizer,
   recognizeSamples,
-  recognizeSamplesVad,
   readWav16kMono,
   type SherpaModule,
-  type VadInstance,
 } from '../src/main/workers/asr/recognize'
+import { VadStream } from '../src/main/workers/streaming-asr/vad-stream'
+import {
+  noopPassAMetrics,
+  type PassAMetrics,
+} from '../src/main/workers/streaming-asr/passa-metrics'
+import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
 
 const SAMPLE_RATE = 16000
 const DEFAULT_MODEL_KEY = 'sense-voice-zh-en-ja-ko-yue-int8-2025-09-09'
 const SILERO_KEY = 'silero-vad-v5'
-// sherpa-onnx-node 无类型声明;VAD 分段需要 Vad 构造器
+// sherpa-onnx-node 无类型声明;Pass A 需要 Vad 构造器
 interface EvalSherpa extends SherpaModule {
-  Vad: new (config: unknown, bufferSizeInSeconds: number) => VadInstance
+  Vad: new (
+    config: unknown,
+    bufferSizeInSeconds: number,
+  ) => {
+    acceptWaveform(s: Float32Array): void
+    isDetected(): boolean
+    isEmpty(): boolean
+    pop(): void
+  }
 }
 // 输入音频扩展名(.wav 走内置 RIFF 解析;其余走 ffmpeg 解码)
 const AUDIO_EXTS = [
@@ -58,7 +74,10 @@ interface Args {
   lang: string
   stripPunct: boolean
   dumpHyp: boolean
-  useVad: boolean
+  passA: boolean
+  realtime: boolean
+  normNum: boolean
+  stripFillers: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -69,7 +88,10 @@ function parseArgs(argv: string[]): Args {
     lang: 'auto',
     stripPunct: false,
     dumpHyp: false,
-    useVad: false, // 默认 = 生产 Pass B(定窗);--vad 是实验性 opt-in
+    passA: false,
+    realtime: false,
+    normNum: true,
+    stripFillers: true,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -78,7 +100,10 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--lang') args.lang = argv[++i] ?? 'auto'
     else if (a === '--strip-punct') args.stripPunct = true
     else if (a === '--dump-hyp') args.dumpHyp = true
-    else if (a === '--vad') args.useVad = true
+    else if (a === '--pass-a') args.passA = true
+    else if (a === '--realtime') args.realtime = true
+    else if (a === '--no-norm-num') args.normNum = false
+    else if (a === '--keep-fillers') args.stripFillers = false
     else if (a && !a.startsWith('--')) args.fixturesDir = a
   }
   return args
@@ -114,14 +139,14 @@ function resolveModelDir(explicit: string | null): string {
   )
 }
 
-/** silero_vad.onnx:SenseVoice 模型目录的同级 silero-vad-v5/。找不到返回 null(回退定窗) */
+/** silero_vad.onnx:SenseVoice 模型目录的同级 silero-vad-v5/。Pass A 必需,找不到返回 null */
 function resolveSileroPath(senseDir: string): string | null {
   const p = path.join(path.dirname(senseDir), SILERO_KEY, 'silero_vad.onnx')
   return fs.existsSync(p) ? p : null
 }
 
-/** 构造 Silero VAD(配置对齐生产 Pass B / Pass A worker) */
-function createEvalVad(sherpa: EvalSherpa, vadModelPath: string): VadInstance {
+/** 构造 Silero VAD(配置对齐生产 Pass A worker) */
+function createEvalVad(sherpa: EvalSherpa, vadModelPath: string): InstanceType<EvalSherpa['Vad']> {
   return new sherpa.Vad(
     {
       sileroVad: {
@@ -141,9 +166,128 @@ function createEvalVad(sherpa: EvalSherpa, vadModelPath: string): VadInstance {
   )
 }
 
-/** 规范化:去所有空白 + ASCII 转小写;stripPunct 时再去常见标点 */
-function normalize(text: string, stripPunct: boolean): string {
+/** Float32[-1,1] → Int16(VadStream.pushInt16 的输入,= 生产采集格式) */
+function f32ToI16(f: Float32Array): Int16Array {
+  const o = new Int16Array(f.length)
+  for (let i = 0; i < f.length; i++) {
+    const x = Math.max(-1, Math.min(1, f[i] ?? 0))
+    o[i] = x < 0 ? x * 32768 : x * 32767
+  }
+  return o
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+/** Pass A 实时模拟:切块喂 VadStream,收 confirmed 段。computeMs 只计 push/flush 计算时间(排除 sleep)。 */
+async function runPassA(
+  rec: ReturnType<typeof loadRecognizer>,
+  vad: InstanceType<EvalSherpa['Vad']>,
+  samples: Float32Array,
+  realtime: boolean,
+): Promise<{ text: string; segCount: number; hypCount: number; computeMs: number }> {
+  const int16 = f32ToI16(samples)
+  const confirmed: LiveSegment[] = []
+  let hypCount = 0
+  let computeMs = 0
+  const metrics: PassAMetrics = noopPassAMetrics
+  const vs = new VadStream(
+    rec as never,
+    vad as never,
+    'mixed',
+    (seg: LiveSegment) => {
+      if (seg.stability === 'confirmed') confirmed.push(seg)
+      else hypCount++
+    },
+    () => {},
+    metrics,
+  )
+  const CHUNK = 1600 // 100ms @16k(模拟采集 chunk)
+  for (let p = 0; p < int16.length; p += CHUNK) {
+    const t0 = performance.now()
+    vs.pushInt16(int16.subarray(p, Math.min(p + CHUNK, int16.length)))
+    computeMs += performance.now() - t0
+    if (realtime) await sleep((CHUNK / SAMPLE_RATE) * 1000)
+  }
+  const tf = performance.now()
+  vs.flush()
+  computeMs += performance.now() - tf
+  confirmed.sort((a, b) => a.start - b.start)
+  return {
+    text: confirmed.map((s) => s.text).join(''),
+    segCount: confirmed.length,
+    hypCount,
+    computeMs,
+  }
+}
+
+// 中文数字 → 阿拉伯。两边都转,消除「二零二五 vs 2025」「百分之六十 vs 60%」「七家 vs 7家」这类
+// 格式假错(字幕用书面数字,SenseVoice 输出口语数字)。对称归一:普通文本(一样/第一)两边同样转,
+// 不会制造新差异;只会让纯数字格式差异消失。非完美 Chinese-number 解析,但够消格式噪声。
+const CN_DIGIT: Record<string, number> = {
+  〇: 0,
+  零: 0,
+  一: 1,
+  二: 2,
+  两: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+}
+const CN_SMALL_UNIT: Record<string, number> = { 十: 10, 百: 100, 千: 1000 }
+
+function cnRunToArabic(run: string): string {
+  // 纯数字串(无单位)→ 直接拼,处理年份 / 编号:二零二五 → 2025
+  if (/^[〇零一二三四五六七八九]+$/.test(run)) {
+    return [...run].map((c) => String(CN_DIGIT[c] ?? 0)).join('')
+  }
+  let total = 0
+  let section = 0
+  let number = 0
+  for (const ch of run) {
+    if (ch in CN_DIGIT) number = CN_DIGIT[ch]!
+    else if (ch in CN_SMALL_UNIT) {
+      section += (number || 1) * CN_SMALL_UNIT[ch]!
+      number = 0
+    } else if (ch === '万') {
+      total += (section + number) * 10000
+      section = 0
+      number = 0
+    } else if (ch === '亿') {
+      total += (section + number) * 100000000
+      section = 0
+      number = 0
+    }
+  }
+  return String(total + section + number)
+}
+
+function normalizeNumbers(s: string): string {
+  // 去掉百分号标记(百分之X / X% 两种写法都归零),再转中文数字
+  return s
+    .replace(/百分之/g, '')
+    .replace(/[%％]/g, '')
+    .replace(/[〇零一二两三四五六七八九十百千万亿]+/g, (m) => cnRunToArabic(m))
+}
+
+/** 规范化:去空白 + ASCII 小写;normNum 时数字归一;stripFillers 时剥纯语气词;stripPunct 时去标点 */
+function normalize(
+  text: string,
+  stripPunct: boolean,
+  normNum: boolean,
+  stripFillers: boolean,
+): string {
   let s = text.replace(/\s+/g, '').toLowerCase()
+  if (normNum) s = normalizeNumbers(s)
+  if (stripFillers) {
+    // 纯语气词对称剥除:视频字幕普遍删「嗯/啊/呃」,模型听到写出来不该算插入错
+    // (dogfood 实测:roundtable 类 hyp 比字幕多 ~140 处语气词 ≈ 2.2-2.5% 假 CER)。
+    // 只剥单字语气词,「就是/然后/那个」是真词不动。
+    s = s.replace(/[嗯呃哦诶唉啊呀嘛]/g, '')
+  }
   if (stripPunct) {
     // 中英常见标点(不动汉字 / 字母 / 数字)
     s = s.replace(/[.,!?;:'"`~@#$%^&*()_+\-=[\]{}\\|/<>。,、!?;:""''（）【】《》—…·]/g, '')
@@ -242,13 +386,15 @@ interface SampleResult {
   termHitRate: number | null
   termsTotal: number
   termsHit: number
+  segCount?: number | undefined // Pass A only
+  hypCount?: number | undefined // Pass A only
 }
 
 function fmtPct(x: number): string {
   return (x * 100).toFixed(1) + '%'
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   const fixturesDir = path.resolve(args.fixturesDir)
 
@@ -272,21 +418,27 @@ function main(): void {
   const platformDir = resolveSherpaPlatformDir()
   process.env['SHERPA_ONNX_INSTALL_DIR'] = platformDir
 
-  console.info(`模型:${modelDir}`)
-  console.info(`平台包:${platformDir}`)
-  console.info(`样本:${audioFiles.length} 段 @ ${fixturesDir}\n`)
-
   // package.json type=module → 用 createRequire 加载 CJS N-API addon(sherpa-onnx-node)
   const requireCjs = createRequire(path.join(process.cwd(), 'package.json'))
   const sherpa = requireCjs('sherpa-onnx-node') as EvalSherpa
   const rec = loadRecognizer(sherpa, modelDir, args.lang)
 
-  // 分段口径必须 = 生产 Pass B:默认 VAD 分段;--no-vad 退回定窗(用于 A/B 量改动收益)
-  const sileroPath = args.useVad ? resolveSileroPath(modelDir) : null
-  if (args.useVad && !sileroPath) {
-    console.info('提示:未找到 silero_vad.onnx,本次回退定窗切片(等价 --no-vad)')
+  // Pass A 需要 silero;缺则报错退出(不静默回退,否则量的不是 Pass A)
+  let sileroPath: string | null = null
+  if (args.passA) {
+    sileroPath = resolveSileroPath(modelDir)
+    if (!sileroPath) {
+      console.error(`Pass A 需要 silero_vad.onnx(${SILERO_KEY}/),在模型目录同级没找到。`)
+      process.exit(1)
+    }
   }
-  console.info(`分段:${sileroPath ? 'VAD(silero)' : '定窗 15s'}\n`)
+
+  console.info(`模型:${modelDir}`)
+  console.info(`平台包:${platformDir}`)
+  console.info(
+    `模式:${args.passA ? `Pass A 实时模拟${args.realtime ? '(1x 节奏)' : '(尽快喂)'}` : 'Pass B 离线'}`,
+  )
+  console.info(`样本:${audioFiles.length} 段 @ ${fixturesDir}\n`)
 
   const results: SampleResult[] = []
   let rssPeakMb = 0
@@ -297,22 +449,31 @@ function main(): void {
     const samples = decodeAudio16kMono(path.join(fixturesDir, file))
     const audioSec = samples.length / SAMPLE_RATE
 
-    const t0 = performance.now()
-    // 每段新建 VAD,避免跨文件残留内部状态
-    const vad = sileroPath ? createEvalVad(sherpa, sileroPath) : null
-    const segments = vad
-      ? recognizeSamplesVad(rec, vad, samples, () => {})
-      : recognizeSamples(rec, samples, () => {})
-    const procMs = performance.now() - t0
+    let hyp: string
+    let procMs: number
+    let segCount: number | undefined
+    let hypCount: number | undefined
+    if (args.passA) {
+      const vad = createEvalVad(sherpa, sileroPath!)
+      const r = await runPassA(rec, vad, samples, args.realtime)
+      hyp = r.text
+      procMs = r.computeMs
+      segCount = r.segCount
+      hypCount = r.hypCount
+    } else {
+      const t0 = performance.now()
+      const segments = recognizeSamples(rec, samples, () => {})
+      procMs = performance.now() - t0
+      hyp = segments.map((s) => s.text).join('')
+    }
     const rss = process.memoryUsage().rss / 1024 / 1024
     if (rss > rssPeakMb) rssPeakMb = rss
 
-    const hyp = segments.map((s) => s.text).join('')
     if (args.dumpHyp) fs.writeFileSync(`${base}.hyp.txt`, hyp)
     const ref = loadReference(base)
     const hasRef = ref !== null
-    const refN = normalize(ref ?? '', args.stripPunct)
-    const hypN = normalize(hyp, args.stripPunct)
+    const refN = normalize(ref ?? '', args.stripPunct, args.normNum, args.stripFillers)
+    const hypN = normalize(hyp, args.stripPunct, args.normNum, args.stripFillers)
     const cer = hasRef && refN.length > 0 ? editDistance(refN, hypN) / refN.length : NaN
 
     const terms = loadExpectedTerms(`${base}.terms.json`)
@@ -330,13 +491,16 @@ function main(): void {
       termHitRate,
       termsTotal: terms.length,
       termsHit,
+      segCount,
+      hypCount,
     })
 
     const cerStr = Number.isNaN(cer) ? '  (无 ref) ' : fmtPct(cer).padStart(7)
     const termStr = termHitRate === null ? '  (无 terms)' : `${termsHit}/${terms.length}`
+    const paStr = args.passA ? `  段 ${segCount} hyp ${hypCount}` : `  术语 ${termStr}`
     console.info(
       `${id.padEnd(16)} ${audioSec.toFixed(1).padStart(6)}s  ` +
-        `RTF ${(procMs / 1000 / audioSec).toFixed(3)}  CER ${cerStr}  术语 ${termStr}`,
+        `RTF ${(procMs / 1000 / audioSec).toFixed(3)}  CER ${cerStr}${paStr}`,
     )
   }
 
@@ -362,9 +526,12 @@ function main(): void {
 
   if (args.jsonOut) {
     const payload = {
+      mode: args.passA ? (args.realtime ? 'pass-a-realtime' : 'pass-a') : 'pass-b',
       modelDir,
       fixturesDir,
       stripPunct: args.stripPunct,
+      normNum: args.normNum,
+      stripFillers: args.stripFillers,
       summary: {
         samples: results.length,
         cer: Number.isNaN(meanCer) ? null : meanCer,
@@ -379,4 +546,7 @@ function main(): void {
   }
 }
 
-main()
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

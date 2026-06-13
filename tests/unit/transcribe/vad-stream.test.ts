@@ -1,7 +1,11 @@
 // T34/T35 — VadStream 单测:JS 分段(累计时长 + 真实停顿),hypothesis→confirmed 同 segmentId
 // (原地替换不跳行,spike-013)。只用 vad.isDetected() 门控,绝不调 front()(external buffer 会崩)。
 import { describe, it, expect } from 'vitest'
-import { VadStream, type VadInstance } from '../../../src/main/workers/streaming-asr/vad-stream'
+import {
+  VadStream,
+  DEFAULT_VAD_STREAM_OPTIONS,
+  type VadInstance,
+} from '../../../src/main/workers/streaming-asr/vad-stream'
 import type { LiveSegment } from '@shared/transcribe/streaming-protocol'
 
 class MockVad implements VadInstance {
@@ -43,6 +47,20 @@ function feed(vs: VadStream, sec: number): void {
 }
 
 describe('VadStream', () => {
+  it('T61:第一版 hypothesis 至少攒够 minHypothesisMs,避免短窗中英混合乱跳', () => {
+    const emitted: LiveSegment[] = []
+    const vad = new MockVad()
+    const vs = newStream(emitted, vad)
+
+    vad.detected = true
+    feed(vs, Math.floor(DEFAULT_VAD_STREAM_OPTIONS.minHypothesisMs / 1000) - 1)
+    expect(emitted.filter((e) => e.stability === 'hypothesis').length).toBe(0)
+
+    // 攒够 minHypothesisMs 后,第一版 hypothesis 正常出(多喂 1s 跨过 512 窗口取整边界)
+    feed(vs, 2)
+    expect(emitted.filter((e) => e.stability === 'hypothesis').length).toBeGreaterThanOrEqual(1)
+  })
+
   it('说话中出 hypothesis、同段共享 segmentId;静音段落边界出 confirmed 同 id', () => {
     const emitted: LiveSegment[] = []
     const vad = new MockVad()

@@ -65,14 +65,29 @@ fixtures/transcribe/
 ## 怎么跑
 
 ```bash
-# 默认扫 fixtures/transcribe/,用 dev userData 里下好的 SenseVoice 模型
+# 默认 = Pass B 离线,扫 fixtures/transcribe/,用 dev userData 里下好的 SenseVoice 模型
 pnpm tsx scripts/eval-transcribe-fixtures.ts
 
-# 指定别的目录 / 模型 / 导出 JSON / 忽略标点 / 把识别稿写出来肉眼 diff
+# Pass A 实时模拟:切块喂真实 VadStream,confirmed 段算 CER + 段数/hyp 改写数
+pnpm tsx scripts/eval-transcribe-fixtures.ts --pass-a            # 尽快喂(只看 CER/计算量)
+pnpm tsx scripts/eval-transcribe-fixtures.ts --pass-a --realtime # 1x 节奏喂(latency 真实,慢)
+
+# 指定别的目录 / 模型 / 导出 JSON / 把识别稿写出来肉眼 diff
 pnpm tsx scripts/eval-transcribe-fixtures.ts <dir>
-pnpm tsx scripts/eval-transcribe-fixtures.ts --model <dir> --json out.json --strip-punct --dump-hyp
+pnpm tsx scripts/eval-transcribe-fixtures.ts --model <dir> --json out.json --dump-hyp
 ```
 
 `--dump-hyp` 会把每段识别稿写成 `<base>.hyp.txt`,方便和参考稿肉眼对比错在哪。
 
-每次优化前后跑同一批样本,记录 CER / 术语命中率 / RTF / RSS 的变化。**不接受「听起来更好」但无数据的结论。**
+### CER 口径(尺子校准)
+
+视频字幕类参考稿普遍**精修过**:书面数字(2025/60%)、删语气词(嗯/啊/呃)。模型逐字输出
+和它直接比会把格式差算成错。脚本默认做**对称归一**消这两类假错(dogfood 实测共 ~2.1 点):
+
+- **数字归一**(默认开,`--no-norm-num` 关):中文数字↔阿拉伯互转(二零二五→2025、百分之六十→60)。
+- **语气词剥除**(默认开,`--keep-fillers` 关):两边剥单字语气词(嗯呃哦诶唉啊呀嘛);
+  「就是/然后/那个」是真词不动。
+- `--strip-punct`(默认关):再去标点,只看字对不对。
+
+每次优化前后跑同一批样本,记录 CER / 术语命中率 / RTF / RSS 的变化,**口径(flag)必须一致**。
+不接受「听起来更好」但无数据的结论。

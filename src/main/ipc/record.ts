@@ -138,11 +138,15 @@ export function register(): void {
       throw new Error(`record:start: session.start failed: ${String(e)}`)
     }
 
+    // T34:先准备实时 PCM fork,避免 capture renderer 很快发 track-open 时通道信息丢失。
+    startPcmFork(state.recordingId!, args.sources)
+
     // 通知 capture window 启 capture(T12)
     const captureWin = getCaptureWindow()
     if (!captureWin) {
       // 极端情况:capture window 还没 ready / 已 closed → 状态回 idle 报错
       await session.stop().catch(() => {})
+      stopPcmFork(state.recordingId!)
       setCurrentSession(null)
       transitionToIdle()
       broadcastRecorderState()
@@ -156,8 +160,7 @@ export function register(): void {
     // 状态机已进 recording → 广播给主窗口渲染"录音中"UI
     broadcastRecorderState()
 
-    // T34:起实时 PCM fork + Pass A 实时转录会话(模型缺/失败 → 降级,录音照常)
-    startPcmFork(state.recordingId!, args.sources)
+    // T34:起 Pass A 实时转录会话(模型缺/失败 → 降级,录音照常)
     void startLive(state.recordingId!, args.sources)
 
     const result = { recordingId: state.recordingId!, startedAt: state.startedAt! }
