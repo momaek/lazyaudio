@@ -130,6 +130,36 @@ describe('VadStream', () => {
     expect(emitted.filter((e) => e.stability === 'confirmed').length).toBe(1)
   })
 
+  it('T61 进程回收续接:offset 让新 worker 续段号 + 续时间轴', () => {
+    const emitted: LiveSegment[] = []
+    const vad = new MockVad()
+    // 模拟回收后新 worker:从 100s 水位、段号 5 接力
+    const vs = new VadStream(
+      mockRec,
+      vad,
+      'mixed',
+      (s) => emitted.push(s),
+      () => {},
+      undefined,
+      {},
+      undefined,
+      { sampleOffset: 16000 * 100, segCounterOffset: 5 },
+    )
+
+    vad.detected = true
+    feed(vs, 5)
+    vad.detected = false
+    feed(vs, 1) // 段落边界固化
+
+    const conf = emitted.find((e) => e.stability === 'confirmed')
+    expect(conf).toBeDefined()
+    // 段号续 5(不撞旧 worker 的 seg-0..4),不是从 seg-0 重来
+    expect(conf!.segmentId).toBe('seg-5')
+    // 时间戳从 100s 续(start 落在 100s 附近),不是从 0 重来
+    expect(conf!.start).toBeGreaterThanOrEqual(100)
+    expect(conf!.start).toBeLessThan(101)
+  })
+
   it('全程不调用 vad.front()(回归:external buffer 崩溃)', () => {
     const emitted: LiveSegment[] = []
     const vad = new MockVad()

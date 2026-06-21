@@ -78,6 +78,7 @@ interface Args {
   realtime: boolean
   normNum: boolean
   stripFillers: boolean
+  only: string | null // 内部:子进程模式,只跑这一个 fixture 文件名
 }
 
 function parseArgs(argv: string[]): Args {
@@ -92,6 +93,7 @@ function parseArgs(argv: string[]): Args {
     realtime: false,
     normNum: true,
     stripFillers: true,
+    only: null,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -104,9 +106,24 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--realtime') args.realtime = true
     else if (a === '--no-norm-num') args.normNum = false
     else if (a === '--keep-fillers') args.stripFillers = false
+    else if (a === '--only') args.only = argv[++i] ?? null
     else if (a && !a.startsWith('--')) args.fixturesDir = a
   }
   return args
+}
+
+/** 把 args 还原成子进程命令行 flag(不含 --json / --only,父进程自己管) */
+function childFlags(args: Args): string[] {
+  const f: string[] = [args.fixturesDir]
+  if (args.modelDir) f.push('--model', args.modelDir)
+  if (args.lang !== 'auto') f.push('--lang', args.lang)
+  if (args.stripPunct) f.push('--strip-punct')
+  if (args.dumpHyp) f.push('--dump-hyp')
+  if (args.passA) f.push('--pass-a')
+  if (args.realtime) f.push('--realtime')
+  if (!args.normNum) f.push('--no-norm-num')
+  if (!args.stripFillers) f.push('--keep-fillers')
+  return f
 }
 
 /** 平台子包目录(含 .node + 平台二进制),dev 下 node_modules 在源码树 */
@@ -388,16 +405,141 @@ interface SampleResult {
   termsHit: number
   segCount?: number | undefined // Pass A only
   hypCount?: number | undefined // Pass A only
+  rssMb?: number | undefined // 子进程模式:该 fixture 独立进程的 RSS(不含跨文件泄漏)
 }
 
 function fmtPct(x: number): string {
   return (x * 100).toFixed(1) + '%'
 }
 
+interface EvalContext {
+  sherpa: EvalSherpa
+  rec: ReturnType<typeof loadRecognizer>
+  sileroPath: string | null
+  modelDir: string
+  platformDir: string
+  fixturesDir: string
+}
+
+/** 加载模型 / sherpa / recognizer(子进程跑单 fixture 用;父进程不碰) */
+function loadContext(args: Args): EvalContext {
+  const fixturesDir = path.resolve(args.fixturesDir)
+  const modelDir = resolveModelDir(args.modelDir)
+  const platformDir = resolveSherpaPlatformDir()
+  process.env['SHERPA_ONNX_INSTALL_DIR'] = platformDir
+  // package.json type=module → 用 createRequire 加载 CJS N-API addon(sherpa-onnx-node)
+  const requireCjs = createRequire(path.join(process.cwd(), 'package.json'))
+  const sherpa = requireCjs('sherpa-onnx-node') as EvalSherpa
+  const rec = loadRecognizer(sherpa, modelDir, args.lang)
+  let sileroPath: string | null = null
+  if (args.passA) {
+    sileroPath = resolveSileroPath(modelDir)
+    if (!sileroPath) {
+      console.error(`Pass A 需要 silero_vad.onnx(${SILERO_KEY}/),在模型目录同级没找到。`)
+      process.exit(1)
+    }
+  }
+  return { sherpa, rec, sileroPath, modelDir, platformDir, fixturesDir }
+}
+
+/** 转录 + 评测单个 fixture → SampleResult(含本进程 RSS)。无 console 输出,供子进程调用。 */
+async function processFixture(ctx: EvalContext, args: Args, file: string): Promise<SampleResult> {
+  const id = file.replace(new RegExp(`\\${path.extname(file)}$`), '')
+  const base = path.join(ctx.fixturesDir, id)
+  const samples = decodeAudio16kMono(path.join(ctx.fixturesDir, file))
+  const audioSec = samples.length / SAMPLE_RATE
+
+  let hyp: string
+  let procMs: number
+  let segCount: number | undefined
+  let hypCount: number | undefined
+  if (args.passA) {
+    const vad = createEvalVad(ctx.sherpa, ctx.sileroPath!)
+    const r = await runPassA(ctx.rec, vad, samples, args.realtime)
+    hyp = r.text
+    procMs = r.computeMs
+    segCount = r.segCount
+    hypCount = r.hypCount
+  } else {
+    const t0 = performance.now()
+    const segments = recognizeSamples(ctx.rec, samples, () => {})
+    procMs = performance.now() - t0
+    hyp = segments.map((s) => s.text).join('')
+  }
+  // 本进程只跑这一个 fixture → RSS = 该样本干净工作集(无跨文件 OfflineStream 泄漏累积)
+  const rssMb = process.memoryUsage().rss / 1024 / 1024
+
+  if (args.dumpHyp) fs.writeFileSync(`${base}.hyp.txt`, hyp)
+  const ref = loadReference(base)
+  const hasRef = ref !== null
+  const refN = normalize(ref ?? '', args.stripPunct, args.normNum, args.stripFillers)
+  const hypN = normalize(hyp, args.stripPunct, args.normNum, args.stripFillers)
+  const cer = hasRef && refN.length > 0 ? editDistance(refN, hypN) / refN.length : NaN
+
+  const terms = loadExpectedTerms(`${base}.terms.json`)
+  // 命中判定去空格 + 小写:模型常把英文缩写识别成「c p o」带空格,不该算漏(CER 侧也去空格)
+  const hypNorm = hyp.replace(/\s+/g, '').toLowerCase()
+  const termsHit = terms.filter((t) => hypNorm.includes(t.replace(/\s+/g, '').toLowerCase())).length
+  const termHitRate = terms.length > 0 ? termsHit / terms.length : null
+
+  return {
+    id,
+    audioSec,
+    procMs,
+    rtf: procMs / 1000 / audioSec,
+    cer,
+    refChars: refN.length,
+    termHitRate,
+    termsTotal: terms.length,
+    termsHit,
+    segCount,
+    hypCount,
+    rssMb,
+  }
+}
+
+function printSampleLine(args: Args, r: SampleResult): void {
+  const cerStr = Number.isNaN(r.cer) ? '  (无 ref) ' : fmtPct(r.cer).padStart(7)
+  const termStr = r.termHitRate === null ? '  (无 terms)' : `${r.termsHit}/${r.termsTotal}`
+  const paStr = args.passA ? `  段 ${r.segCount} hyp ${r.hypCount}` : `  术语 ${termStr}`
+  console.info(
+    `${r.id.padEnd(16)} ${r.audioSec.toFixed(1).padStart(6)}s  ` +
+      `RTF ${r.rtf.toFixed(3)}  CER ${cerStr}${paStr}  RSS ${(r.rssMb ?? 0).toFixed(0)}MB`,
+  )
+}
+
+const RESULT_SENTINEL = '__EVAL_RESULT__'
+
+/** 子进程模式:跑单个 fixture,把 SampleResult 作为 sentinel 行写 stdout(供父进程解析) */
+async function runChild(args: Args): Promise<void> {
+  const ctx = loadContext(args)
+  const result = await processFixture(ctx, args, args.only!)
+  process.stdout.write(`${RESULT_SENTINEL}${JSON.stringify(result)}\n`)
+}
+
+/** 在干净子进程里跑一个 fixture,隔离 sherpa OfflineStream 跨文件泄漏 → 拿真实 per-sample RTF/RSS */
+function runFixtureInChild(args: Args, file: string): SampleResult {
+  const scriptPath = process.argv[1]! // 本脚本路径(tsx / node --import tsx 下均为 argv[1])
+  const stdout = execFileSync(
+    process.execPath,
+    ['--import', 'tsx', scriptPath, '--only', file, ...childFlags(args)],
+    { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: process.env },
+  )
+  const line = stdout.split(/\r?\n/).find((l) => l.startsWith(RESULT_SENTINEL))
+  if (!line) throw new Error(`子进程未返回结果(${file}):\n${stdout}`)
+  return JSON.parse(line.slice(RESULT_SENTINEL.length)) as SampleResult
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
-  const fixturesDir = path.resolve(args.fixturesDir)
 
+  // 子进程:只跑 --only 指定的那个 fixture,输出结果后退出
+  if (args.only) {
+    await runChild(args)
+    return
+  }
+
+  const fixturesDir = path.resolve(args.fixturesDir)
   if (!fs.existsSync(fixturesDir)) {
     console.error(`fixtures 目录不存在:${fixturesDir}\n见 fixtures/transcribe/README.md。`)
     process.exit(1)
@@ -414,97 +556,22 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  // 父进程只编排:每个 fixture 起独立子进程(sherpa OfflineStream 无 free,跨文件复用同进程会累积泄漏,
+  // 污染 RTF/RSS;见 tech-feasibility「OfflineStream 原生内存泄漏」)。模型按 fixture 重载,慢但量得准。
   const modelDir = resolveModelDir(args.modelDir)
-  const platformDir = resolveSherpaPlatformDir()
-  process.env['SHERPA_ONNX_INSTALL_DIR'] = platformDir
-
-  // package.json type=module → 用 createRequire 加载 CJS N-API addon(sherpa-onnx-node)
-  const requireCjs = createRequire(path.join(process.cwd(), 'package.json'))
-  const sherpa = requireCjs('sherpa-onnx-node') as EvalSherpa
-  const rec = loadRecognizer(sherpa, modelDir, args.lang)
-
-  // Pass A 需要 silero;缺则报错退出(不静默回退,否则量的不是 Pass A)
-  let sileroPath: string | null = null
-  if (args.passA) {
-    sileroPath = resolveSileroPath(modelDir)
-    if (!sileroPath) {
-      console.error(`Pass A 需要 silero_vad.onnx(${SILERO_KEY}/),在模型目录同级没找到。`)
-      process.exit(1)
-    }
-  }
-
   console.info(`模型:${modelDir}`)
-  console.info(`平台包:${platformDir}`)
   console.info(
-    `模式:${args.passA ? `Pass A 实时模拟${args.realtime ? '(1x 节奏)' : '(尽快喂)'}` : 'Pass B 离线'}`,
+    `模式:${args.passA ? `Pass A 实时模拟${args.realtime ? '(1x 节奏)' : '(尽快喂)'}` : 'Pass B 离线'}(每 fixture 独立子进程)`,
   )
   console.info(`样本:${audioFiles.length} 段 @ ${fixturesDir}\n`)
 
   const results: SampleResult[] = []
   let rssPeakMb = 0
-
   for (const file of audioFiles) {
-    const id = file.replace(new RegExp(`\\${path.extname(file)}$`), '')
-    const base = path.join(fixturesDir, id)
-    const samples = decodeAudio16kMono(path.join(fixturesDir, file))
-    const audioSec = samples.length / SAMPLE_RATE
-
-    let hyp: string
-    let procMs: number
-    let segCount: number | undefined
-    let hypCount: number | undefined
-    if (args.passA) {
-      const vad = createEvalVad(sherpa, sileroPath!)
-      const r = await runPassA(rec, vad, samples, args.realtime)
-      hyp = r.text
-      procMs = r.computeMs
-      segCount = r.segCount
-      hypCount = r.hypCount
-    } else {
-      const t0 = performance.now()
-      const segments = recognizeSamples(rec, samples, () => {})
-      procMs = performance.now() - t0
-      hyp = segments.map((s) => s.text).join('')
-    }
-    const rss = process.memoryUsage().rss / 1024 / 1024
-    if (rss > rssPeakMb) rssPeakMb = rss
-
-    if (args.dumpHyp) fs.writeFileSync(`${base}.hyp.txt`, hyp)
-    const ref = loadReference(base)
-    const hasRef = ref !== null
-    const refN = normalize(ref ?? '', args.stripPunct, args.normNum, args.stripFillers)
-    const hypN = normalize(hyp, args.stripPunct, args.normNum, args.stripFillers)
-    const cer = hasRef && refN.length > 0 ? editDistance(refN, hypN) / refN.length : NaN
-
-    const terms = loadExpectedTerms(`${base}.terms.json`)
-    // 命中判定去空格 + 小写:模型常把英文缩写识别成「c p o」带空格,不该算漏(CER 侧也去空格)
-    const hypNorm = hyp.replace(/\s+/g, '').toLowerCase()
-    const termsHit = terms.filter((t) =>
-      hypNorm.includes(t.replace(/\s+/g, '').toLowerCase()),
-    ).length
-    const termHitRate = terms.length > 0 ? termsHit / terms.length : null
-
-    results.push({
-      id,
-      audioSec,
-      procMs,
-      rtf: procMs / 1000 / audioSec,
-      cer,
-      refChars: refN.length,
-      termHitRate,
-      termsTotal: terms.length,
-      termsHit,
-      segCount,
-      hypCount,
-    })
-
-    const cerStr = Number.isNaN(cer) ? '  (无 ref) ' : fmtPct(cer).padStart(7)
-    const termStr = termHitRate === null ? '  (无 terms)' : `${termsHit}/${terms.length}`
-    const paStr = args.passA ? `  段 ${segCount} hyp ${hypCount}` : `  术语 ${termStr}`
-    console.info(
-      `${id.padEnd(16)} ${audioSec.toFixed(1).padStart(6)}s  ` +
-        `RTF ${(procMs / 1000 / audioSec).toFixed(3)}  CER ${cerStr}${paStr}`,
-    )
+    const r = runFixtureInChild(args, file)
+    results.push(r)
+    if ((r.rssMb ?? 0) > rssPeakMb) rssPeakMb = r.rssMb ?? 0
+    printSampleLine(args, r)
   }
 
   // 汇总(CER / termHitRate 跳过无标注样本)
