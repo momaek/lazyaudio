@@ -21,6 +21,20 @@ interface StreamingSherpa extends SherpaModule {
 
 let stream: VadStream | null = null
 let currentRecordingId = ''
+let recycleRequested = false
+
+// T61 OfflineStream 泄漏:sherpa stream 无 free,长录音原生内存只增不减(见 tech-feasibility)。
+// 单次录音中途按 RSS 阈值请 main 在段边界换 worker(进程退出是唯一回收路径)。
+const RSS_LIMIT_MB = Number(process.env['LAZY_PASSA_RSS_LIMIT_MB']) || 1500
+
+// 段边界(confirmed 刚落定,VadStream curBuf 已空)是安全换点:此刻无 in-flight 段需交接。
+function maybeRequestRecycle(): void {
+  if (recycleRequested) return
+  const rssMb = process.memoryUsage().rss / 1024 / 1024
+  if (rssMb < RSS_LIMIT_MB) return
+  recycleRequested = true
+  post({ type: 'recycle-needed', recordingId: currentRecordingId, rssMb: Math.round(rssMb) })
+}
 
 function dylibGuardFails(platformDir: string): boolean {
   if (process.platform !== 'darwin' && process.platform !== 'win32') return false
@@ -69,15 +83,21 @@ function handleInit(msg: Extract<StreamingTask, { type: 'init' }>): void {
       60,
     )
     currentRecordingId = msg.recordingId
+    recycleRequested = false
     stream = new VadStream(
       rec,
       vad,
       msg.speaker,
-      (segment) => post({ type: 'segment', recordingId: currentRecordingId, segment }),
+      (segment) => {
+        post({ type: 'segment', recordingId: currentRecordingId, segment })
+        // confirmed = 段边界,curBuf 已空 → 安全换点。main 从该 confirmed 段推水位续接。
+        if (segment.stability === 'confirmed') maybeRequestRecycle()
+      },
       (processedMs) => post({ type: 'progress', recordingId: currentRecordingId, processedMs }),
       createPassAMetrics(),
       {},
       (debug) => post({ type: 'debug', recordingId: currentRecordingId, debug }),
+      { sampleOffset: msg.sampleOffset, segCounterOffset: msg.segCounterOffset },
     )
     post({
       type: 'ready',

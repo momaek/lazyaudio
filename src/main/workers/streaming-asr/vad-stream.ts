@@ -121,8 +121,13 @@ export class VadStream {
     private metrics: PassAMetrics = noopPassAMetrics,
     options: Partial<VadStreamOptions> = {},
     private onDebug: (d: LiveRecognitionDebug) => void = () => {},
+    // 进程回收续接(T61):新 worker 从上次 confirmed 水位接力。
+    //   sampleOffset → 时间戳 / 累计样本基准;segCounterOffset → 段号基准(segmentId 不撞旧 worker)。
+    initialState: { sampleOffset?: number | undefined; segCounterOffset?: number | undefined } = {},
   ) {
     this.options = { ...DEFAULT_VAD_STREAM_OPTIONS, ...options }
+    this.totalSamples = initialState.sampleOffset ?? 0
+    this.segCounter = initialState.segCounterOffset ?? 0
     this.hypothesisIntervalSamples = msToSamples(
       this.options.hypothesisIntervalMs,
       this.options.sampleRate,

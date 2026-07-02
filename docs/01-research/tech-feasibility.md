@@ -531,3 +531,40 @@ RTF 0.017 → 0.019(VAD 开销),RSS 峰 2075 → 2244 MB。
 - **生产 Pass B 保持定窗默认**(orchestrator 不传 `vadModelPath`)。
 - VAD 实现(`recognizeSamplesVad` + worker dispatch + 协议 `vadModelPath` + eval `--vad`)**保留**,作将来两类实验:(a) 调参（拉长段、少在静音切，逼近定窗上下文）；(b) 静音占比高的真实会议录音(本批 dogfood 是密集视频,VAD 跳静音的好处没机会体现)。
 - 方法学价值:harness 把这个「看着对、其实回退」的优化拦在上线前,正是「先量化再优化」的意义。
+
+## OfflineStream 原生内存泄漏(T61,2026-06-20)
+
+**状态**:🔴 已坐实(上游 sherpa-onnx-node bug,JS 侧无解;GC 证伪;升级无效)
+**对接**:R6 长录音稳定性;dev-plan §6.2 T61;M6 退出条件「7 天 dogfood 0 崩溃」。复现脚本 [`scripts/repro-stream-leak.ts`](../../scripts/repro-stream-leak.ts)。
+
+### 假设
+
+eval Pass A 跑出 RSS 峰 4477MB + RTF 随样本递增,初判 sherpa `OfflineRecognizer.createStream()` 创建的 stream 不释放。
+
+### 方法学
+
+最小复现:同一 recognizer 上循环 `createStream → acceptWaveform(13s) → decode → getResult` 800 次(模拟长录音 stream 数量),每 100 次采样 `process.memoryUsage().rss`;两组对照 —— 无 GC vs 每 50 次 `global.gc()`(`node --expose-gc`)。配合 `nm` 读 native addon(`sherpa-onnx-darwin-arm64@1.13.2/sherpa-onnx.node`)导出符号 + 读包内 JS API。
+
+### 测量数据(M2 arm64,SenseVoice int8)
+
+| 模式               | RSS 起 → 终(800 stream) | 斜率           | 终末 global.gc() |
+| ------------------ | ----------------------- | -------------- | ---------------- |
+| 无 GC              | 711 → 1094 MB           | 0.48 MB/stream | 压不下去         |
+| 每 50 次 global.gc | 389 → 774 MB            | 0.48 MB/stream | 压不下去         |
+
+两条斜率完全一致,且终末强制 GC 也回收不掉 → **GC 与本泄漏无关**。
+
+### 关键观察
+
+1. **根因**:sherpa-onnx-node 把 `OfflineStream` 包成 `Napi::External<SherpaOnnxOfflineStream>`,绑的是 `default_basic_finalizer`(只清 JS 包装,**从不调 C API `SherpaOnnxDestroyOfflineStream`**)。每次 `createStream()` 分配的原生结构永不释放,直到进程退出。recognizer / VAD 句柄同款。
+2. **JS 侧无解**:native addon 压根没导出任何销毁函数(`nm` 确认无 `destroyOfflineStream`),且包内全部类(OfflineStream/OnlineStream/recognizer/Vad)均无 `free()/destroy()/dispose()`。唯一回收路径 = 进程退出。
+3. **升级无效**:1.13.3(最新)JS API 与 1.13.2 一致,无新增 free;同款 External + basic finalizer 模式。不值得赌。
+4. **污染了既有量化数字**:eval 多 fixture 共用一 recognizer 在同进程紧循环 → 跨文件累积泄漏。Pass A 的「RTF 随样本递增」是泄漏导致的内存压力假象,不是模型行为;Pass A/Pass B 历史 RSS 峰值(4477 / 2244 / 2075MB)都含泄漏量,不是真实工作集。
+5. **生产真威胁**:Pass A 长录音每段 ~13s 产 ~15 个 stream(14 次 hypothesis 重识别当前 curBuf + 1 次 commit),连续语音 ~33MB/min。估算 2h 会议 ≈ 4GB → 直接威胁 M6「0 崩溃」。实时节奏帮不上(GC 本就回收不了)。
+
+### 决策
+
+1. **eval 尺子**:每个 fixture 起独立子进程跑,隔离跨文件泄漏,拿干净 per-sample RTF/RSS。
+2. **生产 Pass A**:utility worker 在**段边界**(commit 后 curBuf 空)按 RSS 阈值/时长触发进程回收,只交接 segCounter / totalSamples 偏移 → 绑定单次长录音的 RSS 上限。需真机长录音验证。
+3. **上游**:给 sherpa-onnx-node 提 issue(External finalizer 应调 `SherpaOnnxDestroyOfflineStream`),长期真修。
+4. Pass B 离线一次性跑完即随进程退出,泄漏不累积跨录音,优先级低于 Pass A。
